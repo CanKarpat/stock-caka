@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Beden Tablosu — Abiye Stok</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f8f7f5;--surface:#fff;--surface2:#f1efe9;--border:#e0ddd6;--border-strong:#c8c4bc;
+  --text:#1a1a18;--text-sec:#6b6860;--text-muted:#9e9b94;
+  --accent:#4f6ef7;--accent-bg:#eef1fe;--accent-text:#2d49c4;
+  --radius:8px;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#181816;--surface:#242422;--surface2:#2e2e2b;--border:#3a3a36;
+  --text:#f0ede6;--text-sec:#a09d96;--text-muted:#6b6860;
+  --accent:#6b87ff;--accent-bg:#1a2040;--accent-text:#a0b0ff;
+}}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;height:54px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
+header h1{font-size:15px;font-weight:600;flex:1}
+.btn{height:34px;padding:0 12px;border:1px solid var(--border-strong);border-radius:var(--radius);background:var(--surface);color:var(--text);font-size:12px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:5px;text-decoration:none;transition:background .12s}
+.btn:hover{background:var(--surface2)}
+.container{max-width:1100px;margin:0 auto;padding:16px}
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.search-wrap{flex:1;min-width:200px;position:relative}
+.search-wrap svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text-muted);width:15px;height:15px;pointer-events:none}
+.search-wrap input{width:100%;height:36px;padding:0 10px 0 30px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-size:13px}
+.search-wrap input:focus{outline:none;border-color:var(--accent)}
+
+.product-block{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden}
+.product-header{padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:var(--surface2)}
+.product-header .sku{font-family:monospace;font-size:12px;font-weight:700;color:var(--accent-text);background:var(--accent-bg);padding:2px 8px;border-radius:6px}
+.product-header .ad{font-size:14px;font-weight:500;flex:1}
+.product-header .kumas{font-size:11px;color:var(--text-muted);background:var(--surface);border:1px solid var(--border);padding:2px 7px;border-radius:5px}
+.beden-table{width:100%;border-collapse:collapse}
+.beden-table th{padding:8px 14px;font-size:11px;font-weight:700;color:var(--text-sec);text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid var(--border);background:var(--surface);text-align:left}
+.beden-table th.r{text-align:right}
+.beden-table td{padding:7px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+.beden-table tr:last-child td{border-bottom:none}
+.beden-table tr:hover td{background:var(--surface2)}
+.beden-table td.r{text-align:right}
+.beden-table input{width:70px;border:1px solid transparent;border-radius:5px;padding:4px 6px;font-size:13px;text-align:right;background:transparent;color:var(--text);font-family:inherit}
+.beden-table input:hover{border-color:var(--border);background:var(--surface2)}
+.beden-table input:focus{border-color:var(--accent);background:var(--surface);outline:none}
+.beden-num{font-size:16px;font-weight:700;color:var(--text)}
+.color-dot{display:inline-block;width:10px;height:10px;border-radius:50%;border:1px solid rgba(0,0,0,.15);vertical-align:middle}
+.renk-wrap{display:flex;align-items:center;gap:3px;flex-wrap:wrap}
+.empty{text-align:center;padding:60px;color:var(--text-muted)}
+.sync-badge{font-size:11px;padding:3px 8px;border-radius:20px}
+.sync-badge.online{background:#eaf3de;color:#3b6d11}
+.sync-badge.offline{background:#fcebeb;color:#a32d2d}
+
+@media print{
+  header .btn, .toolbar{display:none}
+  .product-block{break-inside:avoid;margin-bottom:8px}
+  body{font-size:12px}
+}
+</style>
+</head>
+<body>
+<header>
+  <a href="/" class="btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    Stok Listesi
+  </a>
+  <h1>Beden Tablosu</h1>
+  <span class="sync-badge offline" id="sync-badge">● Bağlanıyor</span>
+  <button class="btn" onclick="window.print()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+    Yazdır
+  </button>
+</header>
+
+<div class="container">
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input type="text" id="search" placeholder="SKU veya ürün adı ara...">
+    </div>
+  </div>
+  <div id="content"><div class="empty">Yükleniyor...</div></div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, onSnapshot, doc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const app = initializeApp({
+  apiKey:"AIzaSyBED4SOH13mpdpuGLHwG_wl6lhe1a4YNos",
+  authDomain:"stok-19117.firebaseapp.com",
+  projectId:"stok-19117",
+  storageBucket:"stok-19117.firebasestorage.app",
+  messagingSenderId:"599549832875",
+  appId:"1:599549832875:web:4570ade50e2731469091ee"
+});
+const db = getFirestore(app);
+
+const CMAP={Siyah:'#1a1a1a',Ekru:'#f5f0e0',Bordo:'#7b1e34',Lacivert:'#1a2a5e',Pudra:'#f2c4ce',
+  'Yeşil':'#4a7c59',Mor:'#5b3d8a','Kırmızı':'#c0392b','Altın':'#c9a84c','Gümüş':'#a8a9ad',
+  Mavi:'#2e6fb4',Bej:'#d4b896',Beyaz:'#f8f8f8',Pembe:'#f4a7b9',Kahverengi:'#7b5533'};
+const BEDEN_ORDER=['32','34','36','38','40','42','44','46','48','50'];
+
+let products=[];
+let search='';
+
+const setSyncStatus=s=>{const b=document.getElementById('sync-badge');b.className='sync-badge '+s;b.textContent=s==='online'?'● Canlı':'○ Çevrimdışı';};
+const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+
+onSnapshot(collection(db,'stok'),snap=>{
+  products=snap.docs.map(d=>({id:d.id,...d.data()}));
+  products.sort((a,b)=>(a.sira||0)-(b.sira||0));
+  setSyncStatus('online');
+  render();
+},()=>setSyncStatus('offline'));
+
+async function saveProduct(p){
+  const {id,...data}=p;
+  await setDoc(doc(db,'stok',String(id)),{...data,ts:serverTimestamp()});
+}
+
+document.getElementById('search').addEventListener('input',e=>{search=e.target.value.toLowerCase();render();});
+
+window.updBedenOlcu=async function(pid,beden,field,val){
+  const p=products.find(x=>x.id===pid);if(!p)return;
+  const num=parseFloat(val)||0;
+  (p.variants||[]).filter(v=>v.beden===beden).forEach(v=>{v[field]=num;});
+  await saveProduct(p);
+};
+
+window.generateBedenRange = async function(pid){
+  const p = products.find(x=>x.id===pid); if(!p) return;
+  const start = document.getElementById('br-start-'+pid).value;
+  const end = document.getElementById('br-end-'+pid).value;
+  const si = BEDEN_ORDER.indexOf(start), ei = BEDEN_ORDER.indexOf(end);
+  if(si<0||ei<0||si>ei){ alert('Geçerli bir beden aralığı seç.'); return; }
+  const range = BEDEN_ORDER.slice(si, ei+1);
+  const vars = p.variants||[];
+  const renkler = [...new Set(vars.map(v=>v.renk))];
+  const colors = renkler.length ? renkler : ['Siyah'];
+  const existing = new Set(vars.map(v=>v.renk+'|'+v.beden));
+  const yeni = [];
+  colors.forEach(renk=>{
+    range.forEach(beden=>{
+      if(existing.has(renk+'|'+beden)) return;
+      yeni.push({id:String(Date.now())+Math.random().toString(36).slice(2,6), sku:p.kod+'-V'+(vars.length+yeni.length+1), renk, beden, miktar:0, barkod:'', gogus:0, bel:0, basen:0, boy:0});
+    });
+  });
+  if(!yeni.length){ alert('Bu aralıkta eklenecek yeni varyant yok (hepsi zaten mevcut).'); return; }
+  p.variants = [...vars, ...yeni];
+  await saveProduct(p);
+};
+
+window.copyIkasHtml = function(pid){
+  const p = products.find(x=>x.id===pid); if(!p) return;
+  const vars = p.variants||[];
+  const bedenMap = {};
+  vars.forEach(v=>{
+    const b = v.beden||'36';
+    if(!bedenMap[b]) bedenMap[b] = {gogus:v.gogus||0, bel:v.bel||0, basen:v.basen||0};
+  });
+  const bedenRows = BEDEN_ORDER.filter(b=>bedenMap[b]).concat(Object.keys(bedenMap).filter(b=>!BEDEN_ORDER.includes(b)));
+  if(!bedenRows.length){ alert('Bu üründe henüz beden ölçüsü yok.'); return; }
+  const html = `<table>\n  <tbody>\n    <tr>\n      <th>Beden</th>\n      <th>Göğüs</th>\n      <th>Bel</th>\n      <th>Basen</th>\n    </tr>\n${bedenRows.map(b=>{
+    const bm = bedenMap[b];
+    return `    <tr data-size="${b}"><td>${b}</td><td>${bm.gogus||'-'}</td><td>${bm.bel||'-'}</td><td>${bm.basen||'-'}</td></tr>`;
+  }).join('\n')}\n  </tbody>\n</table>`;
+  navigator.clipboard.writeText(html).then(()=>alert('İKAS beden rehberi HTML\'i panoya kopyalandı.')).catch(()=>alert('Kopyalanamadı, tarayıcı izni gerekebilir.'));
+};
+
+function render(){
+  const q=search.toLowerCase();
+  const filtered=q?products.filter(p=>(p.kod||'').toLowerCase().includes(q)||(p.ad||'').toLowerCase().includes(q)):products;
+
+  if(!filtered.length){
+    document.getElementById('content').innerHTML='<div class="empty">Sonuç bulunamadı</div>';
+    return;
+  }
+
+  document.getElementById('content').innerHTML=filtered.map(p=>{
+    const vars=p.variants||[];
+    // Bedene göre grupla
+    const bedenMap={};
+    vars.forEach(v=>{
+      const b=v.beden||'36';
+      if(!bedenMap[b]) bedenMap[b]={gogus:v.gogus||0,bel:v.bel||0,basen:v.basen||0,boy:v.boy||0,renkler:[]};
+      bedenMap[b].renkler.push(v.renk||'Siyah');
+    });
+    const bedenRows=BEDEN_ORDER.filter(b=>bedenMap[b]).concat(Object.keys(bedenMap).filter(b=>!BEDEN_ORDER.includes(b)));
+
+    if(!bedenRows.length) return '';
+
+    return `<div class="product-block">
+      <div class="product-header">
+        <span class="sku">${esc(p.kod)}</span>
+        <span class="ad">${esc(p.ad||'—')}</span>
+        ${p.kumas?`<span class="kumas">${esc(p.kumas)}</span>`:''}
+        <button class="btn" style="height:26px;font-size:10px" onclick="copyIkasHtml('${p.id}')">İKAS HTML Kopyala</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-bottom:1px solid var(--border);font-size:12px;flex-wrap:wrap">
+        <label style="color:var(--text-sec)">Beden aralığı ekle:</label>
+        <select id="br-start-${p.id}" style="height:26px;border:1px solid var(--border);border-radius:5px;background:var(--surface2);color:var(--text)">${BEDEN_ORDER.map(b=>`<option>${b}</option>`).join('')}</select>
+        <span>–</span>
+        <select id="br-end-${p.id}" style="height:26px;border:1px solid var(--border);border-radius:5px;background:var(--surface2);color:var(--text)">${BEDEN_ORDER.map(b=>`<option${b===BEDEN_ORDER[BEDEN_ORDER.length-1]?' selected':''}>${b}</option>`).join('')}</select>
+        <button class="btn" style="height:26px;font-size:10px" onclick="generateBedenRange('${p.id}')">Oluştur</button>
+      </div>
+      <table class="beden-table">
+        <thead><tr>
+          <th style="width:80px">Beden</th>
+          <th>Renkler</th>
+          <th class="r">Göğüs (cm)</th>
+          <th class="r">Bel (cm)</th>
+          <th class="r">Basen (cm)</th>
+          <th class="r">Boy (cm)</th>
+        </tr></thead>
+        <tbody>
+          ${bedenRows.map(b=>{
+            const bm=bedenMap[b];
+            const renkDots=bm.renkler.map(r=>`<span class="color-dot" style="background:${CMAP[r]||'#aaa'}" title="${r}"></span>`).join('');
+            return `<tr>
+              <td><span class="beden-num">${b}</span></td>
+              <td><div class="renk-wrap">${renkDots}</div></td>
+              <td class="r"><input type="number" value="${bm.gogus||''}" min="0" placeholder="—"
+                onchange="updBedenOlcu('${p.id}','${b}','gogus',this.value)"></td>
+              <td class="r"><input type="number" value="${bm.bel||''}" min="0" placeholder="—"
+                onchange="updBedenOlcu('${p.id}','${b}','bel',this.value)"></td>
+              <td class="r"><input type="number" value="${bm.basen||''}" min="0" placeholder="—"
+                onchange="updBedenOlcu('${p.id}','${b}','basen',this.value)"></td>
+              <td class="r"><input type="number" value="${bm.boy||''}" min="0" placeholder="—"
+                onchange="updBedenOlcu('${p.id}','${b}','boy',this.value)"></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  }).join('');
+}
+</script>
+</body>
+</html>

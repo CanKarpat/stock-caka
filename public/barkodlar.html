@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Barkodlar — Abiye Stok</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f8f7f5; --surface: #ffffff; --surface2: #f1efe9;
+      --border: #e0ddd6; --border-strong: #c8c4bc;
+      --text: #1a1a18; --text-sec: #6b6860; --text-muted: #9e9b94;
+      --accent: #4f6ef7; --accent-bg: #eef1fe; --accent-text: #2d49c4;
+      --success-bg: #eaf3de; --success-text: #3b6d11;
+      --radius: 8px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #181816; --surface: #242422; --surface2: #2e2e2b;
+        --border: #3a3a36; --border-strong: #4e4e4a;
+        --text: #f0ede6; --text-sec: #a09d96; --text-muted: #6b6860;
+        --accent: #6b87ff; --accent-bg: #1a2040; --accent-text: #a0b0ff;
+      }
+    }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; min-height: 100vh; }
+
+    header {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 0 16px; height: 56px; display: flex; align-items: center; gap: 12px;
+      position: sticky; top: 0; z-index: 10;
+    }
+    header h1 { font-size: 16px; font-weight: 600; flex: 1; }
+    .back-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: var(--text-sec); text-decoration: none; font-size: 13px;
+      padding: 6px 10px; border-radius: var(--radius); border: 1px solid var(--border);
+      background: var(--surface); transition: background .15s;
+    }
+    .back-btn:hover { background: var(--surface2); }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 20px 16px; }
+
+    .toolbar {
+      display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-wrap: wrap;
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 12px 14px;
+    }
+    .toolbar label { font-size: 13px; color: var(--text-sec); font-weight: 500; }
+    .toolbar select, .toolbar input[type=number] {
+      height: 34px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius);
+      background: var(--surface2); color: var(--text); font-size: 13px;
+    }
+    .toolbar input[type=number] { width: 70px; }
+    .btn {
+      height: 36px; padding: 0 14px; border: 1px solid var(--border-strong);
+      border-radius: var(--radius); background: var(--surface); color: var(--text);
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+    }
+    .btn:hover { background: var(--surface2); }
+    .btn.primary { background: var(--accent); color: #fff; border-color: transparent; }
+    .btn.primary:hover { opacity: .9; }
+    .sep { flex: 1; }
+
+    .select-all-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 13px; color: var(--text-sec); }
+    .select-all-wrap input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .barcode-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 12px 10px;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      cursor: pointer;
+      transition: border-color .15s, box-shadow .15s;
+      position: relative;
+    }
+    .barcode-card:hover { border-color: var(--accent); }
+    .barcode-card.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+    .barcode-card input[type=checkbox] {
+      position: absolute; top: 8px; right: 8px;
+      width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent);
+    }
+    .barcode-card svg { width: 100%; max-width: 160px; height: auto; }
+    .barcode-card .bc-kod { font-family: monospace; font-size: 11px; color: var(--text-sec); margin-top: -4px; }
+    .barcode-card .bc-ad { font-size: 12px; font-weight: 500; color: var(--text); text-align: center; line-height: 1.3; }
+    .barcode-card .bc-meta { font-size: 11px; color: var(--text-muted); }
+    .badge { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 10px; }
+    .badge-ana { background: #f0eafe; color: #5b3d8a; }
+    .badge-var { background: var(--accent-bg); color: var(--accent-text); }
+
+    .empty { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+    .empty p { margin-top: 12px; font-size: 14px; }
+
+    .loading { text-align: center; padding: 60px; color: var(--text-muted); font-size: 14px; }
+
+    /* Print styles */
+    @media print {
+      body { background: white; }
+      header, .toolbar, .select-all-wrap, .btn, .back-btn, input[type=checkbox] { display: none !important; }
+      .container { padding: 0; max-width: 100%; }
+      .grid { grid-template-columns: repeat(4, 1fr); gap: 4px; }
+      .barcode-card { border: 1px solid #ddd; border-radius: 4px; padding: 8px; break-inside: avoid; box-shadow: none !important; }
+      .barcode-card:not(.selected) { display: none; }
+      .barcode-card.print-all { display: flex !important; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <a href="/" class="back-btn">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    Stok listesine dön
+  </a>
+  <h1>Barkodlar</h1>
+  <span id="selected-count" style="font-size:12px;color:var(--text-muted)"></span>
+</header>
+
+<div class="container">
+  <div class="toolbar">
+    <label>Barkod türü:</label>
+    <select id="bc-format" onchange="regenerate()">
+      <option value="CODE128">Code 128 (önerilen)</option>
+      <option value="EAN13">EAN-13</option>
+      <option value="CODE39">Code 39</option>
+    </select>
+    <label>Yükseklik:</label>
+    <input type="number" id="bc-height" value="60" min="30" max="120" onchange="regenerate()">
+    <div class="sep"></div>
+    <button class="btn" onclick="selectAll()">Tümünü seç</button>
+    <button class="btn" onclick="deselectAll()">Seçimi kaldır</button>
+    <button class="btn primary" onclick="printSelected()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Seçilenleri yazdır
+    </button>
+  </div>
+
+  <div id="content"><div class="loading">Barkodlar yükleniyor...</div></div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+let rows = [];
+let selected = new Set();
+
+const DEMO = [
+  {id:'1',tip:'ana',ad:'Çiçekli Abiye',kod:'ABY-001',renk:'Ekru',beden:'36'},
+  {id:'2',tip:'varyant',ad:'Çiçekli Abiye',kod:'ABY-001-V1',renk:'Bordo',beden:'38'},
+  {id:'3',tip:'ana',ad:'Straplez Mini',kod:'ABY-002',renk:'Pudra',beden:'34'},
+];
+
+function getConfig() {
+  try { return JSON.parse(localStorage.getItem('firebase_cfg') || 'null'); } catch { return null; }
+}
+
+function init() {
+  const cfg = {
+    apiKey: "AIzaSyBED4SOH13mpdpuGLHwG_wl6lhe1a4YNos",
+    authDomain: "stok-19117.firebaseapp.com",
+    projectId: "stok-19117",
+    storageBucket: "stok-19117.firebasestorage.app",
+    messagingSenderId: "599549832875",
+    appId: "1:599549832875:web:4570ade50e2731469091ee"
+  };
+  if (cfg) {
+    try {
+      const app = initializeApp(cfg, 'barkod-' + Date.now());
+      const db = getFirestore(app);
+      onSnapshot(collection(db, 'stok'), snap => {
+        rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        rows.sort((a,b) => (a.sira||0)-(b.sira||0));
+        render();
+      }, () => { rows = DEMO; render(); });
+    } catch(e) { rows = DEMO; render(); }
+  } else {
+    rows = DEMO; render();
+  }
+}
+
+function render() {
+  if (!rows.length) {
+    document.getElementById('content').innerHTML = '<div class="empty"><p>Henüz ürün eklenmemiş.</p></div>';
+    return;
+  }
+
+  const fmt = document.getElementById('bc-format').value;
+  const h = parseInt(document.getElementById('bc-height').value) || 60;
+
+  document.getElementById('content').innerHTML = `
+    <div class="grid" id="grid">
+      ${rows.map(r => `
+        <div class="barcode-card ${selected.has(r.id)?'selected':''}" id="card-${r.id}" onclick="toggleCard('${r.id}')">
+          <input type="checkbox" ${selected.has(r.id)?'checked':''} onclick="e=>e.stopPropagation()" onchange="toggleCard('${r.id}')">
+          <svg id="bc-${r.id}"></svg>
+          <span class="bc-kod">${esc(r.kod||r.id)}</span>
+          <span class="bc-ad">${esc(r.ad||'—')}</span>
+          <span class="bc-meta">${esc(r.renk||'')} · ${esc(r.beden||'')}</span>
+          <span class="badge badge-${r.tip==='ana'?'ana':'var'}">${r.tip==='ana'?'Ana':'Varyant'}</span>
+        </div>
+      `).join('')}
+    </div>`;
+
+  rows.forEach(r => {
+    const el = document.getElementById('bc-' + r.id);
+    if (!el) return;
+    const barkodDegeri = r.barkod || r.kod || r.id;
+    try {
+      JsBarcode(el, barkodDegeri, {
+        format: fmt,
+        height: h,
+        fontSize: 11,
+        margin: 4,
+        lineColor: '#1a1a18',
+        background: 'transparent',
+        displayValue: false,
+      });
+    } catch(e) {
+      // fallback to CODE128 if format incompatible
+      try {
+        JsBarcode(el, barkodDegeri, { format: 'CODE128', height: h, fontSize: 11, margin: 4, lineColor: '#1a1a18', background: 'transparent', displayValue: false });
+      } catch(e2) { el.parentElement.style.opacity = '.4'; }
+    }
+  });
+
+  updateCount();
+}
+
+window.toggleCard = function(id) {
+  if (selected.has(id)) selected.delete(id);
+  else selected.add(id);
+  const card = document.getElementById('card-' + id);
+  if (card) {
+    card.classList.toggle('selected', selected.has(id));
+    const cb = card.querySelector('input[type=checkbox]');
+    if (cb) cb.checked = selected.has(id);
+  }
+  updateCount();
+};
+
+window.selectAll = function() {
+  rows.forEach(r => { selected.add(r.id); const c = document.getElementById('card-'+r.id); if(c){c.classList.add('selected');const cb=c.querySelector('input');if(cb)cb.checked=true;} });
+  updateCount();
+};
+
+window.deselectAll = function() {
+  selected.clear();
+  document.querySelectorAll('.barcode-card').forEach(c => { c.classList.remove('selected'); const cb=c.querySelector('input');if(cb)cb.checked=false; });
+  updateCount();
+};
+
+window.regenerate = function() { render(); };
+
+window.printSelected = function() {
+  if (!selected.size) { alert('Önce yazdırmak istediğin barkodları seç!'); return; }
+  window.print();
+};
+
+function updateCount() {
+  document.getElementById('selected-count').textContent = selected.size ? `${selected.size} barkod seçili` : '';
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+init();
+</script>
+</body>
+</html>
