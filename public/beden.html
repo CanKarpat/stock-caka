@@ -65,6 +65,14 @@ header h1{font-size:15px;font-weight:600;flex:1}
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
     Stok Listesi
   </a>
+  <a href="barkodlar.html" class="btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h2M7 5h1M3 19h2M7 19h1M3 12h8M13 5h1M17 5h4M13 19h1M17 19h4M13 12h8"/></svg>
+    Barkodlar
+  </a>
+  <a href="tedarikci.html" class="btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+    Tedarikçiler
+  </a>
   <h1>Beden Tablosu</h1>
   <span class="sync-badge offline" id="sync-badge">● Bağlanıyor</span>
   <button class="btn" onclick="window.print()">
@@ -106,7 +114,38 @@ let products=[];
 let search='';
 
 const setSyncStatus=s=>{const b=document.getElementById('sync-badge');b.className='sync-badge '+s;b.textContent=s==='online'?'● Canlı':'○ Çevrimdışı';};
-const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+
+// ── Odak koruma + Enter ile sıradaki satıra geçiş ──────────────────
+function buildFocusSelector(el){
+  const attrs=[...el.attributes].filter(a=>a.name.startsWith('data-'));
+  if(!attrs.length) return null;
+  return el.tagName.toLowerCase()+attrs.map(a=>`[${a.name}="${CSS.escape(a.value)}"]`).join('');
+}
+function captureFocus(){
+  const el=document.activeElement;
+  if(!el||el.tagName!=='INPUT') return null;
+  const selector=buildFocusSelector(el);
+  if(!selector) return null;
+  return {selector, selStart:el.selectionStart, selEnd:el.selectionEnd};
+}
+function restoreFocus(snap){
+  if(!snap) return;
+  const el=document.querySelector(snap.selector);
+  if(!el) return;
+  el.focus();
+  if(typeof snap.selStart==='number' && el.setSelectionRange){ try{el.setSelectionRange(snap.selStart,snap.selEnd);}catch(e){} }
+}
+document.addEventListener('keydown', e=>{
+  if(e.key==='Enter' && e.target && e.target.matches('input[data-field]')){
+    e.preventDefault();
+    const field=e.target.getAttribute('data-field');
+    const cells=[...document.querySelectorAll(`input[data-field="${CSS.escape(field)}"]`)];
+    const idx=cells.indexOf(e.target);
+    const next=cells[idx+(e.shiftKey?-1:1)];
+    if(next){ next.focus(); next.select(); }
+  }
+});
 
 onSnapshot(collection(db,'stok'),snap=>{
   products=snap.docs.map(d=>({id:d.id,...d.data()}));
@@ -129,6 +168,25 @@ window.updBedenOlcu=async function(pid,beden,field,val){
   await saveProduct(p);
 };
 
+const uid=()=>String(Date.now())+Math.random().toString(36).slice(2,6);
+
+// Ortak: verilen beden listesi için mevcut renklerin her biriyle eksik varyantları oluştur
+function buildMissingSizeVariants(p, sizes){
+  const vars = p.variants||[];
+  const renkler = [...new Set(vars.map(v=>v.renk))];
+  const colors = renkler.length ? renkler : ['Siyah'];
+  const existing = new Set(vars.map(v=>v.renk+'|'+v.beden));
+  const yeni = [];
+  colors.forEach(renk=>{
+    sizes.forEach(beden=>{
+      if(!beden || existing.has(renk+'|'+beden)) return;
+      existing.add(renk+'|'+beden);
+      yeni.push({id:uid(), sku:p.kod+'-V'+(vars.length+yeni.length+1), renk, beden, miktar:0, barkod:'', gogus:0, bel:0, basen:0, boy:0});
+    });
+  });
+  return yeni;
+}
+
 window.generateBedenRange = async function(pid){
   const p = products.find(x=>x.id===pid); if(!p) return;
   const start = document.getElementById('br-start-'+pid).value;
@@ -136,20 +194,22 @@ window.generateBedenRange = async function(pid){
   const si = BEDEN_ORDER.indexOf(start), ei = BEDEN_ORDER.indexOf(end);
   if(si<0||ei<0||si>ei){ alert('Geçerli bir beden aralığı seç.'); return; }
   const range = BEDEN_ORDER.slice(si, ei+1);
-  const vars = p.variants||[];
-  const renkler = [...new Set(vars.map(v=>v.renk))];
-  const colors = renkler.length ? renkler : ['Siyah'];
-  const existing = new Set(vars.map(v=>v.renk+'|'+v.beden));
-  const yeni = [];
-  colors.forEach(renk=>{
-    range.forEach(beden=>{
-      if(existing.has(renk+'|'+beden)) return;
-      yeni.push({id:String(Date.now())+Math.random().toString(36).slice(2,6), sku:p.kod+'-V'+(vars.length+yeni.length+1), renk, beden, miktar:0, barkod:'', gogus:0, bel:0, basen:0, boy:0});
-    });
-  });
+  const yeni = buildMissingSizeVariants(p, range);
   if(!yeni.length){ alert('Bu aralıkta eklenecek yeni varyant yok (hepsi zaten mevcut).'); return; }
-  p.variants = [...vars, ...yeni];
+  p.variants = [...(p.variants||[]), ...yeni];
   await saveProduct(p);
+};
+
+window.generateBedenList = async function(pid){
+  const p = products.find(x=>x.id===pid); if(!p) return;
+  const raw = document.getElementById('br-list-'+pid).value;
+  const sizes = raw.split(',').map(s=>s.trim()).filter(Boolean);
+  if(!sizes.length){ alert('En az bir beden değeri gir (örn. 36,38,40).'); return; }
+  const yeni = buildMissingSizeVariants(p, sizes);
+  if(!yeni.length){ alert('Girilen bedenler için eklenecek yeni varyant yok (hepsi zaten mevcut).'); return; }
+  p.variants = [...(p.variants||[]), ...yeni];
+  await saveProduct(p);
+  document.getElementById('br-list-'+pid).value='';
 };
 
 window.copyIkasHtml = function(pid){
@@ -170,6 +230,7 @@ window.copyIkasHtml = function(pid){
 };
 
 function render(){
+  const focusSnap=captureFocus();
   const q=search.toLowerCase();
   const filtered=q?products.filter(p=>(p.kod||'').toLowerCase().includes(q)||(p.ad||'').toLowerCase().includes(q)):products;
 
@@ -204,6 +265,10 @@ function render(){
         <span>–</span>
         <select id="br-end-${p.id}" style="height:26px;border:1px solid var(--border);border-radius:5px;background:var(--surface2);color:var(--text)">${BEDEN_ORDER.map(b=>`<option${b===BEDEN_ORDER[BEDEN_ORDER.length-1]?' selected':''}>${b}</option>`).join('')}</select>
         <button class="btn" style="height:26px;font-size:10px" onclick="generateBedenRange('${p.id}')">Oluştur</button>
+        <span style="width:1px;height:16px;background:var(--border-strong)"></span>
+        <label style="color:var(--text-sec)">veya değer gir:</label>
+        <input type="text" id="br-list-${p.id}" placeholder="36,38,40,44" style="width:110px;height:26px;padding:0 8px;border:1px solid var(--border);border-radius:5px;background:var(--surface2);color:var(--text);font-size:11px">
+        <button class="btn" style="height:26px;font-size:10px" onclick="generateBedenList('${p.id}')">Girilenleri Oluştur</button>
       </div>
       <table class="beden-table">
         <thead><tr>
@@ -221,13 +286,13 @@ function render(){
             return `<tr>
               <td><span class="beden-num">${b}</span></td>
               <td><div class="renk-wrap">${renkDots}</div></td>
-              <td class="r"><input type="number" value="${bm.gogus||''}" min="0" placeholder="—"
+              <td class="r"><input type="number" data-field="gogus" data-pid="${p.id}" data-beden="${b}" value="${bm.gogus||''}" min="0" placeholder="—"
                 onchange="updBedenOlcu('${p.id}','${b}','gogus',this.value)"></td>
-              <td class="r"><input type="number" value="${bm.bel||''}" min="0" placeholder="—"
+              <td class="r"><input type="number" data-field="bel" data-pid="${p.id}" data-beden="${b}" value="${bm.bel||''}" min="0" placeholder="—"
                 onchange="updBedenOlcu('${p.id}','${b}','bel',this.value)"></td>
-              <td class="r"><input type="number" value="${bm.basen||''}" min="0" placeholder="—"
+              <td class="r"><input type="number" data-field="basen" data-pid="${p.id}" data-beden="${b}" value="${bm.basen||''}" min="0" placeholder="—"
                 onchange="updBedenOlcu('${p.id}','${b}','basen',this.value)"></td>
-              <td class="r"><input type="number" value="${bm.boy||''}" min="0" placeholder="—"
+              <td class="r"><input type="number" data-field="boy" data-pid="${p.id}" data-beden="${b}" value="${bm.boy||''}" min="0" placeholder="—"
                 onchange="updBedenOlcu('${p.id}','${b}','boy',this.value)"></td>
             </tr>`;
           }).join('')}
@@ -235,6 +300,7 @@ function render(){
       </table>
     </div>`;
   }).join('');
+  restoreFocus(focusSnap);
 }
 </script>
 </body>

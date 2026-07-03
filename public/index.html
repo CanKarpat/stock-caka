@@ -198,6 +198,10 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 9l10-7 10 7v11a2 2 0 01-2 2H4a2 2 0 01-2-2z"/><polyline points="7 22 7 12 17 12 17 22"/></svg>
     Beden Tablosu
   </a>
+  <a href="tedarikci.html" class="btn ghost" style="height:30px;font-size:11px">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+    Tedarikçiler
+  </a>
 </header>
 
 <div class="container">
@@ -206,9 +210,9 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
   <div class="toolbar">
     <div class="search-wrap">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-      <input type="text" id="search" placeholder="SKU, ürün adı veya renk ara...">
+      <input type="text" id="search" placeholder="SKU, ürün adı veya renk ara... ( / )">
     </div>
-    <button class="btn primary" onclick="openProductModal()">
+    <button class="btn primary" onclick="openProductModal()" title="Kısayol: N">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Ürün Ekle
     </button>
@@ -216,9 +220,9 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       İçe Aktar
     </button>
-    <button class="btn ghost" onclick="exportCSV()">
+    <button class="btn ghost" onclick="showExportModal()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      CSV
+      Dışa Aktar
     </button>
     <button class="btn ghost" id="scan-btn" onclick="openScanner()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
@@ -244,6 +248,14 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
     <label>Satış fiyatı %:</label>
     <input type="number" id="bulk-pct" placeholder="10 veya -10" style="width:90px">
     <button class="btn ghost" onclick="bulkAdjustPrice()">Uygula</button>
+    <div class="sep2"></div>
+    <label>İndirimli fiyat, satıştan:</label>
+    <select id="bulk-indirim-mode">
+      <option value="pct">% indirim</option>
+      <option value="tutar">₺ indirim</option>
+    </select>
+    <input type="number" id="bulk-indirim-val" placeholder="10" style="width:80px">
+    <button class="btn ghost" onclick="bulkSetIndirim()">Uygula</button>
     <div class="sep2"></div>
     <input type="text" id="bulk-tag" placeholder="Elbise Modeli etiketi ekle...">
     <button class="btn ghost" onclick="bulkAddTag()">Etiket Ekle</button>
@@ -324,6 +336,10 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
           <input id="pm-satis" type="number" min="0" placeholder="0">
         </div>
         <div class="form-group">
+          <label>İndirimli Fiyat (₺)</label>
+          <input id="pm-indirimli" type="number" min="0" placeholder="0">
+        </div>
+        <div class="form-group">
           <label>Durum</label>
           <select id="pm-durum">
             <option>Yayında</option>
@@ -400,6 +416,10 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
         <span>–</span>
         <select id="br-end"></select>
         <button class="btn ghost" style="height:28px;font-size:11px" onclick="generateBedenRange()">Aralıktaki Bedenleri Oluştur</button>
+        <div class="sep2" style="width:1px;height:18px;background:var(--border-strong)"></div>
+        <label>veya değer gir:</label>
+        <input type="text" id="br-list" placeholder="36,38,40,44" style="width:120px;height:28px;padding:0 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px">
+        <button class="btn ghost" style="height:28px;font-size:11px" onclick="generateBedenList()">Girilenleri Oluştur</button>
         <div class="sep2" style="width:1px;height:18px;background:var(--border-strong)"></div>
         <button class="btn ghost" style="height:28px;font-size:11px" onclick="copyIkasHtml()">İKAS HTML Kopyala</button>
         <span id="ikas-copy-status" style="font-size:11px;color:var(--success-text)"></span>
@@ -488,6 +508,32 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════
+     DIŞA AKTAR MODAL (sütun seçimi)
+═══════════════════════════════════════════ -->
+<div class="modal-bg hidden" id="export-modal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <h2>Dışa Aktar</h2>
+      <button class="icon-btn" onclick="closeExportModal()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--text-sec);margin-bottom:10px;line-height:1.6">Dışa aktarılacak sütunları seç. Bu seçim İKAS'a özel dışa aktarım ve ileride kurulacak entegrasyon için de kullanılacak.</p>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button class="btn ghost" style="flex:1;justify-content:center;height:28px;font-size:11px" onclick="setAllExportCols(true)">Tümünü Seç</button>
+        <button class="btn ghost" style="flex:1;justify-content:center;height:28px;font-size:11px" onclick="setAllExportCols(false)">Tümünü Kaldır</button>
+      </div>
+      <div id="export-col-list" style="display:flex;flex-direction:column;gap:2px;max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px 10px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn ghost" onclick="closeExportModal()">İptal</button>
+      <button class="btn primary" onclick="doExportCSV()">CSV İndir</button>
+    </div>
+  </div>
+</div>
+
 <!-- Scanner Modal -->
 <div id="scanner-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;flex-direction:column;align-items:center;justify-content:center;gap:16px">
   <p style="color:#fff;font-size:15px;font-weight:500">Barkodu kameraya göster</p>
@@ -536,6 +582,7 @@ const COLS = [
   {id:'beden',   label:'Beden',         always:false, default:true},
   {id:'alis',    label:'Alış (₺)',      always:false, default:true},
   {id:'satis',   label:'Satış (₺)',     always:false, default:true},
+  {id:'indirimli',label:'İndirimli (₺)',always:false, default:false},
   {id:'kar',     label:'Kar %',         always:false, default:true},
   {id:'miktar',  label:'Miktar',        always:false, default:true},
   {id:'deger',   label:'Stok Değeri',   always:false, default:true},
@@ -581,6 +628,67 @@ const fmtN=(n)=>Number(n||0).toLocaleString('tr-TR');
 const esc=(s)=>String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
 const uid=()=>String(Date.now())+Math.random().toString(36).slice(2,6);
 
+// ── Odak koruma (re-render sırasında imleci kaybetmemek için) ──────
+function buildFocusSelector(el){
+  const attrs=[...el.attributes].filter(a=>a.name.startsWith('data-'));
+  if(!attrs.length) return null;
+  return el.tagName.toLowerCase()+attrs.map(a=>`[${a.name}="${CSS.escape(a.value)}"]`).join('');
+}
+function captureFocus(){
+  const el=document.activeElement;
+  if(!el||!(el.tagName==='INPUT'||el.tagName==='SELECT')) return null;
+  const selector=buildFocusSelector(el);
+  if(!selector) return null;
+  return {selector, selStart:el.selectionStart, selEnd:el.selectionEnd};
+}
+function restoreFocus(snap){
+  if(!snap) return;
+  const el=document.querySelector(snap.selector);
+  if(!el) return;
+  el.focus();
+  if(typeof snap.selStart==='number' && el.setSelectionRange){ try{el.setSelectionRange(snap.selStart,snap.selEnd);}catch(e){} }
+}
+// Aynı sütundaki bir sonraki/önceki satıra odaklan (Enter/Shift+Enter ile hızlı veri girişi)
+function focusAdjacentRow(el, dir){
+  const field=el.getAttribute('data-field');
+  if(!field) return;
+  const scope=el.closest('table')||document;
+  const cells=[...scope.querySelectorAll(`[data-field="${CSS.escape(field)}"]`)];
+  const idx=cells.indexOf(el);
+  const next=cells[idx+dir];
+  if(next){ next.focus(); if(next.select) next.select(); }
+}
+document.addEventListener('keydown', e=>{
+  if(e.key==='Enter' && e.target && e.target.matches('input[data-field],select[data-field]')){
+    e.preventDefault();
+    focusAdjacentRow(e.target, e.shiftKey?-1:1);
+  }
+});
+
+// ── Genel klavye kısayolları ────────────────────────────────────────
+function isTyping(el){ return el && (el.tagName==='INPUT'||el.tagName==='TEXTAREA'||el.tagName==='SELECT'||el.isContentEditable); }
+function isModalOpen(id){ return !document.getElementById(id).classList.contains('hidden'); }
+function openModals(){ return ['product-modal','variant-modal','import-modal'].filter(isModalOpen); }
+document.addEventListener('keydown', e=>{
+  // Esc: açık modalı / scanner'ı kapat
+  if(e.key==='Escape'){
+    if(document.getElementById('scanner-modal').style.display==='flex'){ closeScanner(); return; }
+    if(isModalOpen('import-modal')){ closeImportModal(); return; }
+    if(isModalOpen('variant-modal')){ closeVariantModal(); return; }
+    if(isModalOpen('product-modal')){ closeProductModal(); return; }
+    return;
+  }
+  // Ctrl/Cmd+S: açık ürün formunu kaydet
+  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='s'){
+    if(isModalOpen('product-modal')){ e.preventDefault(); saveProduct(); }
+    return;
+  }
+  // Aşağıdakiler sadece hiçbir modal açık değilken ve bir alana yazmıyorken çalışsın
+  if(openModals().length || isTyping(e.target)) return;
+  if(e.key==='/'){ e.preventDefault(); document.getElementById('search').focus(); return; }
+  if(e.key==='n'||e.key==='N'){ e.preventDefault(); openProductModal(); return; }
+});
+
 function totalMiktar(p){ return (p.variants||[]).reduce((s,v)=>s+Number(v.miktar||0),0); }
 function totalDeger(p){ return (p.variants||[]).reduce((s,v)=>s+Number(v.miktar||0)*Number(p.alis||0),0); }
 
@@ -598,6 +706,7 @@ window.toggleCol = function(id){ visibleCols[id]=!visibleCols[id]; renderColTogg
 
 // ── Ana tablo render ──────────────────────────────────────────────
 function render(){
+  const focusSnap = captureFocus();
   renderColToggles();
   const vis = COLS.filter(c=>visibleCols[c.id]);
 
@@ -629,7 +738,7 @@ function render(){
   document.getElementById('thead').innerHTML=`<tr>
     <th class="chk"><input type="checkbox" ${allSelected?'checked':''} onchange="toggleSelectAll(this.checked)"></th>
     <th style="width:32px"></th>
-    ${vis.map(c=>`<th class="${['alis','satis','kar','miktar','deger'].includes(c.id)?'r':''}">${c.label}</th>`).join('')}
+    ${vis.map(c=>`<th class="${['alis','satis','indirimli','kar','miktar','deger'].includes(c.id)?'r':''}">${c.label}</th>`).join('')}
     <th style="width:70px"></th>
   </tr>`;
 
@@ -654,15 +763,16 @@ function render(){
       if(c.id==='kumas') return `<td style="color:var(--text-sec)">${esc(p.kumas)}</td>`;
       if(c.id==='elbiseModelleri') return `<td style="font-size:11px;color:var(--text-sec)">${(p.elbiseModelleri||[]).map(t=>esc(t)).join(', ')}</td>`;
       if(c.id==='tedarikci') return `<td style="font-size:12px">${esc(p.tedarikci)}</td>`;
-      if(c.id==='durum') return `<td><select class="inline-sel durum-sel" onchange="updProd('${p.id}','durum',this.value)" onclick="event.stopPropagation()">
+      if(c.id==='durum') return `<td><select class="inline-sel durum-sel" data-field="durum" data-pid="${p.id}" onchange="updProd('${p.id}','durum',this.value)" onclick="event.stopPropagation()">
         <option class="badge-yayinda" ${(p.durum||'Yayında')==='Yayında'?'selected':''}>Yayında</option>
         <option ${p.durum==='Beklemede'?'selected':''}>Beklemede</option>
         <option ${p.durum==='Pasif'?'selected':''}>Pasif</option>
       </select></td>`;
       if(c.id==='renk') return `<td><div style="display:flex;align-items:center;flex-wrap:wrap;gap:3px">${vars.slice(0,4).map(v=>`<span class="color-dot" title="${v.renk}" style="background:${CMAP[v.renk]||'#aaa'}"></span>`).join('')}${vars.length>4?`<span style="font-size:10px;color:var(--text-muted)">+${vars.length-4}</span>`:''}</div></td>`;
       if(c.id==='beden') return `<td style="font-size:12px;color:var(--text-sec)">${[...new Set(vars.map(v=>v.beden))].join(', ')}</td>`;
-      if(c.id==='alis') return `<td class="r"><input class="inline-num" type="number" value="${p.alis||0}" min="0" title="Alış fiyatı" onchange="updProd('${p.id}','alis',this.value)" onclick="event.stopPropagation()"></td>`;
-      if(c.id==='satis') return `<td class="r"><input class="inline-num" type="number" value="${p.satis||0}" min="0" title="Satış fiyatı" onchange="updProd('${p.id}','satis',this.value)" onclick="event.stopPropagation()"></td>`;
+      if(c.id==='alis') return `<td class="r"><input class="inline-num" type="number" data-field="alis" data-pid="${p.id}" value="${p.alis||0}" min="0" title="Alış fiyatı (Enter: sıradaki ürün)" onchange="updProd('${p.id}','alis',this.value)" onclick="event.stopPropagation()"></td>`;
+      if(c.id==='satis') return `<td class="r"><input class="inline-num" type="number" data-field="satis" data-pid="${p.id}" value="${p.satis||0}" min="0" title="Satış fiyatı (Enter: sıradaki ürün)" onchange="updProd('${p.id}','satis',this.value)" onclick="event.stopPropagation()"></td>`;
+      if(c.id==='indirimli') return `<td class="r"><input class="inline-num" type="number" data-field="indirimli" data-pid="${p.id}" value="${p.indirimli||0}" min="0" title="İndirimli fiyat (Enter: sıradaki ürün)" onchange="updProd('${p.id}','indirimli',this.value)" onclick="event.stopPropagation()"></td>`;
       if(c.id==='kar') return `<td class="r"><span class="badge ${kar>=0?'badge-yayinda':'badge-pasif'}">%${kar}</span></td>`;
       if(c.id==='miktar') return `<td class="r fw" style="cursor:pointer" title="Varyant miktarlarını düzenle için 🔀 ikonuna tıkla">${fmtN(totalMiktar(p))}</td>`;
       if(c.id==='deger') return `<td class="r fw" title="Miktar × Alış">₺${fmt(totalDeger(p))}</td>`;
@@ -707,6 +817,7 @@ function render(){
           if(c.id==='beden') return `<td style="font-size:12px">${esc(v.beden)}</td>`;
           if(c.id==='alis') return `<td class="r" style="color:var(--text-muted)">—</td>`;
           if(c.id==='satis') return `<td class="r" style="color:var(--text-muted)">—</td>`;
+          if(c.id==='indirimli') return `<td class="r" style="color:var(--text-muted)">—</td>`;
           if(c.id==='kar') return `<td></td>`;
           if(c.id==='miktar') return `<td class="r fw">${fmtN(v.miktar)}</td>`;
           if(c.id==='deger') return `<td class="r" style="color:var(--text-sec)">₺${fmt(Number(v.miktar||0)*Number(p.alis||0))}</td>`;
@@ -718,10 +829,19 @@ function render(){
   });
 
   document.getElementById('tbody').innerHTML = rows;
+  restoreFocus(focusSnap);
 }
 
 window.toggleExpand = function(id){ expanded.has(id)?expanded.delete(id):expanded.add(id); render(); };
 document.getElementById('search').addEventListener('input',e=>{search=e.target.value;render();});
+
+// Tedarikçiler sayfasından "Düzenle" ile gelindiyse aramayı otomatik doldur
+const pendingSearch = localStorage.getItem('pendingSearch');
+if(pendingSearch){
+  localStorage.removeItem('pendingSearch');
+  search = pendingSearch;
+  document.getElementById('search').value = pendingSearch;
+}
 
 // ── Toplu işlem (bulk) ──────────────────────────────────────────────
 window.toggleSelectAll = function(checked){
@@ -763,6 +883,21 @@ window.bulkAdjustPrice = async function(){
     p.satis = Math.round(Number(p.satis||0)*(1+pct/100)); return saveProduct(p);
   }));
   document.getElementById('bulk-pct').value='';
+};
+window.bulkSetIndirim = async function(){
+  if(!selectedIds.size) return;
+  const mode = document.getElementById('bulk-indirim-mode').value;
+  const val = parseFloat(document.getElementById('bulk-indirim-val').value);
+  if(isNaN(val) || val<0){ alert('Geçerli bir değer gir (örn. 10).'); return; }
+  await Promise.all([...selectedIds].map(id=>{
+    const p = products.find(x=>x.id===id); if(!p) return;
+    const satis = Number(p.satis||0);
+    let indirimli = mode==='pct' ? satis*(1-val/100) : satis-val;
+    if(indirimli<0) indirimli=0;
+    p.indirimli = Math.round(indirimli*100)/100;
+    return saveProduct(p);
+  }));
+  document.getElementById('bulk-indirim-val').value='';
 };
 window.bulkAddTag = async function(){
   if(!selectedIds.size) return;
@@ -839,6 +974,7 @@ window.openProductModal = function(id=null){
   document.getElementById('pm-durum').value = p?(p.durum||'Yayında'):'Yayında';
   document.getElementById('pm-alis').value = p?p.alis:'';
   document.getElementById('pm-satis').value = p?p.satis:'';
+  document.getElementById('pm-indirimli').value = p?p.indirimli:'';
   document.getElementById('pm-renk').value = v.renk||'Siyah';
   document.getElementById('pm-beden').value = v.beden||'36';
   document.getElementById('pm-miktar').value = v.miktar||'';
@@ -884,6 +1020,7 @@ window.saveProduct = async function(){
     durum: document.getElementById('pm-durum').value,
     alis: Number(document.getElementById('pm-alis').value)||0,
     satis: Number(document.getElementById('pm-satis').value)||0,
+    indirimli: Number(document.getElementById('pm-indirimli').value)||0,
     variants: newVars,
     sira: existingP?existingP.sira:Date.now(),
   };
@@ -928,6 +1065,23 @@ function populateBedenRangeSelects(){
   document.getElementById('br-end').value = BEDEN_ORDER[BEDEN_ORDER.length-1];
 }
 
+// Ortak: verilen beden listesi için mevcut renklerin her biriyle eksik varyantları oluştur
+function buildMissingSizeVariants(p, sizes){
+  const vars = p.variants||[];
+  const renkler = [...new Set(vars.map(v=>v.renk))];
+  const colors = renkler.length ? renkler : ['Siyah'];
+  const existing = new Set(vars.map(v=>v.renk+'|'+v.beden));
+  const yeni = [];
+  colors.forEach(renk=>{
+    sizes.forEach(beden=>{
+      if(!beden || existing.has(renk+'|'+beden)) return;
+      existing.add(renk+'|'+beden);
+      yeni.push({id:uid(), sku:p.kod+'-V'+(vars.length+yeni.length+1), renk, beden, miktar:0, barkod:'', gogus:0, bel:0, basen:0, boy:0});
+    });
+  });
+  return yeni;
+}
+
 window.generateBedenRange = async function(){
   const p = products.find(x=>x.id===currentVarProductId); if(!p) return;
   const start = document.getElementById('br-start').value;
@@ -935,20 +1089,23 @@ window.generateBedenRange = async function(){
   const si = BEDEN_ORDER.indexOf(start), ei = BEDEN_ORDER.indexOf(end);
   if(si<0||ei<0||si>ei){ alert('Geçerli bir beden aralığı seç.'); return; }
   const range = BEDEN_ORDER.slice(si, ei+1);
-  const vars = p.variants||[];
-  const renkler = [...new Set(vars.map(v=>v.renk))];
-  const colors = renkler.length ? renkler : ['Siyah'];
-  const existing = new Set(vars.map(v=>v.renk+'|'+v.beden));
-  const yeni = [];
-  colors.forEach(renk=>{
-    range.forEach(beden=>{
-      if(existing.has(renk+'|'+beden)) return;
-      yeni.push({id:uid(), sku:p.kod+'-V'+(vars.length+yeni.length+1), renk, beden, miktar:0, barkod:'', gogus:0, bel:0, basen:0, boy:0});
-    });
-  });
+  const yeni = buildMissingSizeVariants(p, range);
   if(!yeni.length){ alert('Bu aralıkta eklenecek yeni varyant yok (hepsi zaten mevcut).'); return; }
-  p.variants = [...vars, ...yeni];
+  p.variants = [...(p.variants||[]), ...yeni];
   await saveProduct(p);
+};
+
+// Serbest liste: "36,38,40,44" gibi virgülle ayrılmış bedenleri, mevcut her renk için oluştur
+window.generateBedenList = async function(){
+  const p = products.find(x=>x.id===currentVarProductId); if(!p) return;
+  const raw = document.getElementById('br-list').value;
+  const sizes = raw.split(',').map(s=>s.trim()).filter(Boolean);
+  if(!sizes.length){ alert('En az bir beden değeri gir (örn. 36,38,40).'); return; }
+  const yeni = buildMissingSizeVariants(p, sizes);
+  if(!yeni.length){ alert('Girilen bedenler için eklenecek yeni varyant yok (hepsi zaten mevcut).'); return; }
+  p.variants = [...(p.variants||[]), ...yeni];
+  await saveProduct(p);
+  document.getElementById('br-list').value='';
 };
 
 window.copyIkasHtml = function(){
@@ -972,6 +1129,7 @@ window.copyIkasHtml = function(){
 };
 
 function renderVarTable(){
+  const focusSnap = captureFocus();
   const p = products.find(x=>x.id===currentVarProductId);
   if(!p) return;
   const vars = p.variants||[];
@@ -986,19 +1144,19 @@ function renderVarTable(){
       <td>
         <div style="display:flex;align-items:center;gap:6px">
           <span class="color-dot" style="background:${CMAP[v.renk]||'#aaa'}"></span>
-          <select onchange="updVar('${p.id}','${v.id}','renk',this.value)" style="min-width:90px">
+          <select data-field="renk" data-vid="${v.id}" onchange="updVar('${p.id}','${v.id}','renk',this.value)" style="min-width:90px">
             ${Object.keys(CMAP).map(r=>`<option${r===v.renk?' selected':''}>${r}</option>`).join('')}
           </select>
         </div>
       </td>
       <td>
-        <select onchange="updVar('${p.id}','${v.id}','beden',this.value)" style="width:70px">
+        <select data-field="beden" data-vid="${v.id}" onchange="updVar('${p.id}','${v.id}','beden',this.value)" style="width:70px">
           ${BEDEN_ORDER.map(b=>`<option${b===v.beden?' selected':''}>${b}</option>`).join('')}
         </select>
       </td>
-      <td><input value="${esc(v.sku||'')}" placeholder="${esc(p.kod)}-V1" onchange="updVar('${p.id}','${v.id}','sku',this.value)" style="font-family:monospace;font-size:12px;min-width:120px"></td>
-      <td><input value="${esc(v.barkod||'')}" placeholder="SKU ile aynı" onchange="updVar('${p.id}','${v.id}','barkod',this.value)" style="font-family:monospace;font-size:12px;min-width:110px"></td>
-      <td class="r"><input class="r" type="number" value="${v.miktar||0}" min="0" onchange="updVar('${p.id}','${v.id}','miktar',this.value)" style="width:70px"></td>
+      <td><input data-field="sku" data-vid="${v.id}" value="${esc(v.sku||'')}" placeholder="${esc(p.kod)}-V1" onchange="updVar('${p.id}','${v.id}','sku',this.value)" style="font-family:monospace;font-size:12px;min-width:120px"></td>
+      <td><input data-field="barkod" data-vid="${v.id}" value="${esc(v.barkod||'')}" placeholder="SKU ile aynı" onchange="updVar('${p.id}','${v.id}','barkod',this.value)" style="font-family:monospace;font-size:12px;min-width:110px"></td>
+      <td class="r"><input class="r" type="number" data-field="miktar" data-vid="${v.id}" value="${v.miktar||0}" min="0" onchange="updVar('${p.id}','${v.id}','miktar',this.value)" style="width:70px"></td>
       <td>
         <button class="icon-btn del" onclick="delVar('${p.id}','${v.id}')">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
@@ -1032,13 +1190,13 @@ function renderVarTable(){
         return `<tr>
           <td style="font-weight:600;font-size:15px">${b}</td>
           <td><div style="display:flex;align-items:center;gap:3px;flex-wrap:wrap">${renkler}</div></td>
-          <td class="r"><input class="r" type="number" value="${bm.gogus||0}" min="0"
+          <td class="r"><input class="r" type="number" data-field="gogus" data-pid="${p.id}" data-beden="${b}" value="${bm.gogus||0}" min="0"
             onchange="updBedenOlcu('${p.id}','${b}','gogus',this.value)" style="width:65px"></td>
-          <td class="r"><input class="r" type="number" value="${bm.bel||0}" min="0"
+          <td class="r"><input class="r" type="number" data-field="bel" data-pid="${p.id}" data-beden="${b}" value="${bm.bel||0}" min="0"
             onchange="updBedenOlcu('${p.id}','${b}','bel',this.value)" style="width:65px"></td>
-          <td class="r"><input class="r" type="number" value="${bm.basen||0}" min="0"
+          <td class="r"><input class="r" type="number" data-field="basen" data-pid="${p.id}" data-beden="${b}" value="${bm.basen||0}" min="0"
             onchange="updBedenOlcu('${p.id}','${b}','basen',this.value)" style="width:65px"></td>
-          <td class="r"><input class="r" type="number" value="${bm.boy||0}" min="0"
+          <td class="r"><input class="r" type="number" data-field="boy" data-pid="${p.id}" data-beden="${b}" value="${bm.boy||0}" min="0"
             onchange="updBedenOlcu('${p.id}','${b}','boy',this.value)" style="width:65px"></td>
         </tr>`;
       }).join('');
@@ -1050,6 +1208,7 @@ function renderVarTable(){
   }
 
   document.getElementById('var-table').innerHTML=`<thead>${thead}</thead><tbody>${tbody}</tbody>`;
+  restoreFocus(focusSnap);
 }
 
 window.updBedenOlcu = async function(pid, beden, field, val){
@@ -1083,30 +1242,77 @@ window.addVariant = async function(){
 // ── CSV Export ────────────────────────────────────────────────────
 window.updProd = async function(id, field, val){
   const p = products.find(x=>x.id===id); if(!p) return;
-  const nums = ['alis','satis'];
+  const nums = ['alis','satis','indirimli'];
   p[field] = nums.includes(field) ? (parseFloat(val)||0) : val;
   await saveProduct(p);
 };
 
-window.exportCSV = function(){
-  const h=['SKU Ana','Ürün Adı','Kumaş','Açıklama','Tedarikçi','Durum','Alış (₺)','Satış (₺)','SKU Varyant','Renk','Beden','Miktar','Stok Değeri (₺)','Göğüs','Bel','Basen','Boy'];
-  const lines=[h.join(',')];
+// ── Dışa Aktar: sütun seçimi ────────────────────────────────────────
+// Bu liste İKAS'a özel dışa aktarım ve ileride kurulacak API entegrasyonu için de kullanılacak.
+const EXPORT_COLS = [
+  {id:'kod',        label:'SKU Ana',        get:(p,v)=>p.kod||''},
+  {id:'ad',         label:'Ürün Adı',       get:(p,v)=>p.ad||''},
+  {id:'kumas',      label:'Kumaş',          get:(p,v)=>p.kumas||''},
+  {id:'elbise',     label:'Elbise Modeli',  get:(p,v)=>(p.elbiseModelleri||[]).join(';')},
+  {id:'aciklama',   label:'Açıklama',       get:(p,v)=>p.aciklama||''},
+  {id:'tedarikci',  label:'Tedarikçi',      get:(p,v)=>p.tedarikci||''},
+  {id:'durum',      label:'Durum',          get:(p,v)=>p.durum||'Yayında'},
+  {id:'alis',       label:'Alış (₺)',       get:(p,v)=>p.alis||0},
+  {id:'satis',      label:'Satış (₺)',      get:(p,v)=>p.satis||0},
+  {id:'indirimli',  label:'İndirimli (₺)',  get:(p,v)=>p.indirimli||0},
+  {id:'vsku',       label:'SKU Varyant',    get:(p,v)=>v?(v.sku||''):''},
+  {id:'barkod',     label:'Barkod',         get:(p,v)=>v?(v.barkod||v.sku||''):''},
+  {id:'renk',       label:'Renk',           get:(p,v)=>v?(v.renk||''):''},
+  {id:'beden',      label:'Beden',          get:(p,v)=>v?(v.beden||''):''},
+  {id:'miktar',     label:'Miktar',         get:(p,v)=>v?(v.miktar||0):0},
+  {id:'deger',      label:'Stok Değeri (₺)',get:(p,v)=>((Number(v?v.miktar:0)*Number(p.alis||0)).toFixed(2))},
+  {id:'gogus',      label:'Göğüs (cm)',     get:(p,v)=>v?(v.gogus||0):0},
+  {id:'bel',        label:'Bel (cm)',       get:(p,v)=>v?(v.bel||0):0},
+  {id:'basen',      label:'Basen (cm)',     get:(p,v)=>v?(v.basen||0):0},
+  {id:'boy',        label:'Boy (cm)',       get:(p,v)=>v?(v.boy||0):0},
+];
+const DEFAULT_EXPORT_OFF = new Set(['gogus','bel','basen','boy','elbise']); // varsayılan kapalı, gerekirse açılır
+let exportColSelection = {};
+function loadExportColSelection(){
+  let saved = {};
+  try{ saved = JSON.parse(localStorage.getItem('exportColSelection')||'{}'); }catch(e){}
+  EXPORT_COLS.forEach(c=>{ exportColSelection[c.id] = c.id in saved ? saved[c.id] : !DEFAULT_EXPORT_OFF.has(c.id); });
+}
+function saveExportColSelection(){ localStorage.setItem('exportColSelection', JSON.stringify(exportColSelection)); }
+loadExportColSelection();
+
+window.showExportModal = function(){
+  renderExportColList();
+  document.getElementById('export-modal').classList.remove('hidden');
+};
+window.closeExportModal = ()=>document.getElementById('export-modal').classList.add('hidden');
+function renderExportColList(){
+  document.getElementById('export-col-list').innerHTML = EXPORT_COLS.map(c=>`
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 2px;font-size:13px;cursor:pointer">
+      <input type="checkbox" ${exportColSelection[c.id]?'checked':''} onchange="toggleExportCol('${c.id}',this.checked)" style="width:15px;height:15px;accent-color:var(--accent)">
+      ${esc(c.label)}
+    </label>`).join('');
+}
+window.toggleExportCol = function(id, checked){ exportColSelection[id]=checked; saveExportColSelection(); };
+window.setAllExportCols = function(val){ EXPORT_COLS.forEach(c=>exportColSelection[c.id]=val); saveExportColSelection(); renderExportColList(); };
+
+window.doExportCSV = function(){
+  const cols = EXPORT_COLS.filter(c=>exportColSelection[c.id]);
+  if(!cols.length){ alert('En az bir sütun seç.'); return; }
+  const csvCell = val => {
+    const s = String(val==null?'':val);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+  };
+  const lines=[cols.map(c=>csvCell(c.label)).join(',')];
   products.forEach(p=>{
-    (p.variants||[]).forEach(v=>{
-      lines.push([`"${p.kod}"`,`"${p.ad||''}"`,`"${p.kumas||''}"`,`"${(p.aciklama||'').replace(/"/g,'""')}"`,
-        `"${p.tedarikci||''}"`,p.durum||'Yayında',p.alis||0,p.satis||0,
-        `"${v.sku||''}"`,v.renk,v.beden,v.miktar||0,
-        ((Number(v.miktar||0)*Number(p.alis||0)).toFixed(2)),
-        v.gogus||0,v.bel||0,v.basen||0,v.boy||0].join(','));
-    });
-    if(!(p.variants||[]).length){
-      lines.push([`"${p.kod}"`,`"${p.ad||''}"`,`"${p.kumas||''}"`,`"${(p.aciklama||'').replace(/"/g,'""')}"`,
-        `"${p.tedarikci||''}"`,p.durum||'Yayında',p.alis||0,p.satis||0,'','','',0,0,0,0,0,0].join(','));
-    }
+    const vars = p.variants||[];
+    if(!vars.length){ lines.push(cols.map(c=>csvCell(c.get(p,null))).join(',')); return; }
+    vars.forEach(v=> lines.push(cols.map(c=>csvCell(c.get(p,v))).join(',')));
   });
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob(['\uFEFF'+lines.join('\n')],{type:'text/csv;charset=utf-8'}));
   a.download='abiye_stok.csv'; a.click();
+  closeExportModal();
 };
 
 // ── Import ────────────────────────────────────────────────────────
@@ -1356,7 +1562,7 @@ function parseRows(data){
   } else {
     const g=n=>header.findIndex(h=>h.includes(n));
     const iKod=g('sku'),iAd=g('ürün'),iKumas=g('kumaş'),iAcik=g('açıklama'),
-          iTed=g('tedarik'),iDur=g('durum'),iAlis=g('alış'),iSatis=g('satış'),
+          iTed=g('tedarik'),iDur=g('durum'),iAlis=g('alış'),iSatis=g('satış'),iIndirim=g('indirim'),
           iVSku=g('varyant sku')||g('sku varyant'),
           iRenk=g('renk'),iBeden=g('beden'),iMiktar=g('miktar'),
           iGogus=g('göğüs'),iBel=g('bel'),iBasen=g('basen'),iBoy=g('boy');
@@ -1372,6 +1578,7 @@ function parseRows(data){
           durum:iDur>=0?row[iDur]||'Yayında':'Yayında',
           alis:iAlis>=0?parseFloat(row[iAlis])||0:0,
           satis:iSatis>=0?parseFloat(row[iSatis])||0:0,
+          indirimli:iIndirim>=0?parseFloat(row[iIndirim])||0:0,
           variants:[],sira:Date.now()+i};
       }
       if(iRenk>=0||iBeden>=0){
@@ -1425,16 +1632,16 @@ window.doImport = async function(mode){
 };
 
 window.downloadTemplate = function(fmt){
-  const headers=['SKU Ana','Ürün Adı','Kumaş Tipi','Ürün Açıklaması','Tedarikçi Marka','Durum','Alış Fiyatı (₺)','Satış Fiyatı (₺)','SKU Varyant','Renk','Beden','Miktar','Göğüs (cm)','Bel (cm)','Basen (cm)','Boy (cm)'];
+  const headers=['SKU Ana','Ürün Adı','Kumaş Tipi','Ürün Açıklaması','Tedarikçi Marka','Durum','Alış Fiyatı (₺)','Satış Fiyatı (₺)','İndirimli Fiyat (₺)','SKU Varyant','Renk','Beden','Miktar','Göğüs (cm)','Bel (cm)','Basen (cm)','Boy (cm)'];
   const sample=[
-    ['ABY-001','Çiçekli Balık Abiye','Saten','Balık kalıp, taş işlemeli','ALFABETA','Yayında',850,2400,'ABY-001-V1','Siyah',36,10,88,68,94,155],
-    ['ABY-001','Çiçekli Balık Abiye','Saten','Balık kalıp, taş işlemeli','ALFABETA','Yayında',850,2400,'ABY-001-V2','Bordo',38,5,90,70,96,155],
-    ['ABY-002','Straplez Midi','Krep','','MY DREAMS','Beklemede',650,1800,'ABY-002-V1','Pudra',36,0,82,62,88,90],
+    ['ABY-001','Çiçekli Balık Abiye','Saten','Balık kalıp, taş işlemeli','ALFABETA','Yayında',850,2400,2160,'ABY-001-V1','Siyah',36,10,88,68,94,155],
+    ['ABY-001','Çiçekli Balık Abiye','Saten','Balık kalıp, taş işlemeli','ALFABETA','Yayında',850,2400,2160,'ABY-001-V2','Bordo',38,5,90,70,96,155],
+    ['ABY-002','Straplez Midi','Krep','','MY DREAMS','Beklemede',650,1800,0,'ABY-002-V1','Pudra',36,0,82,62,88,90],
   ];
   if(fmt==='xlsx'){
     const wb=XLSX.utils.book_new();
     const ws=XLSX.utils.aoa_to_sheet([headers,...sample]);
-    ws['!cols']=headers.map((_,i)=>({wch:[12,28,14,30,18,12,14,14,14,12,8,8,10,8,10,8][i]||12}));
+    ws['!cols']=headers.map((_,i)=>({wch:[12,28,14,30,18,12,14,14,16,14,12,8,8,10,8,10,8][i]||12}));
     XLSX.utils.book_append_sheet(wb,ws,'Stok Listesi');
     XLSX.writeFile(wb,'abiye_stok_sablonu.xlsx');
   } else {

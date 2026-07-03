@@ -121,11 +121,22 @@
     Stok listesine dön
   </a>
   <h1>Barkodlar</h1>
+  <a href="beden.html" class="back-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 9l10-7 10 7v11a2 2 0 01-2 2H4a2 2 0 01-2-2z"/><polyline points="7 22 7 12 17 12 17 22"/></svg>
+    Beden Tablosu
+  </a>
+  <a href="tedarikci.html" class="back-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+    Tedarikçiler
+  </a>
   <span id="selected-count" style="font-size:12px;color:var(--text-muted)"></span>
 </header>
 
 <div class="container">
   <div class="toolbar">
+    <input type="text" id="bc-search" placeholder="SKU, ürün adı veya renk ara..." style="height:34px;padding:0 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:13px;min-width:180px;flex:1" oninput="regenerate()">
+    <label>Tedarikçi:</label>
+    <select id="bc-tedarikci" onchange="regenerate()"><option value="">Tümü</option></select>
     <label>Barkod türü:</label>
     <select id="bc-format" onchange="regenerate()">
       <option value="CODE128">Code 128 (önerilen)</option>
@@ -150,14 +161,38 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getFirestore, collection, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
+let products = [];
 let rows = [];
 let selected = new Set();
 
 const DEMO = [
-  {id:'1',tip:'ana',ad:'Çiçekli Abiye',kod:'ABY-001',renk:'Ekru',beden:'36'},
-  {id:'2',tip:'varyant',ad:'Çiçekli Abiye',kod:'ABY-001-V1',renk:'Bordo',beden:'38'},
-  {id:'3',tip:'ana',ad:'Straplez Mini',kod:'ABY-002',renk:'Pudra',beden:'34'},
+  {id:'1',kod:'ABY-001',ad:'Çiçekli Abiye',tedarikci:'ALFABETA',variants:[{id:'v1',sku:'ABY-001-V1',renk:'Ekru',beden:'36'},{id:'v2',sku:'ABY-001-V2',renk:'Bordo',beden:'38'}]},
+  {id:'2',kod:'ABY-002',ad:'Straplez Mini',tedarikci:'MY DREAMS',variants:[{id:'v3',sku:'ABY-002-V1',renk:'Pudra',beden:'34'}]},
 ];
+
+// Her ürünün varyantlarını (SKU bazlı) ayrı barkod satırlarına aç
+function flattenRows(list){
+  const out = [];
+  list.forEach(p => {
+    const vars = p.variants || [];
+    if (!vars.length) {
+      out.push({ id:p.id, kod:p.kod||p.id, ad:p.ad||'', renk:'', beden:'', tedarikci:p.tedarikci||'', barkodDegeri: p.kod||p.id });
+      return;
+    }
+    vars.forEach(v => {
+      out.push({
+        id: p.id + '_' + v.id,
+        kod: v.sku || p.kod || p.id,
+        ad: p.ad || '',
+        renk: v.renk || '',
+        beden: v.beden || '',
+        tedarikci: p.tedarikci || '',
+        barkodDegeri: v.barkod || v.sku || p.kod || p.id,
+      });
+    });
+  });
+  return out;
+}
 
 function getConfig() {
   try { return JSON.parse(localStorage.getItem('firebase_cfg') || 'null'); } catch { return null; }
@@ -177,19 +212,40 @@ function init() {
       const app = initializeApp(cfg, 'barkod-' + Date.now());
       const db = getFirestore(app);
       onSnapshot(collection(db, 'stok'), snap => {
-        rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        rows.sort((a,b) => (a.sira||0)-(b.sira||0));
+        products = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        products.sort((a,b) => (a.sira||0)-(b.sira||0));
+        populateTedarikciFilter();
         render();
-      }, () => { rows = DEMO; render(); });
-    } catch(e) { rows = DEMO; render(); }
+      }, () => { products = DEMO; populateTedarikciFilter(); render(); });
+    } catch(e) { products = DEMO; populateTedarikciFilter(); render(); }
   } else {
-    rows = DEMO; render();
+    products = DEMO; populateTedarikciFilter(); render();
   }
 }
 
+function populateTedarikciFilter(){
+  const sel = document.getElementById('bc-tedarikci');
+  const current = sel.value;
+  const set = new Set(products.map(p => (p.tedarikci||'').trim()).filter(Boolean));
+  sel.innerHTML = '<option value="">Tümü</option>' + [...set].sort().map(t => `<option${t===current?' selected':''}>${esc(t)}</option>`).join('');
+}
+
 function render() {
+  const q = (document.getElementById('bc-search').value||'').toLowerCase();
+  const ted = document.getElementById('bc-tedarikci').value;
+  let flat = flattenRows(products);
+  if (ted) flat = flat.filter(r => (r.tedarikci||'')===ted);
+  if (q) flat = flat.filter(r =>
+    (r.kod||'').toLowerCase().includes(q) ||
+    (r.ad||'').toLowerCase().includes(q) ||
+    (r.renk||'').toLowerCase().includes(q) ||
+    (r.tedarikci||'').toLowerCase().includes(q)
+  );
+  rows = flat;
+
   if (!rows.length) {
-    document.getElementById('content').innerHTML = '<div class="empty"><p>Henüz ürün eklenmemiş.</p></div>';
+    document.getElementById('content').innerHTML = '<div class="empty"><p>Sonuç bulunamadı.</p></div>';
+    updateCount();
     return;
   }
 
@@ -204,8 +260,8 @@ function render() {
           <svg id="bc-${r.id}"></svg>
           <span class="bc-kod">${esc(r.kod||r.id)}</span>
           <span class="bc-ad">${esc(r.ad||'—')}</span>
-          <span class="bc-meta">${esc(r.renk||'')} · ${esc(r.beden||'')}</span>
-          <span class="badge badge-${r.tip==='ana'?'ana':'var'}">${r.tip==='ana'?'Ana':'Varyant'}</span>
+          <span class="bc-meta">${esc(r.renk||'')}${r.renk&&r.beden?' · ':''}${esc(r.beden||'')}</span>
+          ${r.tedarikci?`<span class="badge badge-var">${esc(r.tedarikci)}</span>`:''}
         </div>
       `).join('')}
     </div>`;
@@ -213,7 +269,7 @@ function render() {
   rows.forEach(r => {
     const el = document.getElementById('bc-' + r.id);
     if (!el) return;
-    const barkodDegeri = r.barkod || r.kod || r.id;
+    const barkodDegeri = r.barkodDegeri || r.kod || r.id;
     try {
       JsBarcode(el, barkodDegeri, {
         format: fmt,
@@ -269,7 +325,7 @@ function updateCount() {
   document.getElementById('selected-count').textContent = selected.size ? `${selected.size} barkod seçili` : '';
 }
 
-function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 
 init();
 </script>
