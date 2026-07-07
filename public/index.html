@@ -1254,13 +1254,14 @@ function renderKisList(category){
   const rows = kisaltmaDraft[category];
   wrap.innerHTML = rows.length ? rows.map((r,i)=>`
     <div class="kis-row">
-      <input placeholder="Ad (örn. Kenzel)" value="${esc(r.ad)}" oninput="kisaltmaDraft.${category}[${i}].ad=this.value">
-      <input class="kis-kis" placeholder="Kısaltma" value="${esc(r.kis)}" oninput="kisaltmaDraft.${category}[${i}].kis=this.value">
+      <input placeholder="Ad (örn. Kenzel)" value="${esc(r.ad)}" oninput="updKisDraft('${category}',${i},'ad',this.value)">
+      <input class="kis-kis" placeholder="Kısaltma" value="${esc(r.kis)}" oninput="updKisDraft('${category}',${i},'kis',this.value)">
       <button class="icon-btn del" onclick="removeKisRow('${category}',${i})" title="Sil">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
       </button>
     </div>`).join('') : `<p style="font-size:12px;color:var(--text-muted);margin-bottom:6px">Henüz kısaltma eklenmedi.</p>`;
 }
+window.updKisDraft = function(category, i, field, val){ if(kisaltmaDraft[category][i]) kisaltmaDraft[category][i][field]=val; };
 window.addKisRow = function(category){ kisaltmaDraft[category].push({ad:'',kis:''}); renderKisList(category); };
 window.removeKisRow = function(category, i){ kisaltmaDraft[category].splice(i,1); renderKisList(category); };
 
