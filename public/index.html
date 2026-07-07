@@ -566,9 +566,12 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
       </button>
     </div>
     <div class="modal-body" style="font-size:13px;line-height:1.7;color:var(--text-sec)">
-      <p>Bu dosya İKAS'ın kendi ürün Excel şablonunun sütun düzenini kullanır (Ürün Grup ID, Varyant ID, İsim, Satış/İndirimli/Alış Fiyatı, SKU, Barkod, Stok, Varyant Tip 1: Renk, Varyant Tip 2: Beden). Marka ve Tedarikçi her zaman "Grace Code" yazılır; Silindi mi? = FALSE, Satış Kanalı:gracecode/Trendyol = Hidden, Varyant Aktiflik = TRUE olarak sabit gönderilir.</p>
-      <p style="margin-top:8px"><b style="color:var(--text)">Dahil değil:</b> Kategoriler, Etiketler, Resim URL, Metadata, Slug gibi alanlar bilerek boş bırakıldı — bu dosyayı İKAS'a yüklediğinde bu alanların mevcut değerlerini etkilememesi için.</p>
-      <p style="margin-top:8px;padding:8px 10px;background:var(--warning-bg);color:var(--warning-text);border-radius:8px">Renk/Beden değerleri İKAS'ta kayıtlı listeyle birebir eşleşmezse indirmeden sonra uyarı verilir (yoksa İKAS'ta yeni bir varyant değeri oluşabilir). Daha önce İKAS'tan içe aktarılmamış (Ürün Grup ID boş) ürünler İKAS'a yeni ürün olarak eklenir. Yüklemeden önce boş/test bir İKAS mağazasında dene.</p>
+      <p>Bu dosya İKAS'ın tam ürün Excel şablonundaki <b style="color:var(--text)">tüm sütunları</b>, aynı isim ve sırayla içerir. Bizden gelen bilgilerle dolan sütunlar: İsim, Açıklama, Satış/İndirimli/Alış Fiyatı, Barkod, SKU, Stok, Varyant Tip/Değer (Renk, Beden). Marka ve Tedarikçi her zaman "Grace Code"; Silindi mi?=FALSE, Varyant Aktiflik=TRUE, satış kanalı sütunları=Hidden olarak sabit gönderilir. Kategoriler, Etiketler, Resim URL, Metadata, Slug, Desi ve benzeri veri tutmadığımız sütunlar başlık olarak yer alır ama boş bırakılır.</p>
+      <div class="form-group" style="margin-top:10px">
+        <label>Satış Kanalı Adı <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">("Satış Kanalı:____" sütun başlığı için)</span></label>
+        <input id="ikas-satis-kanali-adi" value="gracecode" placeholder="gracecode">
+      </div>
+      <p style="margin-top:8px;padding:8px 10px;background:var(--warning-bg);color:var(--warning-text);border-radius:8px">Renk/Beden değerleri İKAS'ta kayıtlı listeyle birebir eşleşmezse indirmeden sonra uyarı verilir. Kategoriler/Etiketler gibi boş bırakılan sütunlar İKAS'ın importunda "değiştirme" mi yoksa "temizle" mi anlamına geliyor bilmiyoruz — ilk denemeyi boş/test bir İKAS mağazasında yap.</p>
     </div>
     <div class="modal-footer">
       <button class="btn ghost" onclick="closeIkasExportModal()">İptal</button>
@@ -1655,7 +1658,9 @@ const IKAS_RENK_DEGERLERI = new Set(['AÇIK MAVİ','BAKIR','BEBE MAVİSİ','BEJ'
 const IKAS_MARKA_SABIT = 'Grace Code'; // Marka ve Tedarikçi İKAS'ta her zaman bu — iç tedarikçi takibimizle (Kenzel, Saygın...) karıştırılmamalı
 
 window.exportIkasNative = function(){
-  const headers=['Ürün Grup ID','Varyant ID','İsim','Açıklama','Satış Fiyatı','İndirimli Fiyatı','Alış Fiyatı','Barkod Listesi','SKU','Silindi mi?','Marka','Stok:Ana Depo','Tip','Varyant Tip 1','Varyant Değer 1','Varyant Tip 2','Varyant Değer 2','Tedarikçi','Satış Kanalı:gracecode','Satış Kanalı:Trendyol','Varyant Aktiflik'];
+  const kanalAdi = (document.getElementById('ikas-satis-kanali-adi').value||'gracecode').trim();
+  // Tam İKAS ürün şablonu — tüm sütunlar aynı isim ve sırayla (excel-sablon'daki gerçek dosyayla birebir).
+  const headers=['Ürün Grup ID','Varyant ID','İsim','Açıklama','Satış Fiyatı','İndirimli Fiyatı','Alış Fiyatı','Barkod Listesi','SKU','Silindi mi?','Marka','Kategoriler','Etiketler','Resim URL','Metadata Başlık','Metadata Açıklama','Slug','Stok:Ana Depo','Tip','Varyant Tip 1','Varyant Değer 1','Varyant Tip 2','Varyant Değer 2','Desi','HS Kod','Birim Ürün Miktarı','Ürün Birimi','Satılan Ürün Miktarı','Satılan Ürün Birimi','Google Ürün Kategorisi','Tedarikçi','Stoğu Tükenince Satmaya Devam Et',`Satış Kanalı:${kanalAdi}`,'Satış Kanalı:Trendyol','Sepet Başına Minimum Alma Adeti:gracecode','Sepet Başına Maksimum Alma Adeti:gracecode','Varyant Aktiflik'];
   const rows=[];
   const uyarilar=[];
   products.forEach(p=>{
@@ -1670,8 +1675,12 @@ window.exportIkasNative = function(){
         p.satis||0, (Number(p.indirimli||0)>0?p.indirimli:''), p.alis||0,
         v?(v.barkod||v.sku||''):'', v?(v.sku||p.kod||''):(p.kod||''),
         false, IKAS_MARKA_SABIT,
+        '', '', '', '', '', '', // Kategoriler, Etiketler, Resim URL, Metadata Başlık, Metadata Açıklama, Slug
         v?(v.miktar||0):0, 'PHYSICAL', 'Renk', renkDeger, 'Beden', bedenDeger,
-        IKAS_MARKA_SABIT, 'Hidden', 'Hidden', true,
+        '', '', '', '', '', '', '', // Desi, HS Kod, Birim Ürün Miktarı, Ürün Birimi, Satılan Ürün Miktarı, Satılan Ürün Birimi, Google Ürün Kategorisi
+        IKAS_MARKA_SABIT, '', // Tedarikçi, Stoğu Tükenince Satmaya Devam Et
+        'Hidden', 'Hidden', '', '', // Satış Kanalı x2, Sepet min/max
+        true,
       ]);
     });
   });
