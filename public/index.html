@@ -455,6 +455,12 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
         <button class="btn ghost" style="height:28px;font-size:11px" onclick="copyIkasHtml()">İKAS HTML Kopyala</button>
         <span id="ikas-copy-status" style="font-size:11px;color:var(--success-text)"></span>
       </div>
+      <div class="beden-tools" id="genel-tools">
+        <label>Tüm varyantlara miktar ata:</label>
+        <input type="number" id="genel-miktar-val" min="0" placeholder="0" style="width:80px;height:28px;padding:0 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px">
+        <button class="btn ghost" style="height:28px;font-size:11px" onclick="applyBulkMiktar()">Uygula</button>
+        <span style="font-size:11px;color:var(--text-muted)">— bu üründeki tüm varyantların miktarını aynı değere ayarlar</span>
+      </div>
       <div style="overflow-x:auto;padding-bottom:4px">
         <table class="var-table" id="var-table"></table>
       </div>
@@ -647,6 +653,10 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
       <div class="form-group">
         <label>SKU Deseni</label>
         <input id="hizli-sku-input" placeholder="GC-SN-TL-26005-MX-YSL,SR-38/42" style="font-family:monospace" oninput="renderHizliSkuPreview()">
+      </div>
+      <div class="form-group" style="max-width:200px;margin-top:8px">
+        <label>Varyant Başına Miktar <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(opsiyonel)</span></label>
+        <input id="hizli-sku-miktar" type="number" min="0" placeholder="0" oninput="renderHizliSkuPreview()">
       </div>
       <div id="hizli-sku-preview" style="margin-top:12px;font-size:12px;line-height:1.7"></div>
     </div>
@@ -1138,6 +1148,7 @@ function parseHizliSkuPattern(raw){
 
 window.showHizliSkuModal = function(){
   document.getElementById('hizli-sku-input').value='';
+  document.getElementById('hizli-sku-miktar').value='';
   document.getElementById('hizli-sku-preview').innerHTML='';
   document.getElementById('hizli-sku-modal').classList.remove('hidden');
   setTimeout(()=>document.getElementById('hizli-sku-input').focus(),100);
@@ -1151,6 +1162,7 @@ window.renderHizliSkuPreview = function(){
   const parsed = parseHizliSkuPattern(raw);
   if(parsed.error){ el.innerHTML = `<span style="color:var(--danger-text)">⚠ ${esc(parsed.error)}</span>`; return; }
   const base = [parsed.marka, parsed.tedKis, parsed.tipKis, parsed.tedKodu, parsed.uzunlukKis].join('-');
+  const miktar = parseInt(document.getElementById('hizli-sku-miktar').value)||0;
   const skus = [];
   parsed.renkler.forEach(r=> parsed.bedenListesi.forEach(b=> skus.push(`${base}-${r.kis}-${b}`)));
   el.innerHTML = `
@@ -1158,7 +1170,7 @@ window.renderHizliSkuPreview = function(){
       <div>Ana ürün SKU: <b style="font-family:monospace">${esc(base)}</b></div>
       <div>Tedarikçi: <b>${esc(parsed.tedAd)}</b> · Ürün Tipi: <b>${esc(parsed.tipAd)}</b> · Uzunluk: <b>${esc(parsed.uzunlukAd)}</b></div>
       <div>Renkler: ${parsed.renkler.map(r=>esc(r.ad)).join(', ')} · Bedenler: ${parsed.bedenListesi.map(esc).join(', ')}</div>
-      <div style="margin-top:6px;color:var(--success-text)">${skus.length} varyant oluşacak</div>
+      <div style="margin-top:6px;color:var(--success-text)">${skus.length} varyant oluşacak, her biri ${miktar} adet ile</div>
     </div>
     <div style="max-height:120px;overflow-y:auto;margin-top:8px;font-family:monospace;font-size:11px;color:var(--text-sec)">${skus.map(esc).join('<br>')}</div>`;
 };
@@ -1168,11 +1180,12 @@ window.createFromHizliSku = async function(){
   const parsed = parseHizliSkuPattern(raw);
   if(parsed.error){ alert(parsed.error); return; }
   const base = [parsed.marka, parsed.tedKis, parsed.tipKis, parsed.tedKodu, parsed.uzunlukKis].join('-');
+  const miktar = parseInt(document.getElementById('hizli-sku-miktar').value)||0;
   const variants = [];
   parsed.renkler.forEach(r=>{
     parsed.bedenListesi.forEach(b=>{
       const sku = `${base}-${r.kis}-${b}`;
-      variants.push({id:uid(), sku, renk:r.ad, beden:b, miktar:0, barkod:sku, gogus:0, bel:0, basen:0, boy:0});
+      variants.push({id:uid(), sku, renk:r.ad, beden:b, miktar, barkod:sku, gogus:0, bel:0, basen:0, boy:0});
     });
   });
   const id = uid();
@@ -1380,6 +1393,7 @@ window.openVariantModal = function(pid){
   document.getElementById('vtab-genel').className='active';
   document.getElementById('vtab-beden').className='';
   document.getElementById('beden-tools').style.display='none';
+  document.getElementById('genel-tools').style.display='flex';
   renderVarTable();
   document.getElementById('variant-modal').classList.remove('hidden');
 };
@@ -1390,6 +1404,7 @@ window.switchVarTab = function(tab){
   document.getElementById('vtab-genel').className=tab==='genel'?'active':'';
   document.getElementById('vtab-beden').className=tab==='beden'?'active':'';
   document.getElementById('beden-tools').style.display = tab==='beden' ? 'flex' : 'none';
+  document.getElementById('genel-tools').style.display = tab==='genel' ? 'flex' : 'none';
   if(tab==='beden') populateBedenRangeSelects();
   renderVarTable();
 };
@@ -1442,6 +1457,15 @@ window.generateBedenList = async function(){
   p.variants = [...(p.variants||[]), ...yeni];
   await saveProduct(p);
   document.getElementById('br-list').value='';
+};
+
+window.applyBulkMiktar = async function(){
+  const p = products.find(x=>x.id===currentVarProductId); if(!p) return;
+  const val = parseInt(document.getElementById('genel-miktar-val').value);
+  if(isNaN(val) || val<0){ alert('Geçerli bir miktar gir (örn. 5).'); return; }
+  if(!(p.variants||[]).length){ alert('Bu üründe henüz varyant yok.'); return; }
+  p.variants = p.variants.map(v=>({...v, miktar: val}));
+  await saveProduct(p);
 };
 
 window.copyIkasHtml = function(){
