@@ -1660,7 +1660,7 @@ const IKAS_MARKA_SABIT = 'Grace Code'; // Marka ve Tedarikçi İKAS'ta her zaman
 window.exportIkasNative = function(){
   const kanalAdi = (document.getElementById('ikas-satis-kanali-adi').value||'gracecode').trim();
   // Tam İKAS ürün şablonu — tüm sütunlar aynı isim ve sırayla (excel-sablon'daki gerçek dosyayla birebir).
-  const headers=['Ürün Grup ID','Varyant ID','İsim','Açıklama','Satış Fiyatı','İndirimli Fiyatı','Alış Fiyatı','Barkod Listesi','SKU','Silindi mi?','Marka','Kategoriler','Etiketler','Resim URL','Metadata Başlık','Metadata Açıklama','Slug','Stok:Ana Depo','Tip','Varyant Tip 1','Varyant Değer 1','Varyant Tip 2','Varyant Değer 2','Desi','HS Kod','Birim Ürün Miktarı','Ürün Birimi','Satılan Ürün Miktarı','Satılan Ürün Birimi','Google Ürün Kategorisi','Tedarikçi','Stoğu Tükenince Satmaya Devam Et',`Satış Kanalı:${kanalAdi}`,'Satış Kanalı:Trendyol','Sepet Başına Minimum Alma Adeti:gracecode','Sepet Başına Maksimum Alma Adeti:gracecode','Varyant Aktiflik'];
+  const headers=['Ürün Grup ID','Varyant ID','İsim','Açıklama','Satış Fiyatı','İndirimli Fiyatı','Alış Fiyatı','Barkod Listesi','SKU','Silindi mi?','Marka','Kategoriler','Etiketler','Resim URL','Metadata Başlık','Metadata Açıklama','Slug','Stok:Ana Depo','Tip','Varyant Tip 1','Varyant Değer 1','Varyant Tip 2','Varyant Değer 2','Desi','HS Kod','Birim Ürün Miktarı','Ürün Birimi','Satılan Ürün Miktarı','Satılan Ürün Birimi','Google Ürün Kategorisi','Tedarikçi','Stoğu Tükenince Satmaya Devam Et',`Satış Kanalı:${kanalAdi}`,'Satış Kanalı:Grace Code','Sepet Başına Minimum Alma Adeti:gracecode','Sepet Başına Maksimum Alma Adeti:gracecode','Varyant Aktiflik'];
   const rows=[];
   const uyarilar=[];
   products.forEach(p=>{
