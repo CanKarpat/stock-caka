@@ -157,13 +157,6 @@ td input.r{text-align:right}
 .tab-toggle button{border:none;border-radius:16px;padding:5px 14px;font-size:12px;font-weight:500;cursor:pointer;background:transparent;color:var(--text-muted);transition:all .15s}
 .tab-toggle button.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.1)}
 
-/* ── TAG INPUT (Elbise Modeli / Kumaş Tipi) ── */
-.tag-input-wrap{border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2);padding:6px 8px;display:flex;flex-wrap:wrap;gap:5px;align-items:center}
-.tag-input-wrap input{border:none;background:transparent;outline:none;flex:1;min-width:120px;font-size:13px;color:var(--text);font-family:inherit;padding:3px 0}
-.tag-chip{display:inline-flex;align-items:center;gap:4px;background:var(--accent-bg);color:var(--accent-text);font-size:11px;font-weight:600;padding:3px 6px 3px 9px;border-radius:12px;white-space:nowrap}
-.tag-chip button{background:none;border:none;color:inherit;cursor:pointer;font-size:13px;line-height:1;padding:0 2px;opacity:.7}
-.tag-chip button:hover{opacity:1}
-
 /* ── KISALTMA SATIRI ── */
 .kis-row{display:flex;gap:6px;align-items:center;margin-bottom:6px}
 .kis-row input{flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px;font-family:inherit}
@@ -275,9 +268,6 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
     <input type="number" id="bulk-indirim-val" placeholder="10" style="width:80px">
     <button class="btn ghost" onclick="bulkSetIndirim()">Uygula</button>
     <div class="sep2"></div>
-    <input type="text" id="bulk-tag" placeholder="Elbise Modeli etiketi ekle...">
-    <button class="btn ghost" onclick="bulkAddTag()">Etiket Ekle</button>
-    <div class="sep2"></div>
     <button class="btn ghost" onclick="bulkGenerateSku()" title="Marka-Tedarikçi-ÜrünTipi-TedarikçiKodu-Uzunluk-Renk-Beden">Kısaltmalardan SKU Oluştur</button>
     <div class="sep2"></div>
     <button class="btn danger-btn" onclick="bulkDelete()">Seçilenleri Sil</button>
@@ -338,22 +328,6 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
       </div>
       <datalist id="tip-suggestions"></datalist>
       <datalist id="uzunluk-suggestions"></datalist>
-      <div class="form-grid full" style="margin-top:8px">
-        <div class="form-group">
-          <label>Elbise Modeli / Kategori <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(İKAS: Çoklu Seçim eşleniği)</span></label>
-          <div class="tag-input-wrap" id="pm-elbise-wrap">
-            <input id="pm-elbise-input" placeholder="Uzun Abiye, Straplez Abiye... (Enter ile ekle)" list="elbise-suggestions">
-          </div>
-          <datalist id="elbise-suggestions"></datalist>
-        </div>
-        <div class="form-group">
-          <label>Kumaş Tipi <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(İKAS: Çoklu Seçim eşleniği)</span></label>
-          <div class="tag-input-wrap" id="pm-kumas-wrap">
-            <input id="pm-kumas-input" placeholder="Saten Abiye, Krep Abiye... (Enter ile ekle)" list="kumas-suggestions">
-          </div>
-          <datalist id="kumas-suggestions"></datalist>
-        </div>
-      </div>
       <div class="form-grid full" style="margin-top:8px">
         <div class="form-group">
           <label>Ürün Açıklaması</label>
@@ -507,7 +481,7 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
       </div>
       <div id="itab-ikas-content" style="display:none">
         <div style="background:var(--accent-bg);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--accent-text);line-height:1.6">
-          İKAS Admin → Ürünler → Dışa Aktar. "Varyantlı ürün özel alanları" dosyasını (SKU içerir) zorunlu yükle; "Ürün özel alanları" dosyası (Html:Beden Rehberi, Çoklu Seçim etiketleri) opsiyoneldir. Fiyat ve stok miktarı bu dosyalarda yok — içe aktardıktan sonra elle girmen gerekir.
+          İKAS Admin → Ürünler → Dışa Aktar. "Varyantlı ürün özel alanları" dosyasını (SKU içerir) zorunlu yükle; "Ürün özel alanları" dosyası (Html:Beden Rehberi) opsiyoneldir. Fiyat, stok miktarı ve kategori gibi detaylar bu dosyalarda yok — içe aktardıktan sonra elle girmen gerekir (kategori/özel alan detaylarını İKAS panelinden yönetmen önerilir).
         </div>
         <div class="form-group" style="margin-bottom:10px">
           <label>Varyantlı Ürün Özel Alanları (zorunlu, SKU içerir)</label>
@@ -715,8 +689,6 @@ function renkOptions(current){
 const COLS = [
   {id:'sku',     label:'SKU',           always:true},
   {id:'ad',      label:'Ürün Adı',      always:false, default:false},
-  {id:'kumas',   label:'Kumaş',         always:false, default:false},
-  {id:'elbiseModelleri', label:'Elbise Modeli', always:false, default:false},
   {id:'tedarikci',label:'Tedarikçi',    always:false, default:true},
   {id:'durum',   label:'Durum',         always:false, default:true},
   {id:'renk',    label:'Renk',          always:false, default:true},
@@ -730,7 +702,7 @@ const COLS = [
 ];
 
 // ── State ─────────────────────────────────────────────────────────
-let products = [];   // [{id, kod, ad, kumas, aciklama, tedarikci, durum, alis, satis, sira, variants:[{id,renk,beden,miktar,gogus,bel,basen,boy}]}]
+let products = [];   // [{id, kod, ad, aciklama, tedarikci, durum, alis, satis, sira, variants:[{id,renk,beden,miktar,gogus,bel,basen,boy}]}]
 let expanded = new Set();
 let search = '';
 let visibleCols = {};
@@ -738,8 +710,6 @@ let activeVarTab = 'genel';
 let currentVarProductId = null;
 let importedRows = [];
 let importTab = 'kendi';
-let pmElbiseModelleri = [];
-let pmKumasTipleri = [];
 let selectedIds = new Set();
 
 // Sütun görünürlüğünü başlat
@@ -877,9 +847,7 @@ function render(){
     (p.kod||'').toLowerCase().includes(q)||
     (p.ad||'').toLowerCase().includes(q)||
     (p.tedarikci||'').toLowerCase().includes(q)||
-    (p.variants||[]).some(v=>(v.renk||'').toLowerCase().includes(q))||
-    (p.elbiseModelleri||[]).some(t=>t.toLowerCase().includes(q))||
-    (p.kumasTipleri||[]).some(t=>t.toLowerCase().includes(q))
+    (p.variants||[]).some(v=>(v.renk||'').toLowerCase().includes(q))
   ) : products;
 
   // Thead
@@ -891,7 +859,6 @@ function render(){
     <th style="width:70px"></th>
   </tr>`;
 
-  updateTagSuggestions();
   renderBulkBar();
 
   if(!filtered.length){
@@ -909,8 +876,6 @@ function render(){
     const cells = vis.map(c=>{
       if(c.id==='sku') return `<td><span style="font-family:monospace;font-size:12px;font-weight:600">${esc(p.kod)}</span></td>`;
       if(c.id==='ad') return `<td>${esc(p.ad)}</td>`;
-      if(c.id==='kumas') return `<td style="color:var(--text-sec)">${esc(p.kumas)}</td>`;
-      if(c.id==='elbiseModelleri') return `<td style="font-size:11px;color:var(--text-sec)">${(p.elbiseModelleri||[]).map(t=>esc(t)).join(', ')}</td>`;
       if(c.id==='tedarikci') return `<td style="font-size:12px">${esc(p.tedarikci)}</td>`;
       if(c.id==='durum') return `<td><select class="inline-sel durum-sel" data-field="durum" data-pid="${p.id}" onchange="updProd('${p.id}','durum',this.value)" onclick="event.stopPropagation()">
         <option class="badge-yayinda" ${(p.durum||'Yayında')==='Yayında'?'selected':''}>Yayında</option>
@@ -958,8 +923,6 @@ function render(){
         const vcells = vis.map(c=>{
           if(c.id==='sku') return `<td style="padding-left:28px"><span style="font-family:monospace;font-size:11px;color:var(--text-sec)">${esc(v.sku||'—')}</span></td>`;
           if(c.id==='ad') return `<td style="color:var(--text-muted);font-size:12px">${esc(v.aciklama||'')}</td>`;
-          if(c.id==='kumas') return `<td></td>`;
-          if(c.id==='elbiseModelleri') return `<td></td>`;
           if(c.id==='tedarikci') return `<td></td>`;
           if(c.id==='durum') return `<td></td>`;
           if(c.id==='renk') return `<td><span class="color-dot" style="background:${CMAP[v.renk]||'#aaa'}"></span>${esc(v.renk)}</td>`;
@@ -998,9 +961,7 @@ window.toggleSelectAll = function(checked){
   const list = q ? products.filter(p=>
     (p.kod||'').toLowerCase().includes(q)||(p.ad||'').toLowerCase().includes(q)||
     (p.tedarikci||'').toLowerCase().includes(q)||
-    (p.variants||[]).some(v=>(v.renk||'').toLowerCase().includes(q))||
-    (p.elbiseModelleri||[]).some(t=>t.toLowerCase().includes(q))||
-    (p.kumasTipleri||[]).some(t=>t.toLowerCase().includes(q))
+    (p.variants||[]).some(v=>(v.renk||'').toLowerCase().includes(q))
   ) : products;
   list.forEach(p=> checked ? selectedIds.add(p.id) : selectedIds.delete(p.id));
   render();
@@ -1047,17 +1008,6 @@ window.bulkSetIndirim = async function(){
     return saveProduct(p);
   }));
   document.getElementById('bulk-indirim-val').value='';
-};
-window.bulkAddTag = async function(){
-  if(!selectedIds.size) return;
-  const tag = document.getElementById('bulk-tag').value.trim();
-  if(!tag) return;
-  await Promise.all([...selectedIds].map(id=>{
-    const p = products.find(x=>x.id===id); if(!p) return;
-    p.elbiseModelleri = [...new Set([...(p.elbiseModelleri||[]), tag])];
-    return saveProduct(p);
-  }));
-  document.getElementById('bulk-tag').value='';
 };
 window.bulkGenerateSku = async function(){
   if(!selectedIds.size) return;
@@ -1190,7 +1140,7 @@ window.createFromHizliSku = async function(){
   });
   const id = uid();
   const p = {
-    id, kod: base, ad:'', kumas:'', elbiseModelleri:[], kumasTipleri:[],
+    id, kod: base, ad:'',
     aciklama:'', tedarikci:parsed.tedAd, urunTipi:parsed.tipAd, uzunluk:parsed.uzunlukAd,
     tedarikciKodu:parsed.tedKodu, durum:'Beklemede', alis:0, satis:0, indirimli:0,
     variants, sira:Date.now(), ikasGrupId:'',
@@ -1203,45 +1153,6 @@ window.createFromHizliSku = async function(){
   openProductModal(id, p);
 };
 
-// ── Etiket girişi (Elbise Modeli / Kumaş Tipi) ─────────────────────
-function renderTagChips(arr, wrapId, inputId){
-  const wrap = document.getElementById(wrapId);
-  const input = document.getElementById(inputId);
-  wrap.querySelectorAll('.tag-chip').forEach(el=>el.remove());
-  arr.forEach((t,i)=>{
-    const chip = document.createElement('span');
-    chip.className = 'tag-chip';
-    chip.innerHTML = `${esc(t)}<button type="button" onclick="removeTag('${wrapId}',${i})">×</button>`;
-    wrap.insertBefore(chip, input);
-  });
-}
-window.removeTag = function(wrapId, idx){
-  const arr = wrapId==='pm-elbise-wrap' ? pmElbiseModelleri : pmKumasTipleri;
-  arr.splice(idx,1);
-  renderTagChips(arr, wrapId, wrapId==='pm-elbise-wrap'?'pm-elbise-input':'pm-kumas-input');
-};
-function addTagFromInput(inputEl, arr, wrapId){
-  const val = inputEl.value.trim().replace(/,$/,'');
-  if(!val) return;
-  if(!arr.includes(val)) arr.push(val);
-  inputEl.value='';
-  renderTagChips(arr, wrapId, inputEl.id);
-}
-document.getElementById('pm-elbise-input').addEventListener('keydown', e=>{
-  if(e.key==='Enter'||e.key===','){ e.preventDefault(); addTagFromInput(e.target, pmElbiseModelleri, 'pm-elbise-wrap'); }
-});
-document.getElementById('pm-kumas-input').addEventListener('keydown', e=>{
-  if(e.key==='Enter'||e.key===','){ e.preventDefault(); addTagFromInput(e.target, pmKumasTipleri, 'pm-kumas-wrap'); }
-});
-function updateTagSuggestions(){
-  const elbiseSet = new Set(), kumasSet = new Set();
-  products.forEach(p=>{
-    (p.elbiseModelleri||[]).forEach(t=>elbiseSet.add(t));
-    (p.kumasTipleri||[]).forEach(t=>kumasSet.add(t));
-  });
-  document.getElementById('elbise-suggestions').innerHTML = [...elbiseSet].map(t=>`<option value="${esc(t)}">`).join('');
-  document.getElementById('kumas-suggestions').innerHTML = [...kumasSet].map(t=>`<option value="${esc(t)}">`).join('');
-}
 
 // ── Kısaltmalar modalı ────────────────────────────────────────────
 let kisaltmaDraft = {marka:'GC', tedarikci:[], tip:[], uzunluk:[], renk:[]};
@@ -1307,10 +1218,6 @@ window.openProductModal = function(id=null, presetP=null){
   document.getElementById('pm-kod').value = p?p.kod:'';
   document.getElementById('pm-ad').value = p?p.ad:'';
   document.getElementById('pm-aciklama').value = p?p.aciklama:'';
-  pmElbiseModelleri = p ? [...(p.elbiseModelleri||[])] : [];
-  pmKumasTipleri = p ? (p.kumasTipleri && p.kumasTipleri.length ? [...p.kumasTipleri] : (p.kumas ? p.kumas.split(',').map(s=>s.trim()).filter(Boolean) : [])) : [];
-  renderTagChips(pmElbiseModelleri, 'pm-elbise-wrap', 'pm-elbise-input');
-  renderTagChips(pmKumasTipleri, 'pm-kumas-wrap', 'pm-kumas-input');
   document.getElementById('pm-tedarikci').value = p?p.tedarikci:'';
   document.getElementById('pm-urun-tipi').value = p?(p.urunTipi||''):'';
   document.getElementById('pm-uzunluk').value = p?(p.uzunluk||''):'';
@@ -1357,9 +1264,6 @@ window.saveProduct = async function(){
     id,
     kod: document.getElementById('pm-kod').value,
     ad: document.getElementById('pm-ad').value,
-    kumas: pmKumasTipleri.join(', '),
-    elbiseModelleri: [...pmElbiseModelleri],
-    kumasTipleri: [...pmKumasTipleri],
     aciklama: document.getElementById('pm-aciklama').value,
     tedarikci: document.getElementById('pm-tedarikci').value,
     urunTipi: document.getElementById('pm-urun-tipi').value,
@@ -1612,8 +1516,6 @@ window.updProd = async function(id, field, val){
 const EXPORT_COLS = [
   {id:'kod',        label:'SKU Ana',        get:(p,v)=>p.kod||''},
   {id:'ad',         label:'Ürün Adı',       get:(p,v)=>p.ad||''},
-  {id:'kumas',      label:'Kumaş',          get:(p,v)=>p.kumas||''},
-  {id:'elbise',     label:'Elbise Modeli',  get:(p,v)=>(p.elbiseModelleri||[]).join(';')},
   {id:'aciklama',   label:'Açıklama',       get:(p,v)=>p.aciklama||''},
   {id:'tedarikci',  label:'Tedarikçi',      get:(p,v)=>p.tedarikci||''},
   {id:'durum',      label:'Durum',          get:(p,v)=>p.durum||'Yayında'},
@@ -1631,7 +1533,7 @@ const EXPORT_COLS = [
   {id:'basen',      label:'Basen (cm)',     get:(p,v)=>v?(v.basen||0):0},
   {id:'boy',        label:'Boy (cm)',       get:(p,v)=>v?(v.boy||0):0},
 ];
-const DEFAULT_EXPORT_OFF = new Set(['gogus','bel','basen','boy','elbise']); // varsayılan kapalı, gerekirse açılır
+const DEFAULT_EXPORT_OFF = new Set(['gogus','bel','basen','boy']); // varsayılan kapalı, gerekirse açılır
 let exportColSelection = {};
 function loadExportColSelection(){
   let saved = {};
@@ -1823,17 +1725,13 @@ window.processIkasFiles = function(){
             iTip1=gi('varyant tip 1'), iDeger1=gi('varyant deger 1'),
             iTip2=gi('varyant tip 2'), iDeger2=gi('varyant deger 2'),
             iSku=gi('sku'), iBarkod=gi('barkod listesi'),
-            iHtml=vh.findIndex(h=>h.startsWith('html')),
-            iElbise=vh.findIndex(h=>h.includes('elbise modeli')),
-            iKumas=vh.findIndex(h=>h.includes('kumas tipi'));
+            iHtml=vh.findIndex(h=>h.startsWith('html'));
 
       const parsedRows = vRows.slice(1).map(r=>({
         grupId:(r[iGrup]||'').trim(), varyantId:(r[iVaryantId]||'').trim(), isim:(r[iIsim]||'').trim(),
         tip1:r[iTip1]||'', deger1:r[iDeger1]||'', tip2:r[iTip2]||'', deger2:r[iDeger2]||'',
         sku:(r[iSku]||'').trim(), barkod:(r[iBarkod]||'').trim(),
         html: iHtml>=0 ? (r[iHtml]||'') : '',
-        elbise: iElbise>=0 ? (r[iElbise]||'') : '',
-        kumas: iKumas>=0 ? (r[iKumas]||'') : '',
       })).filter(r=>r.grupId);
 
       const urunMap = {};
@@ -1843,12 +1741,10 @@ window.processIkasFiles = function(){
           const uh = uRows[0].map(normalizeHeader);
           const ug = n=>uh.findIndex(h=>h===n);
           const uiGrup=ug('urun grup id'), uiIsim=ug('isim'),
-                uiHtml=uh.findIndex(h=>h.startsWith('html')),
-                uiElbise=uh.findIndex(h=>h.includes('elbise modeli')),
-                uiKumas=uh.findIndex(h=>h.includes('kumas tipi'));
+                uiHtml=uh.findIndex(h=>h.startsWith('html'));
           uRows.slice(1).forEach(r=>{
             const id=(r[uiGrup]||'').trim(); if(!id) return;
-            urunMap[id] = { isim:(r[uiIsim]||'').trim(), html: uiHtml>=0?(r[uiHtml]||''):'', elbise: uiElbise>=0?(r[uiElbise]||''):'', kumas: uiKumas>=0?(r[uiKumas]||''):'' };
+            urunMap[id] = { isim:(r[uiIsim]||'').trim(), html: uiHtml>=0?(r[uiHtml]||''):'' };
           });
         }
       }
@@ -1864,10 +1760,6 @@ window.processIkasFiles = function(){
         const ug = urunMap[grupId] || {};
         const isim = ug.isim || rows[0].isim || '';
         const htmlSrc = ug.html || (rows.find(r=>r.html)||{}).html || '';
-        const elbiseStr = ug.elbise || (rows.find(r=>r.elbise)||{}).elbise || '';
-        const kumasStr = ug.kumas || (rows.find(r=>r.kumas)||{}).kumas || '';
-        const elbiseModelleri = elbiseStr ? elbiseStr.split(';').map(s=>s.trim()).filter(Boolean) : [];
-        const kumasTipleri = kumasStr ? kumasStr.split(';').map(s=>s.trim()).filter(Boolean) : [];
         const bedenOlcuMap = parseIkasHtmlBedenRehberi(htmlSrc);
 
         const firstSku = (rows.find(r=>r.sku)||{}).sku || '';
@@ -1887,8 +1779,7 @@ window.processIkasFiles = function(){
         });
 
         return {
-          id: uid(), kod: anaKod, ad: isim, kumas: kumasTipleri.join(', '),
-          elbiseModelleri, kumasTipleri, ikasGrupId: grupId,
+          id: uid(), kod: anaKod, ad: isim, ikasGrupId: grupId,
           aciklama:'', tedarikci:'', durum:'Beklemede', alis:0, satis:0,
           variants, sira: Date.now()+Math.random(),
         };
@@ -1911,7 +1802,6 @@ function parseRows(data){
     const iHandle=g('handle'),iTitle=g('title'),iVendor=g('vendor');
     const iSku=g('variant sku'),iPrice=g('variant price'),iQty=g('variant inventory qty');
     const iOpt1=gp('option1 value'),iOpt2=gp('option2 value'),iStatus=g('status');
-    const iKumas=header.findIndex(h=>h.toLowerCase().includes('kumaş')||h.toLowerCase().includes('fabric'));
     const iBody=g('body (html)'),iCost=g('cost per item');
     const grouped={},order=[];
     data.slice(1).forEach((row,i)=>{
@@ -1927,7 +1817,7 @@ function parseRows(data){
         if(iBody>=0&&row[iBody]) aciklama=row[iBody].replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
         // SKU'dan renk/beden suffix'ini temizle, yoksa handle'ı kısalt
         let anaKod=sku?sku.replace(/-(36|38|40|42|44|46|48|32|34|XS|S|M|L|XL|XXL)$/i,'').replace(/-(kahverengi|siyah|kirmizi|mavi|yesil|mor|beyaz|krem|pembe|ekru|bordo|altin|gumus|bej|lacivert|pudra)$/i,''):'GC-'+handle.slice(0,15).toUpperCase().replace(/-/g,'').slice(0,12);
-        grouped[handle]={id:uid(),kod:anaKod,ad:title,kumas:iKumas>=0?row[iKumas]||'':'',
+        grouped[handle]={id:uid(),kod:anaKod,ad:title,
           aciklama,tedarikci:iVendor>=0?row[iVendor]||'':'',durum,
           alis:iCost>=0?parseFloat(row[iCost])||0:0,satis:0,variants:[],sira:Date.now()+i};
         order.push(handle);
@@ -1947,7 +1837,7 @@ function parseRows(data){
     importedRows=order.map(h=>grouped[h]);
   } else {
     const g=n=>header.findIndex(h=>h.includes(n));
-    const iKod=g('sku'),iAd=g('ürün'),iKumas=g('kumaş'),iAcik=g('açıklama'),
+    const iKod=g('sku'),iAd=g('ürün'),iAcik=g('açıklama'),
           iTed=g('tedarik'),iDur=g('durum'),iAlis=g('alış'),iSatis=g('satış'),iIndirim=g('indirim'),
           iVSku=g('varyant sku')||g('sku varyant'),
           iRenk=g('renk'),iBeden=g('beden'),iMiktar=g('miktar'),
@@ -1958,7 +1848,6 @@ function parseRows(data){
       const kod=(row[iKod]||'').trim(); if(!kod)return;
       if(!grouped[kod]){
         grouped[kod]={id:uid(),kod,ad:iAd>=0?row[iAd]||'':'',
-          kumas:iKumas>=0?row[iKumas]||'':'',
           aciklama:iAcik>=0?row[iAcik]||'':'',
           tedarikci:iTed>=0?row[iTed]||'':'',
           durum:iDur>=0?row[iDur]||'Yayında':'Yayında',
@@ -2018,16 +1907,16 @@ window.doImport = async function(mode){
 };
 
 window.downloadTemplate = function(fmt){
-  const headers=['SKU Ana','Ürün Adı','Kumaş Tipi','Ürün Açıklaması','Tedarikçi Marka','Durum','Alış Fiyatı (₺)','Satış Fiyatı (₺)','İndirimli Fiyat (₺)','SKU Varyant','Renk','Beden','Miktar','Göğüs (cm)','Bel (cm)','Basen (cm)','Boy (cm)'];
+  const headers=['SKU Ana','Ürün Adı','Ürün Açıklaması','Tedarikçi Marka','Durum','Alış Fiyatı (₺)','Satış Fiyatı (₺)','İndirimli Fiyat (₺)','SKU Varyant','Renk','Beden','Miktar','Göğüs (cm)','Bel (cm)','Basen (cm)','Boy (cm)'];
   const sample=[
-    ['ABY-001','Çiçekli Balık Abiye','Saten','Balık kalıp, taş işlemeli','ALFABETA','Yayında',850,2400,2160,'ABY-001-V1','Siyah',36,10,88,68,94,155],
-    ['ABY-001','Çiçekli Balık Abiye','Saten','Balık kalıp, taş işlemeli','ALFABETA','Yayında',850,2400,2160,'ABY-001-V2','Bordo',38,5,90,70,96,155],
-    ['ABY-002','Straplez Midi','Krep','','MY DREAMS','Beklemede',650,1800,0,'ABY-002-V1','Pudra',36,0,82,62,88,90],
+    ['ABY-001','Çiçekli Balık Abiye','Balık kalıp, taş işlemeli','ALFABETA','Yayında',850,2400,2160,'ABY-001-V1','Siyah',36,10,88,68,94,155],
+    ['ABY-001','Çiçekli Balık Abiye','Balık kalıp, taş işlemeli','ALFABETA','Yayında',850,2400,2160,'ABY-001-V2','Bordo',38,5,90,70,96,155],
+    ['ABY-002','Straplez Midi','','MY DREAMS','Beklemede',650,1800,0,'ABY-002-V1','Pudra',36,0,82,62,88,90],
   ];
   if(fmt==='xlsx'){
     const wb=XLSX.utils.book_new();
     const ws=XLSX.utils.aoa_to_sheet([headers,...sample]);
-    ws['!cols']=headers.map((_,i)=>({wch:[12,28,14,30,18,12,14,14,16,14,12,8,8,10,8,10,8][i]||12}));
+    ws['!cols']=headers.map((_,i)=>({wch:[12,28,30,18,12,14,14,16,14,12,8,8,10,8,10,8][i]||12}));
     XLSX.utils.book_append_sheet(wb,ws,'Stok Listesi');
     XLSX.writeFile(wb,'abiye_stok_sablonu.xlsx');
   } else {

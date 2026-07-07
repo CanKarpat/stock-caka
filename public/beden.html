@@ -33,7 +33,6 @@ header h1{font-size:15px;font-weight:600;flex:1}
 .product-header{padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:var(--surface2)}
 .product-header .sku{font-family:monospace;font-size:12px;font-weight:700;color:var(--accent-text);background:var(--accent-bg);padding:2px 8px;border-radius:6px}
 .product-header .ad{font-size:14px;font-weight:500;flex:1}
-.product-header .kumas{font-size:11px;color:var(--text-muted);background:var(--surface);border:1px solid var(--border);padding:2px 7px;border-radius:5px}
 .beden-table{width:100%;border-collapse:collapse}
 .beden-table th{padding:8px 14px;font-size:11px;font-weight:700;color:var(--text-sec);text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid var(--border);background:var(--surface);text-align:left}
 .beden-table th.r{text-align:right}
@@ -256,7 +255,6 @@ function render(){
       <div class="product-header">
         <span class="sku">${esc(p.kod)}</span>
         <span class="ad">${esc(p.ad||'—')}</span>
-        ${p.kumas?`<span class="kumas">${esc(p.kumas)}</span>`:''}
         <button class="btn" style="height:26px;font-size:10px" onclick="copyIkasHtml('${p.id}')">İKAS HTML Kopyala</button>
       </div>
       <div style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-bottom:1px solid var(--border);font-size:12px;flex-wrap:wrap">
