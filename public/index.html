@@ -576,7 +576,17 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
         <label>Satış Kanalı Adı <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">("Satış Kanalı:____" sütun başlığı için)</span></label>
         <input id="ikas-satis-kanali-adi" value="gracecode" placeholder="gracecode">
       </div>
-      <p style="margin-top:8px;padding:8px 10px;background:var(--warning-bg);color:var(--warning-text);border-radius:8px">Renk/Beden değerleri İKAS'ta kayıtlı listeyle birebir eşleşmezse indirmeden sonra uyarı verilir. Kategoriler/Etiketler gibi boş bırakılan sütunlar İKAS'ın importunda "değiştirme" mi yoksa "temizle" mi anlamına geliyor bilmiyoruz — ilk denemeyi boş/test bir İKAS mağazasında yap.</p>
+      <div class="form-group" style="margin-top:8px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="ikas-ikinci-kanal-dahil" checked onchange="document.getElementById('ikas-ikinci-kanal-wrap').style.display=this.checked?'flex':'none'" style="width:14px;height:14px;cursor:pointer;accent-color:var(--accent)">
+          İkinci bir satış kanalı da dahil et
+        </label>
+      </div>
+      <div class="form-group" id="ikas-ikinci-kanal-wrap" style="margin-top:6px">
+        <label>İkinci Satış Kanalı Adı</label>
+        <input id="ikas-ikinci-kanal-adi" value="Grace Code" placeholder="Grace Code">
+      </div>
+      <p style="margin-top:8px;padding:8px 10px;background:var(--warning-bg);color:var(--warning-text);border-radius:8px">Renk/Beden değerleri İKAS'ta kayıtlı listeyle birebir eşleşmezse, Ürün Adı boşsa veya aynı üründe tekrarlayan Renk+Beden kombinasyonu varsa indirmeden sonra uyarı verilir (İKAS'ın kendi kurallarına göre: İsim/Satış Fiyatı/Tip/Satış Kanalı zorunlu, tekrarlayan varyant kombinasyonu yasak). Kategoriler/Etiketler gibi boş bırakılan sütunlar İKAS'ın importunda "değiştirme" mi yoksa "temizle" mi anlamına geliyor bilmiyoruz — ilk denemeyi boş/test bir İKAS mağazasında yap. Daha önce İKAS'a hiç yüklenmemiş ürünlerde Ürün Grup ID boş bırakılmaz, kendi ürün ID'miz geçici grup anahtarı olarak yazılır — böylece varyantlar İKAS'ta ayrı ayrı ürün değil, tek ürünün varyantları olarak açılır.</p>
     </div>
     <div class="modal-footer">
       <button class="btn ghost" onclick="closeIkasExportModal()">İptal</button>
@@ -1664,19 +1674,41 @@ const IKAS_MARKA_SABIT = 'Grace Code'; // Marka ve Tedarikçi İKAS'ta her zaman
 
 window.exportIkasNative = function(){
   const kanalAdi = (document.getElementById('ikas-satis-kanali-adi').value||'gracecode').trim();
+  const ikinciKanalDahil = document.getElementById('ikas-ikinci-kanal-dahil').checked;
+  const ikinciKanalAdi = (document.getElementById('ikas-ikinci-kanal-adi').value||'').trim();
+  if(ikinciKanalDahil && !ikinciKanalAdi){ alert('İkinci satış kanalının adını gir, ya da "İkinci bir satış kanalı da dahil et" kutusunu kaldır.'); return; }
+
   // Tam İKAS ürün şablonu — tüm sütunlar aynı isim ve sırayla (excel-sablon'daki gerçek dosyayla birebir).
-  const headers=['Ürün Grup ID','Varyant ID','İsim','Açıklama','Satış Fiyatı','İndirimli Fiyatı','Alış Fiyatı','Barkod Listesi','SKU','Silindi mi?','Marka','Kategoriler','Etiketler','Resim URL','Metadata Başlık','Metadata Açıklama','Slug','Stok:Ana Depo','Tip','Varyant Tip 1','Varyant Değer 1','Varyant Tip 2','Varyant Değer 2','Desi','HS Kod','Birim Ürün Miktarı','Ürün Birimi','Satılan Ürün Miktarı','Satılan Ürün Birimi','Google Ürün Kategorisi','Tedarikçi','Stoğu Tükenince Satmaya Devam Et',`Satış Kanalı:${kanalAdi}`,'Satış Kanalı:Grace Code','Sepet Başına Minimum Alma Adeti:gracecode','Sepet Başına Maksimum Alma Adeti:gracecode','Varyant Aktiflik'];
+  // İkinci Satış Kanalı sütunu sadece dahil edilmek istendiğinde eklenir — istenmiyorsa sütun hiç oluşmaz.
+  const headers=['Ürün Grup ID','Varyant ID','İsim','Açıklama','Satış Fiyatı','İndirimli Fiyatı','Alış Fiyatı','Barkod Listesi','SKU','Silindi mi?','Marka','Kategoriler','Etiketler','Resim URL','Metadata Başlık','Metadata Açıklama','Slug','Stok:Ana Depo','Tip','Varyant Tip 1','Varyant Değer 1','Varyant Tip 2','Varyant Değer 2','Desi','HS Kod','Birim Ürün Miktarı','Ürün Birimi','Satılan Ürün Miktarı','Satılan Ürün Birimi','Google Ürün Kategorisi','Tedarikçi','Stoğu Tükenince Satmaya Devam Et',`Satış Kanalı:${kanalAdi}`];
+  if(ikinciKanalDahil) headers.push(`Satış Kanalı:${ikinciKanalAdi}`);
+  headers.push(`Sepet Başına Minimum Alma Adeti:${kanalAdi}`,`Sepet Başına Maksimum Alma Adeti:${kanalAdi}`,'Varyant Aktiflik');
+
   const rows=[];
   const uyarilar=[];
   products.forEach(p=>{
     const vars=(p.variants||[]).length?p.variants:[null];
+    // İKAS'ta yeni ürün için İsim zorunlu — boşsa satır/ürün reddedilebilir.
+    if(!String(p.ad||'').trim()) uyarilar.push(`${p.kod||'?'}: Ürün Adı (İsim) boş — İKAS bu alanı zorunlu tutuyor`);
+    // Aynı üründe tekrarlayan Renk+Beden kombinasyonu İKAS'ta yasak.
+    const gorulenKombinasyonlar = new Set();
     vars.forEach(v=>{
-      const renkDeger = v ? (v.renk||'').trim().toUpperCase() : '';
+      // toUpperCase() değil toLocaleUpperCase('tr-TR') — düz toUpperCase Türkçe "i"yi "I" yapar (nokta olmadan),
+      // İKAS'taki kayıtlı değerlerse "İ" (noktalı) kullanıyor (örn. "SİYAH") — eşleşme yanlışsız kaçardı.
+      const renkDeger = v ? (v.renk||'').trim().toLocaleUpperCase('tr-TR') : '';
       const bedenDeger = v ? (v.beden||'').trim() : '';
       if(v && renkDeger && !IKAS_RENK_DEGERLERI.has(renkDeger)) uyarilar.push(`${p.kod||p.ad||'?'}: "${v.renk}" renk değeri İKAS'ta kayıtlı değil`);
       if(v && bedenDeger && !IKAS_BEDEN_DEGERLERI.has(bedenDeger)) uyarilar.push(`${p.kod||p.ad||'?'}: "${v.beden}" beden değeri İKAS'ta kayıtlı değil`);
-      rows.push([
-        p.ikasGrupId||'', v?(v.ikasVaryantId||''):'', p.ad||'', p.aciklama||'',
+      if(v){
+        const kombinasyon = renkDeger+'|'+bedenDeger;
+        if(gorulenKombinasyonlar.has(kombinasyon)) uyarilar.push(`${p.kod||p.ad||'?'}: "${v.renk} / ${v.beden}" kombinasyonu birden fazla varyantta tekrarlanıyor (İKAS'ta yasak)`);
+        gorulenKombinasyonlar.add(kombinasyon);
+      }
+      // Ürün Grup ID boşsa İKAS her satırı ayrı bir ürün sanıyor (varyantları gruplayamıyor).
+      // Bu yüzden henüz İKAS'a hiç yüklenmemiş ürünlerde kendi ID'mizi geçici grup anahtarı olarak kullanıyoruz —
+      // aynı üründeki tüm varyant satırları bu ID'yi paylaşır, İKAS içe aktarınca tek ürün olarak grupluyor.
+      const row=[
+        p.ikasGrupId||p.id, v?(v.ikasVaryantId||''):'', p.ad||'', p.aciklama||'',
         p.satis||0, (Number(p.indirimli||0)>0?p.indirimli:''), p.alis||0,
         v?(v.barkod||v.sku||''):'', v?(v.sku||p.kod||''):(p.kod||''),
         false, IKAS_MARKA_SABIT,
@@ -1684,9 +1716,11 @@ window.exportIkasNative = function(){
         v?(v.miktar||0):0, 'PHYSICAL', 'Renk', renkDeger, 'Beden', bedenDeger,
         '', '', '', '', '', '', '', // Desi, HS Kod, Birim Ürün Miktarı, Ürün Birimi, Satılan Ürün Miktarı, Satılan Ürün Birimi, Google Ürün Kategorisi
         IKAS_MARKA_SABIT, '', // Tedarikçi, Stoğu Tükenince Satmaya Devam Et
-        'Hidden', 'Hidden', '', '', // Satış Kanalı x2, Sepet min/max
-        true,
-      ]);
+        'PASSIVE', // Satış Kanalı 1
+      ];
+      if(ikinciKanalDahil) row.push('PASSIVE'); // Satış Kanalı 2
+      row.push('', '', true); // Sepet min, Sepet max, Varyant Aktiflik
+      rows.push(row);
     });
   });
   const wb=XLSX.utils.book_new();
