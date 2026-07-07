@@ -240,29 +240,25 @@ window.copyIkasHtml = function(pid){
   navigator.clipboard.writeText(html).then(()=>alert('İKAS beden rehberi HTML\'i panoya kopyalandı.')).catch(()=>alert('Kopyalanamadı, tarayıcı izni gerekebilir.'));
 };
 
-// ── Toplu Excel'e Aktar (İKAS "Varyantlı Ürün Özel Alanları" formatı) ──
-// Kategori/özel alan sütunları (Çoklu Seçim) bilerek dahil edilmedi:
-// bu uygulama artık o veriyi tutmuyor, boş göndermek İKAS'taki mevcut veriyi silme riski taşır.
+// ── Toplu Excel'e Aktar (İKAS "Ürün Özel Alanları" formatı — ürün başına tek satır) ──
+// excel-sablon/ikas-urun-ozel-alanlar (4).csv ile birebir aynı 5 sütun ve CSV biçimi.
+// Çoklu Seçim:Elbise Modeli / Kumaş Tipi bu uygulamada artık tutulmadığı için boş bırakılıyor
+// (İKAS'ın kendi örnek dosyasında da bu alanlar çoğu zaman boştur).
 window.exportBedenExcel = function(){
-  const headers = ['Ürün Grup ID','Varyant ID','İsim','Varyant Tip 1','Varyant Değer 1','Varyant Tip 2','Varyant Değer 2','SKU','Barkod Listesi','Html:Beden Rehberi'];
   const rows = [];
   products.forEach(p=>{
     const html = buildBedenRehberiHtml(p);
     if(!html) return; // ölçüsü olmayan ürünü atla
-    (p.variants||[]).forEach(v=>{
-      rows.push([
-        p.ikasGrupId||'', v.ikasVaryantId||'', p.ad||'',
-        'Renk', v.renk||'', 'Beden', v.beden||'',
-        v.sku||'', v.barkod||v.sku||'', html,
-      ]);
-    });
+    rows.push([p.ikasGrupId||'', p.ad||'', html, '', '']);
   });
   if(!rows.length){ alert('Dışa aktarılacak beden ölçüsü bulunamadı.'); return; }
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-  ws['!cols'] = headers.map(()=>({wch:18}));
-  XLSX.utils.book_append_sheet(wb, ws, 'Beden Rehberi');
-  XLSX.writeFile(wb, 'ikas_beden_rehberi_export.xlsx');
+  const headers = ['Ürün Grup ID','İsim','Html:Beden Rehberi','Çoklu Seçim:Elbise Modeli','Çoklu Seçim:Kumaş Tipi'];
+  const csvCell = val => `"${String(val==null?'':val).replace(/"/g,'""')}"`;
+  const lines = [headers, ...rows].map(r=>r.map(csvCell).join(','));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\uFEFF'+lines.join('\r\n')], {type:'text/csv;charset=utf-8'}));
+  a.download = 'ikas_urun_ozel_alanlari_beden.csv';
+  a.click();
 };
 
 function render(){
