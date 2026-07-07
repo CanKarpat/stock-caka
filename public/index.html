@@ -18,6 +18,7 @@
   --success-bg:#eaf3de;--success-text:#3b6d11;
   --danger-bg:#fcebeb;--danger-text:#a32d2d;
   --warning-bg:#faeeda;--warning-text:#854f0b;
+  --input-border:#8b5cf6;--input-border-focus:#ffffff;
   --radius:8px;
 }
 @media(prefers-color-scheme:dark){:root{
@@ -52,8 +53,8 @@ header h1{font-size:15px;font-weight:600;flex:1}
 .toolbar{display:flex;gap:7px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
 .search-wrap{flex:1;min-width:180px;position:relative}
 .search-wrap svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text-muted);width:15px;height:15px;pointer-events:none}
-.search-wrap input{width:100%;height:36px;padding:0 10px 0 30px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-size:13px}
-.search-wrap input:focus{outline:none;border-color:var(--accent)}
+.search-wrap input{width:100%;height:36px;padding:0 10px 0 30px;border:1px solid var(--input-border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-size:13px}
+.search-wrap input:focus{outline:none;border-color:var(--input-border-focus)}
 
 .btn{height:34px;padding:0 12px;border:1px solid var(--border-strong);border-radius:var(--radius);background:var(--surface);color:var(--text);font-size:12px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;transition:background .12s}
 .btn:hover{background:var(--surface2)}
@@ -100,11 +101,12 @@ td input.r{text-align:right}
 .var-count{font-size:11px;color:var(--accent-text);background:var(--accent-bg);padding:1px 6px;border-radius:8px;margin-left:5px}
 .color-dot{display:inline-block;width:11px;height:11px;border-radius:50%;border:1px solid rgba(0,0,0,.15);vertical-align:middle;margin-right:4px;flex-shrink:0}
 .empty-state{text-align:center;padding:48px 20px;color:var(--text-muted)}
-.inline-num{width:80px;border:1px solid transparent;border-radius:5px;padding:3px 5px;font-size:12px;font-weight:600;text-align:right;background:transparent;color:var(--text);font-family:inherit;cursor:text}
-.inline-num:hover{border-color:var(--border);background:var(--surface2)}
-.inline-num:focus{border-color:var(--accent);background:var(--surface);outline:none;box-shadow:0 0 0 2px var(--accent-bg)}
-.inline-sel{border:1px solid transparent;border-radius:5px;padding:2px 4px;font-size:11px;font-weight:600;background:transparent;color:var(--text);cursor:pointer;font-family:inherit}
-.inline-sel:hover{border-color:var(--border);background:var(--surface2)}
+.inline-num{width:80px;border:1px solid var(--input-border);border-radius:5px;padding:3px 5px;font-size:12px;font-weight:600;text-align:right;background:transparent;color:var(--text);font-family:inherit;cursor:text}
+.inline-num:hover{border-color:var(--input-border);background:var(--surface2)}
+.inline-num:focus{border-color:var(--input-border-focus);background:var(--surface);outline:none;box-shadow:0 0 0 2px var(--accent-bg)}
+.inline-sel{border:1px solid var(--input-border);border-radius:5px;padding:2px 4px;font-size:11px;font-weight:600;background:transparent;color:var(--text);cursor:pointer;font-family:inherit}
+.inline-sel:hover{border-color:var(--input-border)}
+.inline-sel:focus{border-color:var(--input-border-focus);outline:none}
 .durum-sel option{font-weight:500}
 
 /* ── MODAL BASE ── */
@@ -127,8 +129,8 @@ td input.r{text-align:right}
 .form-grid.full{grid-template-columns:1fr}
 .form-group{display:flex;flex-direction:column;gap:5px}
 .form-group label{font-size:12px;font-weight:500;color:var(--text-sec)}
-.form-group input,.form-group select,.form-group textarea{padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2);color:var(--text);font-size:13px;font-family:inherit}
-.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--accent)}
+.form-group input,.form-group select,.form-group textarea{padding:8px 10px;border:1px solid var(--input-border);border-radius:var(--radius);background:var(--surface2);color:var(--text);font-size:13px;font-family:inherit}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--input-border-focus)}
 .form-group textarea{resize:vertical;min-height:70px}
 .form-section-title{font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
 
@@ -139,8 +141,8 @@ td input.r{text-align:right}
 .var-table th.r{text-align:right}
 .var-table td{padding:6px 9px;border-bottom:1px solid var(--border);vertical-align:middle}
 .var-table tr:last-child td{border-bottom:none}
-.var-table td input,.var-table td select{width:100%;border:1px solid var(--border);border-radius:5px;padding:5px 7px;font-size:12px;background:var(--surface);color:var(--text);font-family:inherit}
-.var-table td input:focus,.var-table td select:focus{outline:none;border-color:var(--accent)}
+.var-table td input,.var-table td select{width:100%;border:1px solid var(--input-border);border-radius:5px;padding:5px 7px;font-size:12px;background:var(--surface);color:var(--text);font-family:inherit}
+.var-table td input:focus,.var-table td select:focus{outline:none;border-color:var(--input-border-focus)}
 .var-table td input.r{text-align:right}
 .var-table tr:hover td{background:var(--surface2)}
 
@@ -164,8 +166,8 @@ td input.r{text-align:right}
 
 /* ── KISALTMA SATIRI ── */
 .kis-row{display:flex;gap:6px;align-items:center;margin-bottom:6px}
-.kis-row input{flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px;font-family:inherit}
-.kis-row input:focus{outline:none;border-color:var(--accent)}
+.kis-row input{flex:1;padding:6px 8px;border:1px solid var(--input-border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px;font-family:inherit}
+.kis-row input:focus{outline:none;border-color:var(--input-border-focus)}
 .kis-row input.kis-kis{flex:0 0 90px;font-family:monospace;font-weight:600}
 
 /* ── BULK BAR ── */
@@ -173,13 +175,16 @@ td input.r{text-align:right}
 .bulk-bar.show{display:flex}
 .bulk-bar b{color:var(--accent-text)}
 .bulk-bar .sep2{width:1px;height:20px;background:var(--border-strong)}
-.bulk-bar input[type=number],.bulk-bar input[type=text],.bulk-bar select{height:28px;padding:0 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:12px}
+.bulk-bar input[type=number],.bulk-bar input[type=text],.bulk-bar select{height:28px;padding:0 8px;border:1px solid var(--input-border);border-radius:6px;background:var(--surface);color:var(--text);font-size:12px}
+.bulk-bar input:focus,.bulk-bar select:focus{outline:none;border-color:var(--input-border-focus)}
 th.chk,td.chk{width:30px;text-align:center}
 td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var(--accent)}
 
 /* ── BEDEN TABLOSU TOOLS ── */
 .beden-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--border);font-size:12px}
-.beden-tools select{height:30px;padding:0 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px}
+.beden-tools select{height:30px;padding:0 6px;border:1px solid var(--input-border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px}
+.beden-tools select:focus,.beden-tools input:focus{outline:none;border-color:var(--input-border-focus)}
+#pm-indirim-mode:focus,#pm-indirim-val:focus{outline:none;border-color:var(--input-border-focus)}
 
 @media(max-width:600px){
   .container{padding:10px}
@@ -358,11 +363,11 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
           <label>İndirimli Fiyat (₺)</label>
           <input id="pm-indirimli" type="number" min="0" placeholder="0">
           <div style="display:flex;gap:4px;margin-top:2px">
-            <select id="pm-indirim-mode" style="flex:0 0 auto;height:26px;padding:0 4px;border:1px solid var(--border);border-radius:5px;background:var(--surface2);color:var(--text);font-size:11px">
+            <select id="pm-indirim-mode" style="flex:0 0 auto;height:26px;padding:0 4px;border:1px solid var(--input-border);border-radius:5px;background:var(--surface2);color:var(--text);font-size:11px">
               <option value="pct">% indirim</option>
               <option value="tutar">₺ indirim</option>
             </select>
-            <input id="pm-indirim-val" type="number" min="0" placeholder="10" style="flex:1;height:26px;padding:0 6px;border:1px solid var(--border);border-radius:5px;background:var(--surface2);color:var(--text);font-size:11px">
+            <input id="pm-indirim-val" type="number" min="0" placeholder="10" style="flex:1;height:26px;padding:0 6px;border:1px solid var(--input-border);border-radius:5px;background:var(--surface2);color:var(--text);font-size:11px">
             <button type="button" class="btn ghost" style="height:26px;padding:0 8px;font-size:11px" onclick="applyPmIndirim()">Uygula</button>
           </div>
         </div>
@@ -432,7 +437,7 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
         <button class="btn ghost" style="height:28px;font-size:11px" onclick="generateBedenRange()">Aralıktaki Bedenleri Oluştur</button>
         <div class="sep2" style="width:1px;height:18px;background:var(--border-strong)"></div>
         <label>veya değer gir:</label>
-        <input type="text" id="br-list" placeholder="36,38,40,44" style="width:120px;height:28px;padding:0 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px">
+        <input type="text" id="br-list" placeholder="36,38,40,44" style="width:120px;height:28px;padding:0 8px;border:1px solid var(--input-border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px">
         <button class="btn ghost" style="height:28px;font-size:11px" onclick="generateBedenList()">Girilenleri Oluştur</button>
         <div class="sep2" style="width:1px;height:18px;background:var(--border-strong)"></div>
         <button class="btn ghost" style="height:28px;font-size:11px" onclick="copyIkasHtml()">İKAS HTML Kopyala</button>
@@ -440,7 +445,7 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
       </div>
       <div class="beden-tools" id="genel-tools">
         <label>Tüm varyantlara miktar ata:</label>
-        <input type="number" id="genel-miktar-val" min="0" placeholder="0" style="width:80px;height:28px;padding:0 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px">
+        <input type="number" id="genel-miktar-val" min="0" placeholder="0" style="width:80px;height:28px;padding:0 8px;border:1px solid var(--input-border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px">
         <button class="btn ghost" style="height:28px;font-size:11px" onclick="applyBulkMiktar()">Uygula</button>
         <span style="font-size:11px;color:var(--text-muted)">— bu üründeki tüm varyantların miktarını aynı değere ayarlar</span>
       </div>

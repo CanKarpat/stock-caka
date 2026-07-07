@@ -11,6 +11,7 @@
   --bg:#f8f7f5;--surface:#fff;--surface2:#f1efe9;--border:#e0ddd6;--border-strong:#c8c4bc;
   --text:#1a1a18;--text-sec:#6b6860;--text-muted:#9e9b94;
   --accent:#4f6ef7;--accent-bg:#eef1fe;--accent-text:#2d49c4;
+  --input-border:#8b5cf6;--input-border-focus:#ffffff;
   --radius:8px;
 }
 @media(prefers-color-scheme:dark){:root{
@@ -27,8 +28,9 @@ header h1{font-size:15px;font-weight:600;flex:1}
 .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
 .search-wrap{flex:1;min-width:200px;position:relative}
 .search-wrap svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text-muted);width:15px;height:15px;pointer-events:none}
-.search-wrap input{width:100%;height:36px;padding:0 10px 0 30px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-size:13px}
-.search-wrap input:focus{outline:none;border-color:var(--accent)}
+.search-wrap input{width:100%;height:36px;padding:0 10px 0 30px;border:1px solid var(--input-border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-size:13px}
+.search-wrap input:focus{outline:none;border-color:var(--input-border-focus)}
+[id^="br-start-"]:focus,[id^="br-end-"]:focus,[id^="br-list-"]:focus{outline:none;border-color:var(--input-border-focus)}
 
 .product-block{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden}
 .product-header{padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:var(--surface2)}
@@ -41,9 +43,9 @@ header h1{font-size:15px;font-weight:600;flex:1}
 .beden-table tr:last-child td{border-bottom:none}
 .beden-table tr:hover td{background:var(--surface2)}
 .beden-table td.r{text-align:right}
-.beden-table input{width:70px;border:1px solid var(--border-strong);border-radius:5px;padding:4px 6px;font-size:13px;text-align:right;background:transparent;color:var(--text);font-family:inherit}
-.beden-table input:hover{border-color:var(--accent);background:var(--surface2)}
-.beden-table input:focus{border-color:var(--accent);background:var(--surface);outline:none;box-shadow:0 0 0 2px var(--accent-bg)}
+.beden-table input{width:70px;border:1px solid var(--input-border);border-radius:5px;padding:4px 6px;font-size:13px;text-align:right;background:transparent;color:var(--text);font-family:inherit}
+.beden-table input:hover{border-color:var(--input-border);background:var(--surface2)}
+.beden-table input:focus{border-color:var(--input-border-focus);background:var(--surface);outline:none;box-shadow:0 0 0 2px var(--accent-bg)}
 .beden-num{font-size:16px;font-weight:700;color:var(--text)}
 .color-dot{display:inline-block;width:10px;height:10px;border-radius:50%;border:1px solid rgba(0,0,0,.15);vertical-align:middle}
 .renk-wrap{display:flex;align-items:center;gap:3px;flex-wrap:wrap}
@@ -292,13 +294,13 @@ function render(){
       </div>
       <div style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-bottom:1px solid var(--border);font-size:12px;flex-wrap:wrap">
         <label style="color:var(--text-sec)">Beden aralığı ekle:</label>
-        <select id="br-start-${p.id}" style="height:26px;border:1px solid var(--border);border-radius:5px;background:var(--surface2);color:var(--text)">${BEDEN_ORDER.map(b=>`<option>${b}</option>`).join('')}</select>
+        <select id="br-start-${p.id}" style="height:26px;border:1px solid var(--input-border);border-radius:5px;background:var(--surface2);color:var(--text)">${BEDEN_ORDER.map(b=>`<option>${b}</option>`).join('')}</select>
         <span>–</span>
-        <select id="br-end-${p.id}" style="height:26px;border:1px solid var(--border);border-radius:5px;background:var(--surface2);color:var(--text)">${BEDEN_ORDER.map(b=>`<option${b===BEDEN_ORDER[BEDEN_ORDER.length-1]?' selected':''}>${b}</option>`).join('')}</select>
+        <select id="br-end-${p.id}" style="height:26px;border:1px solid var(--input-border);border-radius:5px;background:var(--surface2);color:var(--text)">${BEDEN_ORDER.map(b=>`<option${b===BEDEN_ORDER[BEDEN_ORDER.length-1]?' selected':''}>${b}</option>`).join('')}</select>
         <button class="btn" style="height:26px;font-size:10px" onclick="generateBedenRange('${p.id}')">Oluştur</button>
         <span style="width:1px;height:16px;background:var(--border-strong)"></span>
         <label style="color:var(--text-sec)">veya değer gir:</label>
-        <input type="text" id="br-list-${p.id}" placeholder="36,38,40,44" style="width:110px;height:26px;padding:0 8px;border:1px solid var(--border);border-radius:5px;background:var(--surface2);color:var(--text);font-size:11px">
+        <input type="text" id="br-list-${p.id}" placeholder="36,38,40,44" style="width:110px;height:26px;padding:0 8px;border:1px solid var(--input-border);border-radius:5px;background:var(--surface2);color:var(--text);font-size:11px">
         <button class="btn" style="height:26px;font-size:10px" onclick="generateBedenList('${p.id}')">Girilenleri Oluştur</button>
       </div>
       <table class="beden-table">

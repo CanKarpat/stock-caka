@@ -13,6 +13,7 @@
       --text: #1a1a18; --text-sec: #6b6860; --text-muted: #9e9b94;
       --accent: #4f6ef7; --accent-bg: #eef1fe; --accent-text: #2d49c4;
       --success-bg: #eaf3de; --success-text: #3b6d11;
+      --input-border: #8b5cf6; --input-border-focus: #ffffff;
       --radius: 8px;
     }
     @media (prefers-color-scheme: dark) {
@@ -48,9 +49,10 @@
     }
     .toolbar label { font-size: 13px; color: var(--text-sec); font-weight: 500; }
     .toolbar select, .toolbar input[type=number] {
-      height: 34px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius);
+      height: 34px; padding: 0 10px; border: 1px solid var(--input-border); border-radius: var(--radius);
       background: var(--surface2); color: var(--text); font-size: 13px;
     }
+    .toolbar select:focus, .toolbar input[type=number]:focus, .toolbar input[type=text]:focus { outline: none; border-color: var(--input-border-focus); }
     .toolbar input[type=number] { width: 70px; }
     .btn {
       height: 36px; padding: 0 14px; border: 1px solid var(--border-strong);
@@ -150,7 +152,7 @@
 
 <div class="container">
   <div class="toolbar">
-    <input type="text" id="bc-search" placeholder="SKU, ürün adı veya renk ara..." style="height:34px;padding:0 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:13px;min-width:180px;flex:1" oninput="regenerate()">
+    <input type="text" id="bc-search" placeholder="SKU, ürün adı veya renk ara..." style="height:34px;padding:0 10px;border:1px solid var(--input-border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:13px;min-width:180px;flex:1" oninput="regenerate()">
     <label>Tedarikçi:</label>
     <select id="bc-tedarikci" onchange="regenerate()"><option value="">Tümü</option></select>
     <label>Barkod türü:</label>
