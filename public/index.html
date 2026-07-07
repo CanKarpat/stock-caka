@@ -76,7 +76,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}
 thead tr{background:var(--surface2)}
 th{padding:8px 10px;text-align:left;font-weight:600;font-size:11px;color:var(--text-sec);border-bottom:1px solid var(--border);white-space:nowrap;text-transform:uppercase;letter-spacing:.3px}
 th.r,td.r{text-align:right}
-td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+td{padding:11px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
 tr:last-child td{border-bottom:none}
 tr.ana-row{background:var(--surface)}
 tr.ana-row:hover td{background:var(--surface2)}
@@ -118,6 +118,11 @@ td input.r{text-align:right}
 
 /* ── PRODUCT MODAL ── */
 #product-modal .modal{max-width:680px}
+@media(prefers-color-scheme:dark){
+  /* Karanlık modda biraz daha açık bir arka plan — bej/beyaz yazılar hâlâ rahat okunsun diye çok açılmadan */
+  #product-modal .modal{background:#2e2e2b}
+  #product-modal .modal-footer{background:#2e2e2b}
+}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .form-grid.full{grid-template-columns:1fr}
 .form-group{display:flex;flex-direction:column;gap:5px}
@@ -235,6 +240,10 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 3v18M3 9h18"/></svg>
       İKAS Excel
     </button>
+    <button class="btn ghost" onclick="showIkasSyncModal()" title="İKAS'ta oluşan Ürün Grup ID / Varyant ID'leri SKU'ya göre eşleştirip kaydet">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+      İKAS ID Eşitle
+    </button>
     <button class="btn ghost" id="scan-btn" onclick="openScanner()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
       Kamera
@@ -298,40 +307,40 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
       <input type="hidden" id="pm-id">
 
       <div class="form-section-title">Temel Bilgiler</div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label>Stok Kodu (SKU) *</label>
-          <input id="pm-kod" placeholder="ABY-001" style="font-family:monospace">
-        </div>
-        <div class="form-group">
-          <label>Tedarikçi Marka</label>
-          <input id="pm-tedarikci" placeholder="ALFABETA, MY DREAMS...">
-        </div>
+      <div class="form-grid full">
         <div class="form-group">
           <label>Ürün Adı</label>
           <input id="pm-ad" placeholder="Çiçekli Balık Abiye">
         </div>
       </div>
-      <div class="form-grid" style="margin-top:8px">
-        <div class="form-group">
-          <label>Ürün Tipi <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(SKU için)</span></label>
-          <input id="pm-urun-tipi" placeholder="Elbise, Tulum..." list="tip-suggestions">
-        </div>
-        <div class="form-group">
-          <label>Uzunluk <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(SKU için)</span></label>
-          <input id="pm-uzunluk" placeholder="Mini, Midi, Maxi..." list="uzunluk-suggestions">
-        </div>
-        <div class="form-group">
-          <label>Tedarikçi Ürün Kodu <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(SKU için, örn. 26002)</span></label>
-          <input id="pm-tedarikci-kodu" placeholder="26002">
-        </div>
-      </div>
-      <datalist id="tip-suggestions"></datalist>
-      <datalist id="uzunluk-suggestions"></datalist>
       <div class="form-grid full" style="margin-top:8px">
         <div class="form-group">
           <label>Ürün Açıklaması</label>
           <textarea id="pm-aciklama" placeholder="Ürün detayları, notlar..."></textarea>
+        </div>
+      </div>
+      <div class="form-grid" style="margin-top:8px">
+        <div class="form-group">
+          <label>Stok Kodu (SKU) *</label>
+          <input id="pm-kod" placeholder="ABY-001" style="font-family:monospace">
+        </div>
+        <div class="form-group">
+          <label>Tedarikçi</label>
+          <select id="pm-tedarikci"></select>
+        </div>
+        <div class="form-group">
+          <label>Ürün Tipi <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(SKU için)</span></label>
+          <select id="pm-urun-tipi"></select>
+        </div>
+      </div>
+      <div class="form-grid" style="margin-top:8px">
+        <div class="form-group">
+          <label>Uzunluk <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(SKU için)</span></label>
+          <select id="pm-uzunluk"></select>
+        </div>
+        <div class="form-group">
+          <label>Tedarikçi Ürün Kodu <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(SKU için, örn. 26002)</span></label>
+          <input id="pm-tedarikci-kodu" placeholder="26002">
         </div>
       </div>
 
@@ -348,6 +357,14 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
         <div class="form-group">
           <label>İndirimli Fiyat (₺)</label>
           <input id="pm-indirimli" type="number" min="0" placeholder="0">
+          <div style="display:flex;gap:4px;margin-top:2px">
+            <select id="pm-indirim-mode" style="flex:0 0 auto;height:26px;padding:0 4px;border:1px solid var(--border);border-radius:5px;background:var(--surface2);color:var(--text);font-size:11px">
+              <option value="pct">% indirim</option>
+              <option value="tutar">₺ indirim</option>
+            </select>
+            <input id="pm-indirim-val" type="number" min="0" placeholder="10" style="flex:1;height:26px;padding:0 6px;border:1px solid var(--border);border-radius:5px;background:var(--surface2);color:var(--text);font-size:11px">
+            <button type="button" class="btn ghost" style="height:26px;padding:0 8px;font-size:11px" onclick="applyPmIndirim()">Uygula</button>
+          </div>
         </div>
         <div class="form-group">
           <label>Durum</label>
@@ -376,14 +393,6 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
           <label>Stok Miktarı</label>
           <input id="pm-miktar" type="number" min="0" placeholder="0">
         </div>
-      </div>
-
-      <div class="form-section-title">Beden Ölçüleri <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(opsiyonel)</span></div>
-      <div class="form-grid">
-        <div class="form-group"><label>Göğüs (cm)</label><input id="pm-gogus" type="number" min="0" placeholder="0"></div>
-        <div class="form-group"><label>Bel (cm)</label><input id="pm-bel" type="number" min="0" placeholder="0"></div>
-        <div class="form-group"><label>Basen (cm)</label><input id="pm-basen" type="number" min="0" placeholder="0"></div>
-        <div class="form-group"><label>Boy (cm)</label><input id="pm-boy" type="number" min="0" placeholder="0"></div>
       </div>
     </div>
     <div class="modal-footer">
@@ -557,13 +566,39 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
       </button>
     </div>
     <div class="modal-body" style="font-size:13px;line-height:1.7;color:var(--text-sec)">
-      <p>Bu dosya İKAS'ın kendi ürün Excel şablonunun sütun düzenini kullanır (Ürün Grup ID, Varyant ID, İsim, Satış/İndirimli/Alış Fiyatı, SKU, Barkod, Stok, Marka/Tedarikçi, Varyant Tip 1: Renk, Varyant Tip 2: Beden).</p>
-      <p style="margin-top:8px"><b style="color:var(--text)">Dahil değil:</b> Kategoriler, Etiketler, Resim URL, Metadata, Slug, satış kanalı ve vitrin ayarları gibi alanlar bilerek boş bırakıldı — bu dosyayı İKAS'a yüklediğinde bu alanların mevcut değerlerini etkilememesi için.</p>
-      <p style="margin-top:8px;padding:8px 10px;background:var(--warning-bg);color:var(--warning-text);border-radius:8px">Daha önce İKAS'tan içe aktarılmamış (Ürün Grup ID boş) ürünler İKAS'a yeni ürün olarak eklenir. Yüklemeden önce boş/test bir İKAS mağazasında dene.</p>
+      <p>Bu dosya İKAS'ın kendi ürün Excel şablonunun sütun düzenini kullanır (Ürün Grup ID, Varyant ID, İsim, Satış/İndirimli/Alış Fiyatı, SKU, Barkod, Stok, Varyant Tip 1: Renk, Varyant Tip 2: Beden). Marka ve Tedarikçi her zaman "Grace Code" yazılır; Silindi mi? = FALSE, Satış Kanalı:gracecode/Trendyol = Hidden, Varyant Aktiflik = TRUE olarak sabit gönderilir.</p>
+      <p style="margin-top:8px"><b style="color:var(--text)">Dahil değil:</b> Kategoriler, Etiketler, Resim URL, Metadata, Slug gibi alanlar bilerek boş bırakıldı — bu dosyayı İKAS'a yüklediğinde bu alanların mevcut değerlerini etkilememesi için.</p>
+      <p style="margin-top:8px;padding:8px 10px;background:var(--warning-bg);color:var(--warning-text);border-radius:8px">Renk/Beden değerleri İKAS'ta kayıtlı listeyle birebir eşleşmezse indirmeden sonra uyarı verilir (yoksa İKAS'ta yeni bir varyant değeri oluşabilir). Daha önce İKAS'tan içe aktarılmamış (Ürün Grup ID boş) ürünler İKAS'a yeni ürün olarak eklenir. Yüklemeden önce boş/test bir İKAS mağazasında dene.</p>
     </div>
     <div class="modal-footer">
       <button class="btn ghost" onclick="closeIkasExportModal()">İptal</button>
       <button class="btn primary" onclick="exportIkasNative()">İndir (.xlsx)</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     İKAS ID EŞİTLE MODAL (Ürün Grup ID / Varyant ID geri-doldurma)
+═══════════════════════════════════════════ -->
+<div class="modal-bg hidden" id="ikas-sync-modal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h2>İKAS ID Eşitle</h2>
+      <button class="icon-btn" onclick="closeIkasSyncModal()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" style="font-size:13px;line-height:1.7;color:var(--text-sec)">
+      <p>Buradan oluşturup İKAS'a yüklediğin ürünler İKAS'ta yeni bir <b style="color:var(--text)">Ürün Grup ID</b> / <b style="color:var(--text)">Varyant ID</b> alır. Bu dosyayı yükleyerek o ID'leri SKU eşleştirmesiyle buraya geri kaydet — böylece bir sonraki "İKAS Excel" dışa aktarımın yeni ürün oluşturmak yerine mevcut ürünleri günceller.</p>
+      <p style="margin-top:8px">İKAS Admin → Ürünler → Dışa Aktar ile aldığın dosyayı (Ürün Grup ID, Varyant ID, SKU sütunlarını içeren herhangi bir İKAS export'u — .xlsx veya .csv) seç.</p>
+      <div class="form-group" style="margin-top:10px">
+        <input type="file" id="ikas-sync-file" accept=".csv,.xlsx,.xls">
+      </div>
+      <div id="ikas-sync-result" style="margin-top:10px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn ghost" onclick="closeIkasSyncModal()">Kapat</button>
+      <button class="btn primary" onclick="runIkasSync()">Eşleştir ve Kaydet</button>
     </div>
   </div>
 </div>
@@ -684,6 +719,17 @@ function renkOptions(current){
   if(current) set.add(current);
   return [...set];
 }
+// Tedarikçi/Ürün Tipi/Uzunluk dropdown'ları için: Kısaltmalar tablosundaki adlar + o anki değer
+// (kayıtlı olmayan eski bir değer varsa listeden düşmesin diye)
+function kisOptions(map, current){
+  const set = new Set(Object.keys(map||{}));
+  if(current) set.add(current);
+  return [...set];
+}
+function fillKisSelect(elId, map, current){
+  const el = document.getElementById(elId);
+  el.innerHTML = '<option value="">— Seç —</option>' + kisOptions(map, current).map(t=>`<option${t===current?' selected':''}>${esc(t)}</option>`).join('');
+}
 
 // ── Sütun tanımları ───────────────────────────────────────────────
 const COLS = [
@@ -731,7 +777,6 @@ let kisaltmalar = {marka:'GC', tedarikci:{}, tip:{}, uzunluk:{}, renk:{}};
 onSnapshot(doc(db,'config','kisaltmalar'), snap => {
   const d = snap.exists() ? snap.data() : {};
   kisaltmalar = {marka:d.marka||'GC', tedarikci:d.tedarikci||{}, tip:d.tip||{}, uzunluk:d.uzunluk||{}, renk:d.renk||{}};
-  updateKisaltmaSuggestions();
 });
 
 async function saveProduct(p){
@@ -1222,13 +1267,6 @@ window.saveKisaltmalar = async function(){
   closeKisaltmaModal();
 };
 
-function updateKisaltmaSuggestions(){
-  const tipEl = document.getElementById('tip-suggestions');
-  const uzunlukEl = document.getElementById('uzunluk-suggestions');
-  if(tipEl) tipEl.innerHTML = Object.keys(kisaltmalar.tip).map(t=>`<option value="${esc(t)}">`).join('');
-  if(uzunlukEl) uzunlukEl.innerHTML = Object.keys(kisaltmalar.uzunluk).map(t=>`<option value="${esc(t)}">`).join('');
-}
-
 // ── Ürün Modal ────────────────────────────────────────────────────
 window.openProductModal = function(id=null, presetP=null){
   // presetP: onSnapshot henüz güncellemeden hemen ardından açılan ürünler için (ör. Hızlı SKU ile oluşturma) yarış durumunu önler
@@ -1239,26 +1277,33 @@ window.openProductModal = function(id=null, presetP=null){
   document.getElementById('pm-kod').value = p?p.kod:'';
   document.getElementById('pm-ad').value = p?p.ad:'';
   document.getElementById('pm-aciklama').value = p?p.aciklama:'';
-  document.getElementById('pm-tedarikci').value = p?p.tedarikci:'';
-  document.getElementById('pm-urun-tipi').value = p?(p.urunTipi||''):'';
-  document.getElementById('pm-uzunluk').value = p?(p.uzunluk||''):'';
+  fillKisSelect('pm-tedarikci', kisaltmalar.tedarikci, p?(p.tedarikci||''):'');
+  fillKisSelect('pm-urun-tipi', kisaltmalar.tip, p?(p.urunTipi||''):'');
+  fillKisSelect('pm-uzunluk', kisaltmalar.uzunluk, p?(p.uzunluk||''):'');
   document.getElementById('pm-tedarikci-kodu').value = p?(p.tedarikciKodu||''):'';
   document.getElementById('pm-durum').value = p?(p.durum||'Yayında'):'Yayında';
   document.getElementById('pm-alis').value = p?p.alis:'';
   document.getElementById('pm-satis').value = p?p.satis:'';
   document.getElementById('pm-indirimli').value = p?p.indirimli:'';
+  document.getElementById('pm-indirim-val').value = '';
   document.getElementById('pm-renk').innerHTML = renkOptions(v.renk||'Siyah').map(r=>`<option>${esc(r)}</option>`).join('');
   document.getElementById('pm-renk').value = v.renk||'Siyah';
   document.getElementById('pm-beden').value = v.beden||'36';
   document.getElementById('pm-miktar').value = v.miktar||'';
-  document.getElementById('pm-gogus').value = v.gogus||'';
-  document.getElementById('pm-bel').value = v.bel||'';
-  document.getElementById('pm-basen').value = v.basen||'';
-  document.getElementById('pm-boy').value = v.boy||'';
   document.getElementById('product-modal').classList.remove('hidden');
   setTimeout(()=>document.getElementById('pm-kod').focus(),100);
 };
 window.closeProductModal = ()=>document.getElementById('product-modal').classList.add('hidden');
+
+window.applyPmIndirim = function(){
+  const satis = Number(document.getElementById('pm-satis').value)||0;
+  const mode = document.getElementById('pm-indirim-mode').value;
+  const val = parseFloat(document.getElementById('pm-indirim-val').value);
+  if(isNaN(val) || val<0){ alert('Geçerli bir değer gir (örn. 10).'); return; }
+  let indirimli = mode==='pct' ? satis*(1-val/100) : satis-val;
+  if(indirimli<0) indirimli=0;
+  document.getElementById('pm-indirimli').value = Math.round(indirimli*100)/100;
+};
 
 window.saveProduct = async function(){
   const id = document.getElementById('pm-id').value || uid();
@@ -1267,19 +1312,19 @@ window.saveProduct = async function(){
 
   // İlk varyantı güncelle ya da oluştur
   const firstVarId = existingVars.length ? existingVars[0].id : uid();
+  // gogus/bel/basen/boy burada kasıtlı olarak yok — beden ölçüleri Beden Tablosu'ndan
+  // yönetiliyor, bu formdan kaydetmek var olan ölçüleri sıfırlamamalı.
   const firstVar = {
     id: firstVarId,
     sku: document.getElementById('pm-kod').value + (existingVars.length===0?'-V1': (existingVars[0].sku||'')).replace(document.getElementById('pm-kod').value,''),
     renk: document.getElementById('pm-renk').value,
     beden: document.getElementById('pm-beden').value,
     miktar: Number(document.getElementById('pm-miktar').value)||0,
-    gogus: Number(document.getElementById('pm-gogus').value)||0,
-    bel: Number(document.getElementById('pm-bel').value)||0,
-    basen: Number(document.getElementById('pm-basen').value)||0,
-    boy: Number(document.getElementById('pm-boy').value)||0,
   };
 
-  const newVars = existingVars.length ? existingVars.map((v,i)=>i===0?{...v,...firstVar,id:firstVarId}:v) : [firstVar];
+  const newVars = existingVars.length
+    ? existingVars.map((v,i)=>i===0?{...v,...firstVar,id:firstVarId}:v)
+    : [{...firstVar, gogus:0, bel:0, basen:0, boy:0}];
 
   const p = {
     id,
@@ -1602,17 +1647,31 @@ window.doExportCSV = function(){
 window.showIkasExportModal = ()=>document.getElementById('ikas-export-modal').classList.remove('hidden');
 window.closeIkasExportModal = ()=>document.getElementById('ikas-export-modal').classList.add('hidden');
 
+// İKAS'ta kayıtlı Varyant Tipi/Değerleri — excel-sablon/ikas-varyant-tipleri.xlsx kaynaklı (2026-07-08).
+// Renk/Beden değerleri BİREBİR bu listeyle eşleşmeli; eşleşmezse İKAS yeni bir varyant değeri
+// oluşturabilir ("yeni varyant tipi açılması belirli şeyleri bozabilir" — kullanıcı uyarısı).
+const IKAS_BEDEN_DEGERLERI = new Set(['36','38','40','42','44','46','48','50']);
+const IKAS_RENK_DEGERLERI = new Set(['AÇIK MAVİ','BAKIR','BEBE MAVİSİ','BEJ','BEYAZ','BORDO','BURGONYA','BUZ MAVİSİ','ÇAĞLA YEŞİLİ','CAPPUCINO','EKRU','ELMA YEŞİLİ','FUŞYA','GECE MAVİSİ','GÖK MAVİSİ','GRİ','HAKİ YEŞİLİ','İNDİGO','KAHVERENGİ','KAHVERENGİ / GOLD','KAYISI','KEMİK / SİYAH','KEMİK RENGİ','KIRMIZI','KOYU İNDİGO','KOYU MOR','KOYU YEŞİL','KREM RENGİ','KÜF','KUM BEJİ','LACİVERT','LACİVERT / GÜMÜŞ','LACİVERT / GOLD','LAVANTA','LEOPAR','LİLA','MAVİ','MİNT','MOCCA','MOR','MÜRDÜM','PEMBE','PETROL YEŞİLİ','PUDRA','SAKS MAVİSİ','SAKS / GÜMÜŞ','SARI','ŞEKER PEMBE','SİYAH','SİYAH / BEYAZ','SİYAH / GOLD','SU YEŞİLİ','TAŞ RENGİ','TEREYAĞI','TOZ PEMBE','VİZON','YEŞİL','PARLEMENT MAVİSİ','KİREMİT','YAĞ YEŞİLİ','BAKIR RENGİ','MACENTA','TURUNCU','AÇIK İNDİGO','HARDAL','INDIGO','GÜMÜŞ','AÇIK MÜRDÜM','PETROL RENGİ','LACİVERT/GOLD','SAKS/GÜMÜŞ','SİYAH / BRONZ']);
+const IKAS_MARKA_SABIT = 'Grace Code'; // Marka ve Tedarikçi İKAS'ta her zaman bu — iç tedarikçi takibimizle (Kenzel, Saygın...) karıştırılmamalı
+
 window.exportIkasNative = function(){
-  const headers=['Ürün Grup ID','Varyant ID','İsim','Açıklama','Satış Fiyatı','İndirimli Fiyatı','Alış Fiyatı','Barkod Listesi','SKU','Marka','Stok:Ana Depo','Tip','Varyant Tip 1','Varyant Değer 1','Varyant Tip 2','Varyant Değer 2','Tedarikçi'];
+  const headers=['Ürün Grup ID','Varyant ID','İsim','Açıklama','Satış Fiyatı','İndirimli Fiyatı','Alış Fiyatı','Barkod Listesi','SKU','Silindi mi?','Marka','Stok:Ana Depo','Tip','Varyant Tip 1','Varyant Değer 1','Varyant Tip 2','Varyant Değer 2','Tedarikçi','Satış Kanalı:gracecode','Satış Kanalı:Trendyol','Varyant Aktiflik'];
   const rows=[];
+  const uyarilar=[];
   products.forEach(p=>{
     const vars=(p.variants||[]).length?p.variants:[null];
     vars.forEach(v=>{
+      const renkDeger = v ? (v.renk||'').trim().toUpperCase() : '';
+      const bedenDeger = v ? (v.beden||'').trim() : '';
+      if(v && renkDeger && !IKAS_RENK_DEGERLERI.has(renkDeger)) uyarilar.push(`${p.kod||p.ad||'?'}: "${v.renk}" renk değeri İKAS'ta kayıtlı değil`);
+      if(v && bedenDeger && !IKAS_BEDEN_DEGERLERI.has(bedenDeger)) uyarilar.push(`${p.kod||p.ad||'?'}: "${v.beden}" beden değeri İKAS'ta kayıtlı değil`);
       rows.push([
         p.ikasGrupId||'', v?(v.ikasVaryantId||''):'', p.ad||'', p.aciklama||'',
         p.satis||0, (Number(p.indirimli||0)>0?p.indirimli:''), p.alis||0,
-        v?(v.barkod||v.sku||''):'', v?(v.sku||p.kod||''):(p.kod||''), p.tedarikci||'',
-        v?(v.miktar||0):0, 'PHYSICAL', 'Renk', v?(v.renk||''):'', 'Beden', v?(v.beden||''):'', p.tedarikci||'',
+        v?(v.barkod||v.sku||''):'', v?(v.sku||p.kod||''):(p.kod||''),
+        false, IKAS_MARKA_SABIT,
+        v?(v.miktar||0):0, 'PHYSICAL', 'Renk', renkDeger, 'Beden', bedenDeger,
+        IKAS_MARKA_SABIT, 'Hidden', 'Hidden', true,
       ]);
     });
   });
@@ -1622,6 +1681,84 @@ window.exportIkasNative = function(){
   XLSX.utils.book_append_sheet(wb,ws,'Ürünler');
   XLSX.writeFile(wb,'ikas_urunler_export.xlsx');
   closeIkasExportModal();
+  if(uyarilar.length){
+    alert(`Dikkat — İKAS'ta kayıtlı olmayan ${uyarilar.length} renk/beden değeri bulundu (yeni varyant değeri oluşabilir):\n\n- ${uyarilar.slice(0,20).join('\n- ')}${uyarilar.length>20?`\n... ve ${uyarilar.length-20} tane daha`:''}`);
+  }
+};
+
+// ── İKAS ID Eşitle: İKAS'ın atadığı Ürün Grup ID / Varyant ID'yi SKU'ya göre geri yaz ──
+window.showIkasSyncModal = function(){
+  document.getElementById('ikas-sync-file').value='';
+  document.getElementById('ikas-sync-result').innerHTML='';
+  document.getElementById('ikas-sync-modal').classList.remove('hidden');
+};
+window.closeIkasSyncModal = ()=>document.getElementById('ikas-sync-modal').classList.add('hidden');
+
+function readIkasSyncFile(file){
+  const isXlsx = /\.xlsx?$/i.test(file.name);
+  return new Promise((resolve, reject)=>{
+    const r = new FileReader();
+    r.onerror = reject;
+    if(isXlsx){
+      r.onload = e=>{
+        try{
+          const wb = XLSX.read(e.target.result, {type:'array'});
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          resolve(XLSX.utils.sheet_to_json(ws, {header:1}));
+        }catch(err){ reject(err); }
+      };
+      r.readAsArrayBuffer(file);
+    } else {
+      r.onload = e=> resolve(parseCSVText(e.target.result));
+      r.readAsText(file, 'UTF-8');
+    }
+  });
+}
+
+window.runIkasSync = async function(){
+  const file = document.getElementById('ikas-sync-file').files[0];
+  const resultEl = document.getElementById('ikas-sync-result');
+  if(!file){ resultEl.innerHTML = '<span style="color:var(--danger-text)">Önce bir dosya seç.</span>'; return; }
+  let data;
+  try{ data = await readIkasSyncFile(file); }
+  catch(err){ resultEl.innerHTML = `<span style="color:var(--danger-text)">Dosya okunamadı: ${esc(err.message)}</span>`; return; }
+  if(!data || data.length<2){ resultEl.innerHTML = '<span style="color:var(--danger-text)">Dosya boş veya hatalı.</span>'; return; }
+
+  const headerRow = data[0].map(h=>normalizeHeader(h));
+  const iGrup = headerRow.findIndex(h=>h==='urun grup id');
+  const iVaryantId = headerRow.findIndex(h=>h==='varyant id');
+  const iSku = headerRow.findIndex(h=>h==='sku');
+  if(iGrup<0 || iVaryantId<0 || iSku<0){
+    resultEl.innerHTML = '<span style="color:var(--danger-text)">Dosyada Ürün Grup ID, Varyant ID ve SKU sütunlarının hepsi bulunamadı.</span>';
+    return;
+  }
+
+  const skuMap = new Map();
+  data.slice(1).forEach(row=>{
+    const sku = String(row[iSku]||'').trim();
+    if(!sku) return;
+    skuMap.set(sku, { grupId: String(row[iGrup]||'').trim(), varyantId: String(row[iVaryantId]||'').trim() });
+  });
+
+  let guncellenenUrun = 0, guncellenenVaryant = 0, eslesmeyen = 0;
+  const toSave = [];
+  products.forEach(p=>{
+    let degisti = false;
+    (p.variants||[]).forEach(v=>{
+      const eslesme = skuMap.get(String(v.sku||'').trim());
+      if(!eslesme){ eslesmeyen++; return; }
+      if(eslesme.grupId && p.ikasGrupId !== eslesme.grupId){ p.ikasGrupId = eslesme.grupId; degisti = true; }
+      if(eslesme.varyantId && v.ikasVaryantId !== eslesme.varyantId){ v.ikasVaryantId = eslesme.varyantId; degisti = true; guncellenenVaryant++; }
+    });
+    if(degisti){ guncellenenUrun++; toSave.push(saveProduct(p)); }
+  });
+  await Promise.all(toSave);
+
+  resultEl.innerHTML = `
+    <div style="background:var(--success-bg);color:var(--success-text);border-radius:8px;padding:8px 10px">
+      ${guncellenenUrun} ürün, ${guncellenenVaryant} varyant güncellendi.
+    </div>
+    ${eslesmeyen ? `<div style="margin-top:6px;color:var(--text-muted)">${eslesmeyen} varyantımızın SKU'su dosyada bulunamadı (henüz İKAS'a yüklenmemiş olabilir).</div>` : ''}`;
 };
 
 // ── Import ────────────────────────────────────────────────────────
