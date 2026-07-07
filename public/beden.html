@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Beden Tablosu — Abiye Stok</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -74,6 +75,10 @@ header h1{font-size:15px;font-weight:600;flex:1}
   </a>
   <h1>Beden Tablosu</h1>
   <span class="sync-badge offline" id="sync-badge">● Bağlanıyor</span>
+  <button class="btn" onclick="exportBedenExcel()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Excel'e Aktar
+  </button>
   <button class="btn" onclick="window.print()">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
     Yazdır
@@ -211,8 +216,9 @@ window.generateBedenList = async function(pid){
   document.getElementById('br-list-'+pid).value='';
 };
 
-window.copyIkasHtml = function(pid){
-  const p = products.find(x=>x.id===pid); if(!p) return;
+// Bir ürünün beden ölçülerinden İKAS'ın Html:Beden Rehberi özel alanına uygun HTML üretir.
+// Ölçü yoksa null döner.
+function buildBedenRehberiHtml(p){
   const vars = p.variants||[];
   const bedenMap = {};
   vars.forEach(v=>{
@@ -220,12 +226,43 @@ window.copyIkasHtml = function(pid){
     if(!bedenMap[b]) bedenMap[b] = {gogus:v.gogus||0, bel:v.bel||0, basen:v.basen||0};
   });
   const bedenRows = BEDEN_ORDER.filter(b=>bedenMap[b]).concat(Object.keys(bedenMap).filter(b=>!BEDEN_ORDER.includes(b)));
-  if(!bedenRows.length){ alert('Bu üründe henüz beden ölçüsü yok.'); return; }
-  const html = `<table>\n  <tbody>\n    <tr>\n      <th>Beden</th>\n      <th>Göğüs</th>\n      <th>Bel</th>\n      <th>Basen</th>\n    </tr>\n${bedenRows.map(b=>{
+  if(!bedenRows.length) return null;
+  return `<table>\n  <tbody>\n    <tr>\n      <th>Beden</th>\n      <th>Göğüs</th>\n      <th>Bel</th>\n      <th>Basen</th>\n    </tr>\n${bedenRows.map(b=>{
     const bm = bedenMap[b];
     return `    <tr data-size="${b}"><td>${b}</td><td>${bm.gogus||'-'}</td><td>${bm.bel||'-'}</td><td>${bm.basen||'-'}</td></tr>`;
   }).join('\n')}\n  </tbody>\n</table>`;
+}
+
+window.copyIkasHtml = function(pid){
+  const p = products.find(x=>x.id===pid); if(!p) return;
+  const html = buildBedenRehberiHtml(p);
+  if(!html){ alert('Bu üründe henüz beden ölçüsü yok.'); return; }
   navigator.clipboard.writeText(html).then(()=>alert('İKAS beden rehberi HTML\'i panoya kopyalandı.')).catch(()=>alert('Kopyalanamadı, tarayıcı izni gerekebilir.'));
+};
+
+// ── Toplu Excel'e Aktar (İKAS "Varyantlı Ürün Özel Alanları" formatı) ──
+// Kategori/özel alan sütunları (Çoklu Seçim) bilerek dahil edilmedi:
+// bu uygulama artık o veriyi tutmuyor, boş göndermek İKAS'taki mevcut veriyi silme riski taşır.
+window.exportBedenExcel = function(){
+  const headers = ['Ürün Grup ID','Varyant ID','İsim','Varyant Tip 1','Varyant Değer 1','Varyant Tip 2','Varyant Değer 2','SKU','Barkod Listesi','Html:Beden Rehberi'];
+  const rows = [];
+  products.forEach(p=>{
+    const html = buildBedenRehberiHtml(p);
+    if(!html) return; // ölçüsü olmayan ürünü atla
+    (p.variants||[]).forEach(v=>{
+      rows.push([
+        p.ikasGrupId||'', v.ikasVaryantId||'', p.ad||'',
+        'Renk', v.renk||'', 'Beden', v.beden||'',
+        v.sku||'', v.barkod||v.sku||'', html,
+      ]);
+    });
+  });
+  if(!rows.length){ alert('Dışa aktarılacak beden ölçüsü bulunamadı.'); return; }
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  ws['!cols'] = headers.map(()=>({wch:18}));
+  XLSX.utils.book_append_sheet(wb, ws, 'Beden Rehberi');
+  XLSX.writeFile(wb, 'ikas_beden_rehberi_export.xlsx');
 };
 
 function render(){
