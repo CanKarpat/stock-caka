@@ -809,7 +809,19 @@ document.addEventListener('keydown', e=>{
 });
 
 function totalMiktar(p){ return (p.variants||[]).reduce((s,v)=>s+Number(v.miktar||0),0); }
-function totalDeger(p){ return (p.variants||[]).reduce((s,v)=>s+Number(v.miktar||0)*Number(p.alis||0),0); }
+// Stok Değeri birim tutarı: alış girilmemişse doğrudan satış fiyatını kullanır;
+// "Alış Fiyatını Düş" açıksa ve alış girilmişse satış-alış farkını kullanır.
+let stokDegeriAlisDus = localStorage.getItem('stokDegeriAlisDus') !== 'false';
+function birimDeger(p){
+  const satis = Number(p.satis||0), alis = Number(p.alis||0);
+  return (stokDegeriAlisDus && alis>0) ? (satis-alis) : satis;
+}
+function totalDeger(p){ return totalMiktar(p)*birimDeger(p); }
+window.toggleStokDegeriAlisDus = function(checked){
+  stokDegeriAlisDus = checked;
+  localStorage.setItem('stokDegeriAlisDus', checked?'true':'false');
+  render();
+};
 
 // ── Sütun toggle render ───────────────────────────────────────────
 function renderColToggles(){
@@ -838,7 +850,16 @@ function render(){
   document.getElementById('summary').innerHTML=`
     <div class="scard"><div class="scard-label">Ürün / Varyant</div><div class="scard-value">${anaCount} / ${varCount}</div></div>
     <div class="scard"><div class="scard-label">Toplam Adet</div><div class="scard-value">${fmtN(totalQ)}</div></div>
-    <div class="scard"><div class="scard-label">Maliyet Değeri</div><div class="scard-value">₺${fmtN(Math.round(totalM))}</div></div>
+    <div class="scard">
+      <div class="scard-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+        <span>Stok Değeri</span>
+        <label style="display:flex;align-items:center;gap:3px;font-size:10px;font-weight:500;cursor:pointer;text-transform:none;color:var(--text-muted)" title="Açıkken: alış girilmiş ürünlerde satış-alış farkı kullanılır. Kapalıyken: her zaman satış fiyatı kullanılır.">
+          <input type="checkbox" ${stokDegeriAlisDus?'checked':''} onchange="toggleStokDegeriAlisDus(this.checked)" style="width:12px;height:12px;accent-color:var(--accent)">
+          Alış düş
+        </label>
+      </div>
+      <div class="scard-value">₺${fmtN(Math.round(totalM))}</div>
+    </div>
     <div class="scard"><div class="scard-label">Potansiyel Ciro</div><div class="scard-value">₺${fmtN(Math.round(totalS))}</div></div>`;
 
   // Filter
@@ -889,7 +910,7 @@ function render(){
       if(c.id==='indirimli') return `<td class="r"><input class="inline-num" type="number" data-field="indirimli" data-pid="${p.id}" value="${p.indirimli||0}" min="0" title="İndirimli fiyat (Enter: sıradaki ürün)" onchange="updProd('${p.id}','indirimli',this.value)" onclick="event.stopPropagation()"></td>`;
       if(c.id==='kar') return `<td class="r"><span class="badge ${kar>=0?'badge-yayinda':'badge-pasif'}">%${kar}</span></td>`;
       if(c.id==='miktar') return `<td class="r fw" style="cursor:pointer" title="Varyant miktarlarını düzenle için 🔀 ikonuna tıkla">${fmtN(totalMiktar(p))}</td>`;
-      if(c.id==='deger') return `<td class="r fw" title="Miktar × Alış">₺${fmt(totalDeger(p))}</td>`;
+      if(c.id==='deger') return `<td class="r fw" title="${stokDegeriAlisDus?'Miktar × (Satış − Alış), alış yoksa Satış':'Miktar × Satış'}">₺${fmt(totalDeger(p))}</td>`;
       return '<td></td>';
     }).join('');
 
@@ -932,7 +953,7 @@ function render(){
           if(c.id==='indirimli') return `<td class="r" style="color:var(--text-muted)">—</td>`;
           if(c.id==='kar') return `<td></td>`;
           if(c.id==='miktar') return `<td class="r fw">${fmtN(v.miktar)}</td>`;
-          if(c.id==='deger') return `<td class="r" style="color:var(--text-sec)">₺${fmt(Number(v.miktar||0)*Number(p.alis||0))}</td>`;
+          if(c.id==='deger') return `<td class="r" style="color:var(--text-sec)">₺${fmt(Number(v.miktar||0)*birimDeger(p))}</td>`;
           return '<td></td>';
         }).join('');
         rows+=`<tr class="var-row"><td></td><td></td>${vcells}<td></td></tr>`;
