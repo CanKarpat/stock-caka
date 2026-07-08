@@ -1942,10 +1942,14 @@ window.runIkasSync = async function(){
   });
   await Promise.all(toSave);
 
+  // Eşleştirilen ürünleri hemen görebilsin diye "Aktif" sekmesine geçir
+  if(guncellenenUrun>0){ productTab = 'eslesmis'; render(); }
+
   resultEl.innerHTML = `
     <div style="background:var(--success-bg);color:var(--success-text);border-radius:8px;padding:8px 10px">
       ${guncellenenUrun} ürün, ${guncellenenVaryant} varyant güncellendi${guncellenenKanal?`, ${guncellenenKanal} ürünün satış kanalı durumu alındı`:''}.
     </div>
+    ${guncellenenUrun>0 ? `<div style="margin-top:6px;color:var(--text-muted)">Güncellenen ürünler "Aktif — İKAS'ta Eşleşmiş" sekmesinde.</div>` : ''}
     ${iKanalDurumu<0 ? `<div style="margin-top:6px;color:var(--text-muted)">Not: bu dosyada "Satış Kanalı:..." sütunu bulunamadı, o alan güncellenmedi.</div>` : ''}
     ${eslesmeyen ? `<div style="margin-top:6px;color:var(--text-muted)">${eslesmeyen} varyantımızın SKU'su dosyada bulunamadı (henüz İKAS'a yüklenmemiş olabilir).</div>` : ''}`;
 };
