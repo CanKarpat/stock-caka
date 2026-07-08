@@ -43,9 +43,11 @@ header h1{font-size:15px;font-weight:600;flex:1 1 auto;min-width:140px}
 [id^="br-start-"]:focus,[id^="br-end-"]:focus,[id^="br-list-"]:focus{outline:none;border-color:var(--input-border-focus)}
 
 .product-block{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden}
-.section-header{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-sec);background:var(--surface2);padding:8px 12px;border:1px solid var(--border-strong);border-radius:var(--radius);margin:18px 0 10px}
-.section-header:first-child{margin-top:0}
-.section-header .section-count{font-weight:500;text-transform:none;letter-spacing:normal;color:var(--text-muted);margin-left:4px}
+.urun-tabs{display:flex;gap:6px;margin-bottom:14px}
+.urun-tab{height:34px;padding:0 14px;border:1px solid var(--border-strong);border-radius:var(--radius);background:var(--surface);color:var(--text-sec);font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit}
+.urun-tab:hover{background:var(--surface2)}
+.urun-tab.active{background:var(--accent);color:#fff;border-color:transparent}
+.urun-tab .tab-count{font-weight:500;opacity:.8}
 .product-header{padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:var(--surface2)}
 .product-header .sku{font-family:monospace;font-size:12px;font-weight:700;color:var(--accent-text);background:var(--accent-bg);padding:2px 8px;border-radius:6px}
 .product-header .ad{font-size:14px;font-weight:500;flex:1}
@@ -136,6 +138,7 @@ header h1{font-size:15px;font-weight:600;flex:1 1 auto;min-width:140px}
       <input type="text" id="search" placeholder="SKU veya ürün adı ara...">
     </div>
   </div>
+  <div class="urun-tabs" id="urun-tabs"></div>
   <div id="content"><div class="empty">Yükleniyor...</div></div>
 </div>
 
@@ -160,6 +163,7 @@ const BEDEN_ORDER=['32','34','36','38','40','42','44','46','48','50'];
 
 let products=[];
 let search='';
+let productTab='eslesmis'; // 'eslesmis' = İKAS'ta aktif/eşleşmiş, 'yeni' = henüz eşleşmemiş
 
 const setSyncStatus=s=>{const b=document.getElementById('sync-badge');b.className='sync-badge '+s;b.textContent=s==='online'?'● Canlı':'○ Çevrimdışı';};
 const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
@@ -313,7 +317,16 @@ function render(){
   const q=search.toLowerCase();
   const filtered=q?products.filter(p=>(p.kod||'').toLowerCase().includes(q)||(p.ad||'').toLowerCase().includes(q)):products;
 
-  if(!filtered.length){
+  const eslesmisUrunler = filtered.filter(p=>p.ikasGrupId);
+  const yeniUrunler = filtered.filter(p=>!p.ikasGrupId);
+  if(productTab!=='eslesmis' && productTab!=='yeni') productTab='eslesmis';
+  const activeList = productTab==='eslesmis' ? eslesmisUrunler : yeniUrunler;
+
+  document.getElementById('urun-tabs').innerHTML = `
+    <button class="urun-tab ${productTab==='eslesmis'?'active':''}" onclick="setUrunTab('eslesmis')">Aktif — İKAS'ta Eşleşmiş <span class="tab-count">${eslesmisUrunler.length}</span></button>
+    <button class="urun-tab ${productTab==='yeni'?'active':''}" onclick="setUrunTab('yeni')">Yeni Girilen <span class="tab-count">${yeniUrunler.length}</span></button>`;
+
+  if(!activeList.length){
     document.getElementById('content').innerHTML='<div class="empty">Sonuç bulunamadı</div>';
     return;
   }
@@ -381,13 +394,10 @@ function render(){
    }).join('');
   }
 
-  const eslesmisUrunler = filtered.filter(p=>p.ikasGrupId);
-  const yeniUrunler = filtered.filter(p=>!p.ikasGrupId);
-  document.getElementById('content').innerHTML =
-    (eslesmisUrunler.length ? `<div class="section-header">Aktif — İKAS'ta Eşleşmiş <span class="section-count">${eslesmisUrunler.length}</span></div>${buildBlocks(eslesmisUrunler)}` : '') +
-    (yeniUrunler.length ? `<div class="section-header">Yeni Girilen — Henüz Eşleşmemiş <span class="section-count">${yeniUrunler.length}</span></div>${buildBlocks(yeniUrunler)}` : '');
+  document.getElementById('content').innerHTML = buildBlocks(activeList);
   restoreFocus(focusSnap);
 }
+window.setUrunTab = function(tab){ productTab = tab; render(); };
 </script>
 </body>
 </html>

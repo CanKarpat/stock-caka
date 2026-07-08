@@ -81,9 +81,11 @@
     .select-all-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 13px; color: var(--text-sec); }
     .select-all-wrap input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); }
 
-    .section-header { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-sec); background: var(--surface2); padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius); margin: 18px 0 14px; }
-    .section-header:first-child { margin-top: 0; }
-    .section-header .section-count { font-weight: 500; text-transform: none; letter-spacing: normal; color: var(--text-muted); margin-left: 4px; }
+    .urun-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+    .urun-tab { height: 34px; padding: 0 14px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); color: var(--text-sec); font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-family: inherit; }
+    .urun-tab:hover { background: var(--surface2); }
+    .urun-tab.active { background: var(--accent); color: #fff; border-color: transparent; }
+    .urun-tab .tab-count { font-weight: 500; opacity: .8; }
     .product-group { margin-bottom: 22px; }
     .product-group-header {
       display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
@@ -236,6 +238,7 @@
     </label>
   </div>
 
+  <div class="urun-tabs" id="urun-tabs"></div>
   <div id="content"><div class="loading">Barkodlar yükleniyor...</div></div>
 </div>
 
@@ -248,6 +251,7 @@ import { getFirestore, collection, onSnapshot } from 'https://www.gstatic.com/fi
 let products = [];
 let rows = [];
 let selected = new Set();
+let productTab = 'eslesmis'; // 'eslesmis' = İKAS'ta aktif/eşleşmiş, 'yeni' = henüz eşleşmemiş
 
 const DEMO = [
   {id:'1',kod:'ABY-001',ad:'Çiçekli Abiye',tedarikci:'ALFABETA',variants:[{id:'v1',sku:'ABY-001-V1',renk:'Ekru',beden:'36'},{id:'v2',sku:'ABY-001-V2',renk:'Bordo',beden:'38'}]},
@@ -336,7 +340,15 @@ function render() {
     (r.renk||'').toLowerCase().includes(q) ||
     (r.tedarikci||'').toLowerCase().includes(q)
   );
-  rows = flat;
+  const eslesmisFlat = flat.filter(r => r.ikasGrupId);
+  const yeniFlat = flat.filter(r => !r.ikasGrupId);
+  if (productTab!=='eslesmis' && productTab!=='yeni') productTab = 'eslesmis';
+  rows = productTab==='eslesmis' ? eslesmisFlat : yeniFlat;
+
+  document.getElementById('urun-tabs').innerHTML = `
+    <button class="urun-tab ${productTab==='eslesmis'?'active':''}" onclick="setUrunTab('eslesmis')">Aktif — İKAS'ta Eşleşmiş <span class="tab-count">${eslesmisFlat.length}</span></button>
+    <button class="urun-tab ${productTab==='yeni'?'active':''}" onclick="setUrunTab('yeni')">Yeni Girilen <span class="tab-count">${yeniFlat.length}</span></button>`;
+
   document.getElementById('bc-result-count').textContent = `${rows.length} barkod listelendi`;
 
   if (!rows.length) {
@@ -382,11 +394,7 @@ function render() {
   `).join('');
   }
 
-  const eslesmisRows = rows.filter(r => r.ikasGrupId);
-  const yeniRows = rows.filter(r => !r.ikasGrupId);
-  document.getElementById('content').innerHTML =
-    (eslesmisRows.length ? `<div class="section-header">Aktif — İKAS'ta Eşleşmiş <span class="section-count">${eslesmisRows.length}</span></div>${groupsHtml(buildGroups(eslesmisRows))}` : '') +
-    (yeniRows.length ? `<div class="section-header">Yeni Girilen — Henüz Eşleşmemiş <span class="section-count">${yeniRows.length}</span></div>${groupsHtml(buildGroups(yeniRows))}` : '');
+  document.getElementById('content').innerHTML = groupsHtml(buildGroups(rows));
 
   rows.forEach(r => {
     const el = document.getElementById('bc-' + r.id);
@@ -454,6 +462,7 @@ window.deselectAll = function() {
 };
 
 window.regenerate = function() { render(); };
+window.setUrunTab = function(tab) { productTab = tab; render(); };
 
 window.printSelected = function() {
   if (!selected.size) { alert('Önce yazdırmak istediğin barkodları seç!'); return; }

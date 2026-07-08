@@ -103,8 +103,11 @@ tr.ana-row:hover td{background:var(--surface2)}
 tr.ana-row.stok-tukendi{opacity:.5}
 tr.ana-row.stok-tukendi td{text-decoration:line-through}
 tr.ana-row.stok-tukendi td.chk,tr.ana-row.stok-tukendi td:last-child{text-decoration:none}
-tr.section-row td{background:var(--surface2);color:var(--text-sec);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:8px 12px;border-bottom:1px solid var(--border-strong)}
-tr.section-row .section-count{font-weight:500;text-transform:none;letter-spacing:normal;color:var(--text-muted);margin-left:4px}
+.urun-tabs{display:flex;gap:6px;margin-bottom:10px}
+.urun-tab{height:34px;padding:0 14px;border:1px solid var(--border-strong);border-radius:var(--radius);background:var(--surface);color:var(--text-sec);font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit}
+.urun-tab:hover{background:var(--surface2)}
+.urun-tab.active{background:var(--accent);color:#fff;border-color:transparent}
+.urun-tab .tab-count{font-weight:500;opacity:.8}
 tr.var-row td{background:color-mix(in srgb,var(--accent-bg) 25%,transparent)}
 tr.var-row td:first-child{border-left:3px solid var(--accent);padding-left:8px}
 tr.var-row:hover td{background:var(--accent-bg)}
@@ -318,6 +321,9 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
       Kamera
     </button>
   </div>
+
+  <!-- Aktif / Yeni ürün sekmeleri -->
+  <div class="urun-tabs" id="urun-tabs"></div>
 
   <!-- Sütun görünürlük toggle -->
   <div class="col-toggle-wrap" id="col-toggles"></div>
@@ -869,6 +875,7 @@ let currentVarProductId = null;
 let importedRows = [];
 let importTab = 'kendi';
 let selectedIds = new Set();
+let productTab = 'eslesmis'; // 'eslesmis' = İKAS'ta aktif/eşleşmiş, 'yeni' = henüz eşleşmemiş
 
 // Sütun görünürlüğünü başlat
 COLS.forEach(c => { visibleCols[c.id] = c.always || c.default; });
@@ -1028,8 +1035,18 @@ function render(){
     (p.variants||[]).some(v=>(v.renk||'').toLowerCase().includes(q)||(v.sku||'').toLowerCase().includes(q)||(v.barkod||'').toLowerCase().includes(q))
   ) : products;
 
+  // Aktifte İKAS'ta eşleşmiş (ikasGrupId dolu) ürünler ile henüz eşleşmemiş (yeni girilen) ürünleri ayrı sekmelerde göster
+  const eslesmisUrunler = filtered.filter(p=>p.ikasGrupId);
+  const yeniUrunler = filtered.filter(p=>!p.ikasGrupId);
+  if(productTab!=='eslesmis' && productTab!=='yeni') productTab = 'eslesmis';
+  const activeList = productTab==='eslesmis' ? eslesmisUrunler : yeniUrunler;
+
+  document.getElementById('urun-tabs').innerHTML = `
+    <button class="urun-tab ${productTab==='eslesmis'?'active':''}" onclick="setUrunTab('eslesmis')">Aktif — İKAS'ta Eşleşmiş <span class="tab-count">${eslesmisUrunler.length}</span></button>
+    <button class="urun-tab ${productTab==='yeni'?'active':''}" onclick="setUrunTab('yeni')">Yeni Girilen <span class="tab-count">${yeniUrunler.length}</span></button>`;
+
   // Thead
-  const allSelected = filtered.length>0 && filtered.every(p=>selectedIds.has(p.id));
+  const allSelected = activeList.length>0 && activeList.every(p=>selectedIds.has(p.id));
   document.getElementById('thead').innerHTML=`<tr>
     <th class="chk"><input type="checkbox" ${allSelected?'checked':''} onchange="toggleSelectAll(this.checked)"></th>
     <th style="width:32px"></th>
@@ -1039,7 +1056,7 @@ function render(){
 
   renderBulkBar();
 
-  if(!filtered.length){
+  if(!activeList.length){
     document.getElementById('tbody').innerHTML=`<tr><td colspan="${vis.length+3}" class="empty-state">Sonuç bulunamadı</td></tr>`;
     return;
   }
@@ -1122,13 +1139,7 @@ function render(){
    return rows;
   }
 
-  // Aktifte İKAS'ta eşleşmiş (ikasGrupId dolu) ürünler ile henüz eşleşmemiş (yeni girilen) ürünleri ayrı bölümlerde göster
-  const eslesmisUrunler = filtered.filter(p=>p.ikasGrupId);
-  const yeniUrunler = filtered.filter(p=>!p.ikasGrupId);
-  const colspan = vis.length+3;
-  let rows = '';
-  if(eslesmisUrunler.length) rows += `<tr class="section-row"><td colspan="${colspan}">Aktif — İKAS'ta Eşleşmiş <span class="section-count">${eslesmisUrunler.length}</span></td></tr>` + buildRowsHtml(eslesmisUrunler);
-  if(yeniUrunler.length) rows += `<tr class="section-row"><td colspan="${colspan}">Yeni Girilen — Henüz Eşleşmemiş <span class="section-count">${yeniUrunler.length}</span></td></tr>` + buildRowsHtml(yeniUrunler);
+  const rows = buildRowsHtml(activeList);
 
   document.getElementById('tbody').innerHTML = rows;
   restoreFocus(focusSnap);
@@ -1146,13 +1157,16 @@ if(pendingSearch){
 }
 
 // ── Toplu işlem (bulk) ──────────────────────────────────────────────
+window.setUrunTab = function(tab){ productTab = tab; render(); };
+
 window.toggleSelectAll = function(checked){
   const q = search.toLowerCase();
-  const list = q ? products.filter(p=>
+  let list = q ? products.filter(p=>
     (p.kod||'').toLowerCase().includes(q)||(p.ad||'').toLowerCase().includes(q)||
     (p.tedarikci||'').toLowerCase().includes(q)||
-    (p.variants||[]).some(v=>(v.renk||'').toLowerCase().includes(q))
+    (p.variants||[]).some(v=>(v.renk||'').toLowerCase().includes(q)||(v.sku||'').toLowerCase().includes(q)||(v.barkod||'').toLowerCase().includes(q))
   ) : products;
+  list = list.filter(p => productTab==='eslesmis' ? p.ikasGrupId : !p.ikasGrupId);
   list.forEach(p=> checked ? selectedIds.add(p.id) : selectedIds.delete(p.id));
   render();
 };
