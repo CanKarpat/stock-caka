@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Barkodlar — Abiye Stok</title>
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -90,7 +91,7 @@
       position: absolute; top: 8px; right: 8px;
       width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent);
     }
-    .barcode-card svg { width: 100%; max-width: 150px; height: auto; }
+    .barcode-card svg, .barcode-card canvas, .barcode-card img { width: 100%; max-width: 150px; height: auto; }
     .barcode-card .bc-kod { font-family: monospace; font-size: 11px; font-weight: 600; color: var(--text); }
     .barcode-card .bc-meta { font-size: 11px; color: var(--text-muted); }
 
@@ -116,7 +117,7 @@
       width: 50mm; height: 30mm; box-sizing: border-box; padding: 2mm;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1mm;
     }
-    .zlabel svg { width: 100%; max-width: 44mm; height: auto; }
+    .zlabel svg, .zlabel canvas, .zlabel img { width: 100%; max-width: 44mm; height: auto; }
     .zlabel .zsku { font-family: monospace; font-size: 9pt; font-weight: 700; color: #000; }
     .zlabel .zvar { font-size: 8pt; color: #000; }
     @media print {
@@ -154,7 +155,8 @@
     <select id="bc-tedarikci" onchange="regenerate()"><option value="">Tümü</option></select>
     <label>Barkod türü:</label>
     <select id="bc-format" onchange="regenerate()">
-      <option value="CODE128">Code 128 (önerilen)</option>
+      <option value="QR" selected>QR Kod (önerilen — telefonla okutmak için)</option>
+      <option value="CODE128">Code 128</option>
       <option value="EAN13">EAN-13</option>
       <option value="CODE39">Code 39</option>
     </select>
@@ -288,7 +290,7 @@ function render() {
       ${rows.map(r => `
         <div class="barcode-card ${selected.has(r.id)?'selected':''}" id="card-${r.id}" onclick="toggleCard('${r.id}')">
           <input type="checkbox" ${selected.has(r.id)?'checked':''} onclick="event.stopPropagation()" onchange="toggleCard('${r.id}')">
-          <svg id="bc-${r.id}"></svg>
+          <span class="bc-code" id="bc-${r.id}"></span>
           <span class="bc-kod">${esc(r.kod||r.id)}</span>
           <span class="bc-meta">${esc(r.renk||'')}${r.renk&&r.beden?' · ':''}${esc(r.beden||'')}</span>
         </div>
@@ -299,21 +301,29 @@ function render() {
     const el = document.getElementById('bc-' + r.id);
     if (!el) return;
     const barkodDegeri = r.barkodDegeri || r.kod || r.id;
-    try {
-      JsBarcode(el, barkodDegeri, {
-        format: fmt,
-        height: h,
-        fontSize: 11,
-        margin: 4,
-        lineColor: '#1a1a18',
-        background: 'transparent',
-        displayValue: false,
-      });
-    } catch(e) {
-      // fallback to CODE128 if format incompatible
+    el.innerHTML = '';
+    if (fmt === 'QR') {
+      try { new QRCode(el, { text: barkodDegeri, width: h, height: h }); }
+      catch (e) { el.parentElement.style.opacity = '.4'; }
+    } else {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      el.appendChild(svg);
       try {
-        JsBarcode(el, barkodDegeri, { format: 'CODE128', height: h, fontSize: 11, margin: 4, lineColor: '#1a1a18', background: 'transparent', displayValue: false });
-      } catch(e2) { el.parentElement.style.opacity = '.4'; }
+        JsBarcode(svg, barkodDegeri, {
+          format: fmt,
+          height: h,
+          fontSize: 11,
+          margin: 4,
+          lineColor: '#1a1a18',
+          background: 'transparent',
+          displayValue: false,
+        });
+      } catch(e) {
+        // fallback to CODE128 if format incompatible
+        try {
+          JsBarcode(svg, barkodDegeri, { format: 'CODE128', height: h, fontSize: 11, margin: 4, lineColor: '#1a1a18', background: 'transparent', displayValue: false });
+        } catch(e2) { el.parentElement.style.opacity = '.4'; }
+      }
     }
   });
 
@@ -358,18 +368,25 @@ window.printZebraLabels = function() {
   const area = document.getElementById('zebra-print-area');
   area.innerHTML = selectedRows.map(r => `
     <div class="zlabel">
-      <svg id="zbc-${r.id}"></svg>
+      <span class="zcode" id="zbc-${r.id}"></span>
       <div class="zsku">${esc(r.kod || r.id)}</div>
       <div class="zvar">${esc(r.renk || '')}${r.renk && r.beden ? ' · ' : ''}${esc(r.beden || '')}</div>
     </div>`).join('');
   selectedRows.forEach(r => {
     const el = document.getElementById('zbc-' + r.id);
     const barkodDegeri = r.barkodDegeri || r.kod || r.id;
-    try {
-      JsBarcode(el, barkodDegeri, { format: fmt, height: 50, fontSize: 11, margin: 2, lineColor: '#000', background: 'transparent', displayValue: false });
-    } catch (e) {
-      try { JsBarcode(el, barkodDegeri, { format: 'CODE128', height: 50, fontSize: 11, margin: 2, lineColor: '#000', background: 'transparent', displayValue: false }); }
-      catch (e2) { el.parentElement.style.opacity = '.4'; }
+    if (fmt === 'QR') {
+      try { new QRCode(el, { text: barkodDegeri, width: 120, height: 120 }); }
+      catch (e) { el.parentElement.style.opacity = '.4'; }
+    } else {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      el.appendChild(svg);
+      try {
+        JsBarcode(svg, barkodDegeri, { format: fmt, height: 50, fontSize: 11, margin: 2, lineColor: '#000', background: 'transparent', displayValue: false });
+      } catch (e) {
+        try { JsBarcode(svg, barkodDegeri, { format: 'CODE128', height: 50, fontSize: 11, margin: 2, lineColor: '#000', background: 'transparent', displayValue: false }); }
+        catch (e2) { el.parentElement.style.opacity = '.4'; }
+      }
     }
   });
   if (document.getElementById('zebra-force-size').checked) {

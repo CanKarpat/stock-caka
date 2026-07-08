@@ -716,7 +716,7 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
+<script src="https://unpkg.com/@zxing/library@0.23.0/umd/index.min.js"></script>
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, getDocs, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
@@ -2148,18 +2148,25 @@ window.openScanner=async function(){
   if(!window.ZXing){alert('Kamera yükleniyor...');return;}
   document.getElementById('scanner-modal').style.display='flex';
   scannerActive=true;
+  const onResult=(result)=>{
+    if(!scannerActive||!result)return;
+    closeScanner();
+    const inp=document.getElementById('search');
+    inp.value=result.getText(); inp.dispatchEvent(new Event('input'));
+    inp.style.background='var(--success-bg)';
+    setTimeout(()=>inp.style.background='',900);
+  };
   try{
     codeReader=new ZXing.BrowserMultiFormatReader();
-    const devices=await codeReader.listVideoInputDevices();
-    const back=devices.find(d=>/back|rear|env/i.test(d.label))||devices[devices.length-1];
-    await codeReader.decodeFromVideoDevice(back?.deviceId,'scanner-video',(result)=>{
-      if(!scannerActive||!result)return;
-      closeScanner();
-      const inp=document.getElementById('search');
-      inp.value=result.getText(); inp.dispatchEvent(new Event('input'));
-      inp.style.background='var(--success-bg)';
-      setTimeout(()=>inp.style.background='',900);
-    });
+    try{
+      // facingMode ile doğrudan arka kamerayı iste; enumerateDevices etiketleri
+      // izin verilmeden önce boş döner, bu yüzden etiket eşleştirme telefonlarda güvenilir değil
+      await codeReader.decodeFromConstraints({video:{facingMode:{ideal:'environment'}}},'scanner-video',onResult);
+    }catch(constraintErr){
+      const devices=await codeReader.listVideoInputDevices();
+      const back=devices.find(d=>/back|rear|env/i.test(d.label))||devices[devices.length-1];
+      await codeReader.decodeFromVideoDevice(back?.deviceId,'scanner-video',onResult);
+    }
   }catch(e){document.getElementById('scanner-status').textContent='Kamera açılamadı: '+e.message;}
 };
 window.closeScanner=function(){
