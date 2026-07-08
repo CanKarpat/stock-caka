@@ -81,6 +81,9 @@
     .select-all-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 13px; color: var(--text-sec); }
     .select-all-wrap input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); }
 
+    .section-header { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-sec); background: var(--surface2); padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius); margin: 18px 0 14px; }
+    .section-header:first-child { margin-top: 0; }
+    .section-header .section-count { font-weight: 500; text-transform: none; letter-spacing: normal; color: var(--text-muted); margin-left: 4px; }
     .product-group { margin-bottom: 22px; }
     .product-group-header {
       display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
@@ -257,7 +260,7 @@ function flattenRows(list){
   list.forEach(p => {
     const vars = p.variants || [];
     if (!vars.length) {
-      out.push({ id:p.id, pid:p.id, urunAdi:p.ad||'', anaKod:p.kod||p.id, kod:p.kod||p.id, ad:p.ad||'', renk:'', beden:'', tedarikci:p.tedarikci||'', barkodDegeri: p.kod||p.id, satis:p.satis||0, kdvOrani:p.kdvOrani||0 });
+      out.push({ id:p.id, pid:p.id, urunAdi:p.ad||'', anaKod:p.kod||p.id, kod:p.kod||p.id, ad:p.ad||'', renk:'', beden:'', tedarikci:p.tedarikci||'', barkodDegeri: p.kod||p.id, satis:p.satis||0, kdvOrani:p.kdvOrani||0, ikasGrupId:p.ikasGrupId||'' });
       return;
     }
     vars.forEach(v => {
@@ -274,6 +277,7 @@ function flattenRows(list){
         barkodDegeri: v.barkod || v.sku || p.kod || p.id,
         satis: p.satis || 0,
         kdvOrani: p.kdvOrani || 0,
+        ikasGrupId: p.ikasGrupId || '',
       });
     });
   });
@@ -345,15 +349,19 @@ function render() {
   const h = parseInt(document.getElementById('bc-height').value) || 60;
 
   // Ürüne göre grupla (varyantlar ana ürünün altında listelensin)
-  const groups = [];
-  const groupByPid = new Map();
-  rows.forEach(r => {
-    let g = groupByPid.get(r.pid);
-    if (!g) { g = { pid: r.pid, kod: r.anaKod, items: [] }; groupByPid.set(r.pid, g); groups.push(g); }
-    g.items.push(r);
-  });
+  function buildGroups(list) {
+    const groups = [];
+    const groupByPid = new Map();
+    list.forEach(r => {
+      let g = groupByPid.get(r.pid);
+      if (!g) { g = { pid: r.pid, kod: r.anaKod, items: [] }; groupByPid.set(r.pid, g); groups.push(g); }
+      g.items.push(r);
+    });
+    return groups;
+  }
 
-  document.getElementById('content').innerHTML = groups.map(g => `
+  function groupsHtml(groups) {
+    return groups.map(g => `
     <div class="product-group">
       <div class="product-group-header">
         <span class="pg-ad">${esc(g.kod || '—')}</span>
@@ -372,6 +380,13 @@ function render() {
       </div>
     </div>
   `).join('');
+  }
+
+  const eslesmisRows = rows.filter(r => r.ikasGrupId);
+  const yeniRows = rows.filter(r => !r.ikasGrupId);
+  document.getElementById('content').innerHTML =
+    (eslesmisRows.length ? `<div class="section-header">Aktif — İKAS'ta Eşleşmiş <span class="section-count">${eslesmisRows.length}</span></div>${groupsHtml(buildGroups(eslesmisRows))}` : '') +
+    (yeniRows.length ? `<div class="section-header">Yeni Girilen — Henüz Eşleşmemiş <span class="section-count">${yeniRows.length}</span></div>${groupsHtml(buildGroups(yeniRows))}` : '');
 
   rows.forEach(r => {
     const el = document.getElementById('bc-' + r.id);

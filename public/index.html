@@ -103,6 +103,8 @@ tr.ana-row:hover td{background:var(--surface2)}
 tr.ana-row.stok-tukendi{opacity:.5}
 tr.ana-row.stok-tukendi td{text-decoration:line-through}
 tr.ana-row.stok-tukendi td.chk,tr.ana-row.stok-tukendi td:last-child{text-decoration:none}
+tr.section-row td{background:var(--surface2);color:var(--text-sec);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:8px 12px;border-bottom:1px solid var(--border-strong)}
+tr.section-row .section-count{font-weight:500;text-transform:none;letter-spacing:normal;color:var(--text-muted);margin-left:4px}
 tr.var-row td{background:color-mix(in srgb,var(--accent-bg) 25%,transparent)}
 tr.var-row td:first-child{border-left:3px solid var(--accent);padding-left:8px}
 tr.var-row:hover td{background:var(--accent-bg)}
@@ -445,6 +447,15 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
             <option>Pasif</option>
           </select>
         </div>
+        <div class="form-group">
+          <label>İKAS Satış Kanalı Durumu <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">("İKAS ID Eşitle" ile otomatik gelir)</span></label>
+          <select id="pm-ikas-kanal-durumu">
+            <option value="">— (bilinmiyor, export'ta genel seçimi kullanır)</option>
+            <option value="VISIBLE">VISIBLE (açık/görünür)</option>
+            <option value="HIDDEN">HIDDEN (açık ama gizli)</option>
+            <option value="PASSIVE">PASSIVE (kapalı)</option>
+          </select>
+        </div>
       </div>
 
       <div class="form-section-title">Varyant Bilgileri <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(bu ürünün ana varyantı — renk, beden, stok)</span></div>
@@ -600,7 +611,10 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
     <div class="modal-footer" id="import-footer" style="display:none">
       <button class="btn ghost" onclick="closeImportModal()">İptal</button>
       <button class="btn ghost" onclick="doImport('ekle')" style="background:var(--success-bg);color:var(--success-text);border-color:transparent">+ Listeye Ekle</button>
-      <button class="btn primary" onclick="doImport('yenile')">↺ Listeyi Yenile</button>
+      <button class="btn" onclick="doImport('yenile')" style="background:var(--danger-bg);color:var(--danger-text);border-color:transparent" title="DİKKAT: mevcut tüm ürünleri siler, yerine sadece bu dosyadakileri yazar">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Tümünü Sil, Bu Dosyayla Değiştir
+      </button>
     </div>
   </div>
 </div>
@@ -1030,8 +1044,9 @@ function render(){
     return;
   }
 
-  let rows = '';
-  filtered.forEach(p=>{
+  function buildRowsHtml(list){
+   let rows = '';
+   list.forEach(p=>{
     const isOpen = expanded.has(p.id);
     const vars = p.variants||[];
     const kar = p.satis>0?Math.round((p.satis-p.alis)/p.satis*100):0;
@@ -1103,7 +1118,17 @@ function render(){
         rows+=`<tr class="var-row" id="var-row-${v.id}"><td></td><td></td>${vcells}<td></td></tr>`;
       });
     }
-  });
+   });
+   return rows;
+  }
+
+  // Aktifte İKAS'ta eşleşmiş (ikasGrupId dolu) ürünler ile henüz eşleşmemiş (yeni girilen) ürünleri ayrı bölümlerde göster
+  const eslesmisUrunler = filtered.filter(p=>p.ikasGrupId);
+  const yeniUrunler = filtered.filter(p=>!p.ikasGrupId);
+  const colspan = vis.length+3;
+  let rows = '';
+  if(eslesmisUrunler.length) rows += `<tr class="section-row"><td colspan="${colspan}">Aktif — İKAS'ta Eşleşmiş <span class="section-count">${eslesmisUrunler.length}</span></td></tr>` + buildRowsHtml(eslesmisUrunler);
+  if(yeniUrunler.length) rows += `<tr class="section-row"><td colspan="${colspan}">Yeni Girilen — Henüz Eşleşmemiş <span class="section-count">${yeniUrunler.length}</span></td></tr>` + buildRowsHtml(yeniUrunler);
 
   document.getElementById('tbody').innerHTML = rows;
   restoreFocus(focusSnap);
@@ -1386,6 +1411,7 @@ window.openProductModal = function(id=null, presetP=null){
   document.getElementById('pm-indirimli').value = p?p.indirimli:'';
   document.getElementById('pm-indirim-val').value = '';
   document.getElementById('pm-kdv').value = p?(p.kdvOrani!=null?p.kdvOrani:''):'';
+  document.getElementById('pm-ikas-kanal-durumu').value = p?(p.satisKanaliDurumu||''):'';
   document.getElementById('pm-renk').innerHTML = renkOptions(v.renk||'Siyah').map(r=>`<option>${esc(r)}</option>`).join('');
   document.getElementById('pm-renk').value = v.renk||'Siyah';
   document.getElementById('pm-beden').value = v.beden||'36';
@@ -1445,6 +1471,7 @@ window.saveProduct = async function(){
     satis: Number(document.getElementById('pm-satis').value)||0,
     indirimli: Number(document.getElementById('pm-indirimli').value)||0,
     kdvOrani: Number(document.getElementById('pm-kdv').value)||0,
+    satisKanaliDurumu: document.getElementById('pm-ikas-kanal-durumu').value,
     variants: newVars,
     sira: existingP?existingP.sira:Date.now(),
     ikasGrupId: existingP?existingP.ikasGrupId||'':'',
@@ -1793,6 +1820,8 @@ window.exportIkasNative = function(){
         if(gorulenKombinasyonlar.has(kombinasyon)) uyarilar.push(`${p.kod||p.ad||'?'}: "${v.renk} / ${v.beden}" kombinasyonu birden fazla varyantta tekrarlanıyor (İKAS'ta yasak)`);
         gorulenKombinasyonlar.add(kombinasyon);
       }
+      // Ürünün İKAS'tan İD Eşitle ile öğrenilmiş kendi kanal durumu varsa onu kullan, yoksa export modalındaki genel seçime düş
+      const kanalDurumuEfektif = p.satisKanaliDurumu || kanalDurumu;
       // Ürün Grup ID boşsa İKAS her satırı ayrı bir ürün sanıyor (varyantları gruplayamıyor).
       // Bu yüzden henüz İKAS'a hiç yüklenmemiş ürünlerde kendi ID'mizi geçici grup anahtarı olarak kullanıyoruz —
       // aynı üründeki tüm varyant satırları bu ID'yi paylaşır, İKAS içe aktarınca tek ürün olarak grupluyor.
@@ -1805,9 +1834,9 @@ window.exportIkasNative = function(){
         v?(v.miktar||0):0, 'PHYSICAL', 'Renk', renkDeger, 'Beden', bedenDeger,
         '', '', '', '', '', '', '', // Desi, HS Kod, Birim Ürün Miktarı, Ürün Birimi, Satılan Ürün Miktarı, Satılan Ürün Birimi, Google Ürün Kategorisi
         IKAS_MARKA_SABIT, '', // Tedarikçi, Stoğu Tükenince Satmaya Devam Et
-        kanalDurumu, // Satış Kanalı 1
+        kanalDurumuEfektif, // Satış Kanalı 1
       ];
-      if(ikinciKanalDahil) row.push(kanalDurumu); // Satış Kanalı 2
+      if(ikinciKanalDahil) row.push(kanalDurumuEfektif); // Satış Kanalı 2
       row.push('', '', true); // Sepet min, Sepet max, Varyant Aktiflik
       rows.push(row);
     });
@@ -1865,6 +1894,9 @@ window.runIkasSync = async function(){
   const iGrup = headerRow.findIndex(h=>h==='urun grup id');
   const iVaryantId = headerRow.findIndex(h=>h==='varyant id');
   const iSku = headerRow.findIndex(h=>h==='sku');
+  // Satış Kanalı sütununun adı mağazanın kanal ismine göre değişir (ör. "Satış Kanalı:gracecode") —
+  // bu yüzden tam eşleşme yerine "satis kanali:" ile başlayan ilk sütunu alıyoruz.
+  const iKanalDurumu = headerRow.findIndex(h=>h.startsWith('satis kanali:'));
   if(iGrup<0 || iVaryantId<0 || iSku<0){
     resultEl.innerHTML = '<span style="color:var(--danger-text)">Dosyada Ürün Grup ID, Varyant ID ve SKU sütunlarının hepsi bulunamadı.</span>';
     return;
@@ -1874,10 +1906,14 @@ window.runIkasSync = async function(){
   data.slice(1).forEach(row=>{
     const sku = String(row[iSku]||'').trim();
     if(!sku) return;
-    skuMap.set(sku, { grupId: String(row[iGrup]||'').trim(), varyantId: String(row[iVaryantId]||'').trim() });
+    skuMap.set(sku, {
+      grupId: String(row[iGrup]||'').trim(),
+      varyantId: String(row[iVaryantId]||'').trim(),
+      kanalDurumu: iKanalDurumu>=0 ? String(row[iKanalDurumu]||'').trim().toUpperCase() : '',
+    });
   });
 
-  let guncellenenUrun = 0, guncellenenVaryant = 0, eslesmeyen = 0;
+  let guncellenenUrun = 0, guncellenenVaryant = 0, guncellenenKanal = 0, eslesmeyen = 0;
   const toSave = [];
   products.forEach(p=>{
     let degisti = false;
@@ -1886,6 +1922,7 @@ window.runIkasSync = async function(){
       if(!eslesme){ eslesmeyen++; return; }
       if(eslesme.grupId && p.ikasGrupId !== eslesme.grupId){ p.ikasGrupId = eslesme.grupId; degisti = true; }
       if(eslesme.varyantId && v.ikasVaryantId !== eslesme.varyantId){ v.ikasVaryantId = eslesme.varyantId; degisti = true; guncellenenVaryant++; }
+      if(eslesme.kanalDurumu && p.satisKanaliDurumu !== eslesme.kanalDurumu){ p.satisKanaliDurumu = eslesme.kanalDurumu; degisti = true; guncellenenKanal++; }
     });
     if(degisti){ guncellenenUrun++; toSave.push(saveProduct(p)); }
   });
@@ -1893,8 +1930,9 @@ window.runIkasSync = async function(){
 
   resultEl.innerHTML = `
     <div style="background:var(--success-bg);color:var(--success-text);border-radius:8px;padding:8px 10px">
-      ${guncellenenUrun} ürün, ${guncellenenVaryant} varyant güncellendi.
+      ${guncellenenUrun} ürün, ${guncellenenVaryant} varyant güncellendi${guncellenenKanal?`, ${guncellenenKanal} ürünün satış kanalı durumu alındı`:''}.
     </div>
+    ${iKanalDurumu<0 ? `<div style="margin-top:6px;color:var(--text-muted)">Not: bu dosyada "Satış Kanalı:..." sütunu bulunamadı, o alan güncellenmedi.</div>` : ''}
     ${eslesmeyen ? `<div style="margin-top:6px;color:var(--text-muted)">${eslesmeyen} varyantımızın SKU'su dosyada bulunamadı (henüz İKAS'a yüklenmemiş olabilir).</div>` : ''}`;
 };
 
@@ -2194,7 +2232,10 @@ function showImportError(msg){
 window.doImport = async function(mode){
   if(!importedRows.length)return;
   if(mode==='yenile'){
-    if(!confirm('Mevcut tüm veriler silinecek. Emin misin?'))return;
+    const mevcutSayi = products.length;
+    const uyari = `DİKKAT — GERİ ALINAMAZ İŞLEM\n\nMevcut ${mevcutSayi} ürünün TAMAMI silinecek ve yerine sadece bu dosyadaki ${importedRows.length} ürün yazılacak.\n\nSadece yeni ürün eklemek istiyorsan bunun yerine "+ Listeye Ekle" butonunu kullan.\n\nDevam etmek istediğine emin misin?`;
+    if(!confirm(uyari))return;
+    if(!confirm(`Son kontrol: ${mevcutSayi} ürün kalıcı olarak silinecek. Onaylıyor musun?`))return;
     const snap=await getDocs(collection(db,'stok'));
     await Promise.all(snap.docs.map(d=>deleteDoc(doc(db,'stok',d.id))));
   }

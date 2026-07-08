@@ -43,6 +43,9 @@ header h1{font-size:15px;font-weight:600;flex:1 1 auto;min-width:140px}
 [id^="br-start-"]:focus,[id^="br-end-"]:focus,[id^="br-list-"]:focus{outline:none;border-color:var(--input-border-focus)}
 
 .product-block{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden}
+.section-header{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-sec);background:var(--surface2);padding:8px 12px;border:1px solid var(--border-strong);border-radius:var(--radius);margin:18px 0 10px}
+.section-header:first-child{margin-top:0}
+.section-header .section-count{font-weight:500;text-transform:none;letter-spacing:normal;color:var(--text-muted);margin-left:4px}
 .product-header{padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:var(--surface2)}
 .product-header .sku{font-family:monospace;font-size:12px;font-weight:700;color:var(--accent-text);background:var(--accent-bg);padding:2px 8px;border-radius:6px}
 .product-header .ad{font-size:14px;font-weight:500;flex:1}
@@ -315,7 +318,8 @@ function render(){
     return;
   }
 
-  document.getElementById('content').innerHTML=filtered.map(p=>{
+  function buildBlocks(list){
+   return list.map(p=>{
     const vars=p.variants||[];
     // Bedene göre grupla
     const bedenMap={};
@@ -374,7 +378,14 @@ function render(){
         </tbody>
       </table>
     </div>`;
-  }).join('');
+   }).join('');
+  }
+
+  const eslesmisUrunler = filtered.filter(p=>p.ikasGrupId);
+  const yeniUrunler = filtered.filter(p=>!p.ikasGrupId);
+  document.getElementById('content').innerHTML =
+    (eslesmisUrunler.length ? `<div class="section-header">Aktif — İKAS'ta Eşleşmiş <span class="section-count">${eslesmisUrunler.length}</span></div>${buildBlocks(eslesmisUrunler)}` : '') +
+    (yeniUrunler.length ? `<div class="section-header">Yeni Girilen — Henüz Eşleşmemiş <span class="section-count">${yeniUrunler.length}</span></div>${buildBlocks(yeniUrunler)}` : '');
   restoreFocus(focusSnap);
 }
 </script>
