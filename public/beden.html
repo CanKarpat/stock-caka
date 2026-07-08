@@ -118,9 +118,9 @@ header h1{font-size:15px;font-weight:600;flex:1 1 auto;min-width:140px}
   </a>
   <h1>Beden Tablosu</h1>
   <span class="sync-badge offline" id="sync-badge">● Bağlanıyor</span>
-  <button class="btn" onclick="exportBedenExcel()">
+  <button class="btn" id="export-beden-btn" onclick="exportBedenExcel()" title="Sadece o an açık olan sekmedeki ürünleri dışa aktarır">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-    Excel'e Aktar
+    <span id="export-beden-btn-label">Excel'e Aktar</span>
   </button>
   <button class="btn" onclick="window.print()">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
@@ -294,7 +294,10 @@ window.copyIkasHtml = function(pid){
 // (İKAS'ın kendi örnek dosyasında da bu alanlar çoğu zaman boştur).
 window.exportBedenExcel = function(){
   const rows = [];
-  products.forEach(p=>{
+  // Sadece o an ekranda açık olan sekmedeki ürünler dışa aktarılır (Aktif / Yeni Girilen) —
+  // her seferinde zaten İKAS'ta olan ürünleri tekrar dışa aktarmamak için.
+  const kaynakUrunler = products.filter(p => productTab==='eslesmis' ? p.ikasGrupId : !p.ikasGrupId);
+  kaynakUrunler.forEach(p=>{
     const html = buildBedenRehberiHtml(p);
     if(!html) return; // ölçüsü olmayan ürünü atla
     // index.html'deki İKAS Excel export'uyla aynı mantık: Ürün Grup ID boşsa (henüz İKAS'a
@@ -302,7 +305,7 @@ window.exportBedenExcel = function(){
     // aksi halde iki farklı export aynı ürün için farklı/boş Grup ID gönderir, tutarsızlık çıkar.
     rows.push([p.ikasGrupId||p.id, p.ad||'', html, '', '']);
   });
-  if(!rows.length){ alert('Dışa aktarılacak beden ölçüsü bulunamadı.'); return; }
+  if(!rows.length){ alert(`Dışa aktarılacak beden ölçüsü bulunamadı ("${productTab==='eslesmis'?'Aktif':'Yeni Girilen'}" sekmesinde).`); return; }
   const headers = ['Ürün Grup ID','İsim','Html:Beden Rehberi','Çoklu Seçim:Elbise Modeli','Çoklu Seçim:Kumaş Tipi'];
   const csvCell = val => `"${String(val==null?'':val).replace(/"/g,'""')}"`;
   const lines = [headers, ...rows].map(r=>r.map(csvCell).join(','));
@@ -321,6 +324,8 @@ function render(){
   const yeniUrunler = filtered.filter(p=>!p.ikasGrupId);
   if(productTab!=='eslesmis' && productTab!=='yeni') productTab='eslesmis';
   const activeList = productTab==='eslesmis' ? eslesmisUrunler : yeniUrunler;
+
+  document.getElementById('export-beden-btn-label').textContent = `Excel'e Aktar (${productTab==='eslesmis'?'Aktif':'Yeni Girilen'})`;
 
   document.getElementById('urun-tabs').innerHTML = `
     <button class="urun-tab ${productTab==='eslesmis'?'active':''}" onclick="setUrunTab('eslesmis')">Aktif — İKAS'ta Eşleşmiş <span class="tab-count">${eslesmisUrunler.length}</span></button>
