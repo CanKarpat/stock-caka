@@ -372,6 +372,10 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
           </div>
         </div>
         <div class="form-group">
+          <label>KDV Oranı (%) <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(fiyat etiketinde gösterilir)</span></label>
+          <input id="pm-kdv" type="number" min="0" max="100" placeholder="20">
+        </div>
+        <div class="form-group">
           <label>Durum</label>
           <select id="pm-durum">
             <option>Yayında</option>
@@ -1312,6 +1316,7 @@ window.openProductModal = function(id=null, presetP=null){
   document.getElementById('pm-satis').value = p?p.satis:'';
   document.getElementById('pm-indirimli').value = p?p.indirimli:'';
   document.getElementById('pm-indirim-val').value = '';
+  document.getElementById('pm-kdv').value = p?(p.kdvOrani!=null?p.kdvOrani:''):'';
   document.getElementById('pm-renk').innerHTML = renkOptions(v.renk||'Siyah').map(r=>`<option>${esc(r)}</option>`).join('');
   document.getElementById('pm-renk').value = v.renk||'Siyah';
   document.getElementById('pm-beden').value = v.beden||'36';
@@ -1365,6 +1370,7 @@ window.saveProduct = async function(){
     alis: Number(document.getElementById('pm-alis').value)||0,
     satis: Number(document.getElementById('pm-satis').value)||0,
     indirimli: Number(document.getElementById('pm-indirimli').value)||0,
+    kdvOrani: Number(document.getElementById('pm-kdv').value)||0,
     variants: newVars,
     sira: existingP?existingP.sira:Date.now(),
     ikasGrupId: existingP?existingP.ikasGrupId||'':'',

@@ -114,12 +114,16 @@
     /* ── Zebra ZD220 etiket yazdırma (50x30mm, tek etiket/sayfa) ── */
     #zebra-print-area { display: none; }
     .zlabel {
-      width: 50mm; height: 30mm; box-sizing: border-box; padding: 2mm;
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1mm;
+      width: 50mm; height: 30mm; box-sizing: border-box; padding: 1.5mm 2mm;
+      display: flex; flex-direction: row; align-items: center; gap: 2mm;
     }
-    .zlabel svg, .zlabel canvas, .zlabel img { width: 100%; max-width: 44mm; height: auto; }
-    .zlabel .zsku { font-family: monospace; font-size: 9pt; font-weight: 700; color: #000; }
+    .zlabel .zqr { flex: 0 0 auto; width: 20mm; height: 20mm; }
+    .zlabel .zqr svg, .zlabel .zqr canvas, .zlabel .zqr img { width: 100%; height: 100%; display: block; }
+    .zlabel .zinfo { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 0.6mm; }
+    .zlabel .zsku { font-family: monospace; font-size: 9pt; font-weight: 700; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .zlabel .zvar { font-size: 8pt; color: #000; }
+    .zlabel .zfiyat { font-size: 11pt; font-weight: 700; color: #000; }
+    .zlabel .zkdv { font-size: 7pt; color: #333; }
     @media print {
       body.zebra-mode > *:not(#zebra-print-area) { display: none !important; }
       body.zebra-mode #zebra-print-area { display: block; }
@@ -203,7 +207,7 @@ function flattenRows(list){
   list.forEach(p => {
     const vars = p.variants || [];
     if (!vars.length) {
-      out.push({ id:p.id, kod:p.kod||p.id, ad:p.ad||'', renk:'', beden:'', tedarikci:p.tedarikci||'', barkodDegeri: p.kod||p.id });
+      out.push({ id:p.id, kod:p.kod||p.id, ad:p.ad||'', renk:'', beden:'', tedarikci:p.tedarikci||'', barkodDegeri: p.kod||p.id, satis:p.satis||0, indirimli:p.indirimli||0, kdvOrani:p.kdvOrani||0 });
       return;
     }
     vars.forEach(v => {
@@ -215,6 +219,9 @@ function flattenRows(list){
         beden: v.beden || '',
         tedarikci: p.tedarikci || '',
         barkodDegeri: v.barkod || v.sku || p.kod || p.id,
+        satis: p.satis || 0,
+        indirimli: p.indirimli || 0,
+        kdvOrani: p.kdvOrani || 0,
       });
     });
   });
@@ -366,18 +373,26 @@ window.printZebraLabels = function() {
   const fmt = document.getElementById('bc-format').value;
   const selectedRows = rows.filter(r => selected.has(r.id));
   const area = document.getElementById('zebra-print-area');
-  area.innerHTML = selectedRows.map(r => `
+  area.innerHTML = selectedRows.map(r => {
+    const fiyat = formatFiyat(r.indirimli > 0 ? r.indirimli : r.satis);
+    const kdv = r.kdvOrani > 0 ? `KDV %${r.kdvOrani}` : '';
+    return `
     <div class="zlabel">
-      <span class="zcode" id="zbc-${r.id}"></span>
-      <div class="zsku">${esc(r.kod || r.id)}</div>
-      <div class="zvar">${esc(r.renk || '')}${r.renk && r.beden ? ' · ' : ''}${esc(r.beden || '')}</div>
-    </div>`).join('');
+      <span class="zqr" id="zbc-${r.id}"></span>
+      <div class="zinfo">
+        <div class="zsku">${esc(simplifiedSku(r.kod))}</div>
+        <div class="zvar">${esc(r.renk || '')}${r.renk && r.beden ? ' · ' : ''}${esc(r.beden || '')}</div>
+        <div class="zfiyat">${esc(fiyat)}</div>
+        ${kdv ? `<div class="zkdv">${esc(kdv)}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
   selectedRows.forEach(r => {
     const el = document.getElementById('zbc-' + r.id);
     const barkodDegeri = r.barkodDegeri || r.kod || r.id;
     if (fmt === 'QR') {
-      try { new QRCode(el, { text: barkodDegeri, width: 120, height: 120 }); }
-      catch (e) { el.parentElement.style.opacity = '.4'; }
+      try { new QRCode(el, { text: barkodDegeri, width: 200, height: 200 }); }
+      catch (e) { el.style.opacity = '.4'; }
     } else {
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       el.appendChild(svg);
@@ -411,6 +426,15 @@ function updateCount() {
 }
 
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+// SKU'nun tam hali "Marka-Tedarikçi-ÜrünTipi-TedarikçiKodu-Uzunluk[-Renk-Beden]" şeklinde;
+// etikette sadece Tedarikçi kısaltması + Tedarikçi kodu gösterilir (örn. "GC-SN-ELB-576-MN" -> "SN-576")
+function simplifiedSku(kod) {
+  const segs = String(kod || '').split('-');
+  return segs.length >= 4 ? `${segs[1]}-${segs[3]}` : (kod || '');
+}
+
+function formatFiyat(n) { return n ? '₺' + Number(n).toLocaleString('tr-TR') : ''; }
 
 init();
 </script>
