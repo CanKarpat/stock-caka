@@ -665,6 +665,14 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
     <div class="modal-body" style="font-size:13px;line-height:1.7;color:var(--text-sec)">
       <p>Bu dosya İKAS'ın tam ürün Excel şablonundaki <b style="color:var(--text)">tüm sütunları</b>, aynı isim ve sırayla içerir. Bizden gelen bilgilerle dolan sütunlar: İsim, Açıklama, Satış/İndirimli/Alış Fiyatı, Barkod, SKU, Stok, Varyant Tip/Değer (Renk, Beden). Marka ve Tedarikçi her zaman "Grace Code"; Silindi mi?=FALSE, Varyant Aktiflik=TRUE, satış kanalı sütunları=PASSIVE olarak sabit gönderilir. Kategoriler, Etiketler, Resim URL, Metadata, Slug, Desi ve benzeri veri tutmadığımız sütunlar başlık olarak yer alır ama boş bırakılır.</p>
       <div class="form-group" style="margin-top:10px">
+        <label>Kapsam <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(hangi ürünler dosyaya dahil edilsin)</span></label>
+        <select id="ikas-export-kapsam">
+          <option value="hepsi">Tümü</option>
+          <option value="eslesmis">Sadece Aktif — İKAS'ta Eşleşmiş</option>
+          <option value="yeni" selected>Sadece Yeni Girilenler — Henüz Eşleşmemiş</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-top:10px">
         <label>Satış Kanalı Adı <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">("Satış Kanalı:____" sütun başlığı için)</span></label>
         <input id="ikas-satis-kanali-adi" value="gracecode" placeholder="gracecode">
       </div>
@@ -709,6 +717,14 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
     <div class="modal-body" style="font-size:13px;line-height:1.7;color:var(--text-sec)">
       <p>Buradan oluşturup İKAS'a yüklediğin ürünler İKAS'ta yeni bir <b style="color:var(--text)">Ürün Grup ID</b> / <b style="color:var(--text)">Varyant ID</b> alır. Bu dosyayı yükleyerek o ID'leri SKU eşleştirmesiyle buraya geri kaydet — böylece bir sonraki "İKAS Excel" dışa aktarımın yeni ürün oluşturmak yerine mevcut ürünleri günceller.</p>
       <p style="margin-top:8px">İKAS Admin → Ürünler → Dışa Aktar ile aldığın dosyayı (Ürün Grup ID, Varyant ID, SKU sütunlarını içeren herhangi bir İKAS export'u — .xlsx veya .csv) seç.</p>
+      <div class="form-group" style="margin-top:10px">
+        <label>Kapsam <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(hangi ürünler eşleştirme için taransın)</span></label>
+        <select id="ikas-sync-kapsam">
+          <option value="hepsi">Tümü</option>
+          <option value="eslesmis">Sadece Aktif — İKAS'ta Eşleşmiş</option>
+          <option value="yeni" selected>Sadece Yeni Girilenler — Henüz Eşleşmemiş</option>
+        </select>
+      </div>
       <div class="form-group" style="margin-top:10px">
         <input type="file" id="ikas-sync-file" accept=".csv,.xlsx,.xls">
       </div>
@@ -1806,7 +1822,17 @@ window.exportIkasNative = function(){
   const ikinciKanalDahil = document.getElementById('ikas-ikinci-kanal-dahil').checked;
   const ikinciKanalAdi = (document.getElementById('ikas-ikinci-kanal-adi').value||'').trim();
   const kanalDurumu = document.getElementById('ikas-satis-kanali-durumu').value;
+  const exportKapsam = document.getElementById('ikas-export-kapsam').value;
   if(ikinciKanalDahil && !ikinciKanalAdi){ alert('İkinci satış kanalının adını gir, ya da "İkinci bir satış kanalı da dahil et" kutusunu kaldır.'); return; }
+
+  // Kapsam: her seferinde İKAS'ta zaten aktif/eşleşmiş ürünleri tekrar dosyaya koymak gereksiz olabilir —
+  // kullanıcı sadece yeni girilenleri, sadece eşleşmişleri ya da tümünü seçebilir.
+  const exportEdilecekUrunler = products.filter(p=>{
+    if(exportKapsam==='eslesmis') return !!p.ikasGrupId;
+    if(exportKapsam==='yeni') return !p.ikasGrupId;
+    return true;
+  });
+  if(!exportEdilecekUrunler.length){ alert('Seçilen kapsamda ürün yok.'); return; }
 
   // Tam İKAS ürün şablonu — tüm sütunlar aynı isim ve sırayla (excel-sablon'daki gerçek dosyayla birebir).
   // İkinci Satış Kanalı sütunu sadece dahil edilmek istendiğinde eklenir — istenmiyorsa sütun hiç oluşmaz.
@@ -1816,7 +1842,7 @@ window.exportIkasNative = function(){
 
   const rows=[];
   const uyarilar=[];
-  products.forEach(p=>{
+  exportEdilecekUrunler.forEach(p=>{
     const vars=(p.variants||[]).length?p.variants:[null];
     // İKAS'ta yeni ürün için İsim zorunlu — boşsa satır/ürün reddedilebilir.
     if(!String(p.ad||'').trim()) uyarilar.push(`${p.kod||'?'}: Ürün Adı (İsim) boş — İKAS bu alanı zorunlu tutuyor`);
@@ -1927,9 +1953,16 @@ window.runIkasSync = async function(){
     });
   });
 
+  const syncKapsam = document.getElementById('ikas-sync-kapsam').value;
+  const taranacakUrunler = products.filter(p=>{
+    if(syncKapsam==='eslesmis') return !!p.ikasGrupId;
+    if(syncKapsam==='yeni') return !p.ikasGrupId;
+    return true;
+  });
+
   let guncellenenUrun = 0, guncellenenVaryant = 0, guncellenenKanal = 0, eslesmeyen = 0;
   const toSave = [];
-  products.forEach(p=>{
+  taranacakUrunler.forEach(p=>{
     let degisti = false;
     (p.variants||[]).forEach(v=>{
       const eslesme = skuMap.get(String(v.sku||'').trim());
