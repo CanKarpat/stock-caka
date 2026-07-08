@@ -69,6 +69,15 @@
     .select-all-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 13px; color: var(--text-sec); }
     .select-all-wrap input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); }
 
+    .product-group { margin-bottom: 22px; }
+    .product-group-header {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+      padding-bottom: 6px; border-bottom: 1px solid var(--border);
+    }
+    .product-group-header .pg-ad { font-size: 14px; font-weight: 600; color: var(--text); }
+    .product-group-header .pg-count { font-size: 12px; color: var(--text-muted); }
+    .product-group-header .pg-select-btn { margin-left: auto; height: 28px; padding: 0 10px; font-size: 12px; }
+
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -207,12 +216,14 @@ function flattenRows(list){
   list.forEach(p => {
     const vars = p.variants || [];
     if (!vars.length) {
-      out.push({ id:p.id, kod:p.kod||p.id, ad:p.ad||'', renk:'', beden:'', tedarikci:p.tedarikci||'', barkodDegeri: p.kod||p.id, satis:p.satis||0, indirimli:p.indirimli||0, kdvOrani:p.kdvOrani||0 });
+      out.push({ id:p.id, pid:p.id, urunAdi:p.ad||'', kod:p.kod||p.id, ad:p.ad||'', renk:'', beden:'', tedarikci:p.tedarikci||'', barkodDegeri: p.kod||p.id, satis:p.satis||0, kdvOrani:p.kdvOrani||0 });
       return;
     }
     vars.forEach(v => {
       out.push({
         id: p.id + '_' + v.id,
+        pid: p.id,
+        urunAdi: p.ad || '',
         kod: v.sku || p.kod || p.id,
         ad: p.ad || '',
         renk: v.renk || '',
@@ -220,7 +231,6 @@ function flattenRows(list){
         tedarikci: p.tedarikci || '',
         barkodDegeri: v.barkod || v.sku || p.kod || p.id,
         satis: p.satis || 0,
-        indirimli: p.indirimli || 0,
         kdvOrani: p.kdvOrani || 0,
       });
     });
@@ -292,17 +302,34 @@ function render() {
   const fmt = document.getElementById('bc-format').value;
   const h = parseInt(document.getElementById('bc-height').value) || 60;
 
-  document.getElementById('content').innerHTML = `
-    <div class="grid" id="grid">
-      ${rows.map(r => `
-        <div class="barcode-card ${selected.has(r.id)?'selected':''}" id="card-${r.id}" onclick="toggleCard('${r.id}')">
-          <input type="checkbox" ${selected.has(r.id)?'checked':''} onclick="event.stopPropagation()" onchange="toggleCard('${r.id}')">
-          <span class="bc-code" id="bc-${r.id}"></span>
-          <span class="bc-kod">${esc(r.kod||r.id)}</span>
-          <span class="bc-meta">${esc(r.renk||'')}${r.renk&&r.beden?' · ':''}${esc(r.beden||'')}</span>
-        </div>
-      `).join('')}
-    </div>`;
+  // Ürüne göre grupla (varyantlar ana ürünün altında listelensin)
+  const groups = [];
+  const groupByPid = new Map();
+  rows.forEach(r => {
+    let g = groupByPid.get(r.pid);
+    if (!g) { g = { pid: r.pid, ad: r.urunAdi, items: [] }; groupByPid.set(r.pid, g); groups.push(g); }
+    g.items.push(r);
+  });
+
+  document.getElementById('content').innerHTML = groups.map(g => `
+    <div class="product-group">
+      <div class="product-group-header">
+        <span class="pg-ad">${esc(g.ad || '—')}</span>
+        <span class="pg-count">${g.items.length} varyant</span>
+        <button class="btn ghost pg-select-btn" onclick="selectGroup('${g.pid}')">Bu ürünü seç</button>
+      </div>
+      <div class="grid">
+        ${g.items.map(r => `
+          <div class="barcode-card ${selected.has(r.id)?'selected':''}" id="card-${r.id}" onclick="toggleCard('${r.id}')">
+            <input type="checkbox" ${selected.has(r.id)?'checked':''} onclick="event.stopPropagation()" onchange="toggleCard('${r.id}')">
+            <span class="bc-code" id="bc-${r.id}"></span>
+            <span class="bc-kod">${esc(r.kod||r.id)}</span>
+            <span class="bc-meta">${esc(r.renk||'')}${r.renk&&r.beden?' · ':''}${esc(r.beden||'')}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
 
   rows.forEach(r => {
     const el = document.getElementById('bc-' + r.id);
@@ -336,6 +363,15 @@ function render() {
 
   updateCount();
 }
+
+window.selectGroup = function(pid) {
+  rows.filter(r => r.pid === pid).forEach(r => {
+    selected.add(r.id);
+    const c = document.getElementById('card-' + r.id);
+    if (c) { c.classList.add('selected'); const cb = c.querySelector('input'); if (cb) cb.checked = true; }
+  });
+  updateCount();
+};
 
 window.toggleCard = function(id) {
   if (selected.has(id)) selected.delete(id);
@@ -374,7 +410,7 @@ window.printZebraLabels = function() {
   const selectedRows = rows.filter(r => selected.has(r.id));
   const area = document.getElementById('zebra-print-area');
   area.innerHTML = selectedRows.map(r => {
-    const fiyat = formatFiyat(r.indirimli > 0 ? r.indirimli : r.satis);
+    const fiyat = formatFiyat(r.satis);
     const kdv = r.kdvOrani > 0 ? `KDV %${r.kdvOrani}` : '';
     return `
     <div class="zlabel">

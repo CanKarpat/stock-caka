@@ -84,6 +84,7 @@ tr.ana-row:hover td{background:var(--surface2)}
 tr.var-row td{background:color-mix(in srgb,var(--accent-bg) 25%,transparent)}
 tr.var-row td:first-child{border-left:3px solid var(--accent);padding-left:8px}
 tr.var-row:hover td{background:var(--accent-bg)}
+tr.var-row.scan-hit td{background:var(--success-bg)!important;transition:background 1.2s ease}
 td input,td select{width:100%;border:none;background:transparent;font-size:13px;color:var(--text);font-family:inherit;outline:none;padding:1px 0}
 td input:focus,td select:focus{background:var(--accent-bg);border-radius:4px;padding:2px 5px;margin:-2px -5px;width:calc(100% + 10px)}
 td input.r{text-align:right}
@@ -943,7 +944,7 @@ function render(){
     (p.kod||'').toLowerCase().includes(q)||
     (p.ad||'').toLowerCase().includes(q)||
     (p.tedarikci||'').toLowerCase().includes(q)||
-    (p.variants||[]).some(v=>(v.renk||'').toLowerCase().includes(q))
+    (p.variants||[]).some(v=>(v.renk||'').toLowerCase().includes(q)||(v.sku||'').toLowerCase().includes(q)||(v.barkod||'').toLowerCase().includes(q))
   ) : products;
 
   // Thead
@@ -1031,7 +1032,7 @@ function render(){
           if(c.id==='deger') return `<td class="r" style="color:var(--text-sec)">₺${fmt(Number(v.miktar||0)*birimDeger(p))}</td>`;
           return '<td></td>';
         }).join('');
-        rows+=`<tr class="var-row"><td></td><td></td>${vcells}<td></td></tr>`;
+        rows+=`<tr class="var-row" id="var-row-${v.id}"><td></td><td></td>${vcells}<td></td></tr>`;
       });
     }
   });
@@ -2157,10 +2158,29 @@ window.openScanner=async function(){
   const onResult=(result)=>{
     if(!scannerActive||!result)return;
     closeScanner();
+    const text=result.getText();
+    // Taranan kod bir varyantın SKU/barkod alanıyla birebir eşleşiyorsa,
+    // o ürünü otomatik genişletip tam o varyant satırına kaydır.
+    let matchedPid=null, matchedVid=null;
+    for(const p of products){
+      const v=(p.variants||[]).find(v=>(v.sku||'')===text||(v.barkod||'')===text);
+      if(v){ matchedPid=p.id; matchedVid=v.id; break; }
+    }
+    if(matchedPid) expanded.add(matchedPid);
     const inp=document.getElementById('search');
-    inp.value=result.getText(); inp.dispatchEvent(new Event('input'));
+    inp.value=text; inp.dispatchEvent(new Event('input'));
     inp.style.background='var(--success-bg)';
     setTimeout(()=>inp.style.background='',900);
+    if(matchedVid){
+      requestAnimationFrame(()=>{
+        const row=document.getElementById('var-row-'+matchedVid);
+        if(row){
+          row.scrollIntoView({behavior:'smooth',block:'center'});
+          row.classList.add('scan-hit');
+          setTimeout(()=>row.classList.remove('scan-hit'),1500);
+        }
+      });
+    }
   };
   try{
     codeReader=new ZXing.BrowserMultiFormatReader();
