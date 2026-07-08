@@ -100,6 +100,9 @@ td{padding:11px 10px;border-bottom:1px solid var(--border);vertical-align:middle
 tr:last-child td{border-bottom:none}
 tr.ana-row{background:var(--surface)}
 tr.ana-row:hover td{background:var(--surface2)}
+tr.ana-row.stok-tukendi{opacity:.5}
+tr.ana-row.stok-tukendi td{text-decoration:line-through}
+tr.ana-row.stok-tukendi td.chk,tr.ana-row.stok-tukendi td:last-child{text-decoration:none}
 tr.var-row td{background:color-mix(in srgb,var(--accent-bg) 25%,transparent)}
 tr.var-row td:first-child{border-left:3px solid var(--accent);padding-left:8px}
 tr.var-row:hover td{background:var(--accent-bg)}
@@ -221,6 +224,9 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
   .container{padding:10px}
   .form-grid{grid-template-columns:1fr}
   #variant-modal .modal{max-width:100%}
+  /* iOS Safari, odaklanan input/select'in font-size'ı 16px'in altındaysa sayfayı otomatik yakınlaştırır;
+     bunu önlemek için mobilde tüm form elemanlarını en az 16px'e zorluyoruz (masaüstü tasarımı etkilenmez) */
+  input,select,textarea{font-size:16px!important}
 }
 </style>
 <script>
@@ -1030,6 +1036,7 @@ function render(){
     const vars = p.variants||[];
     const kar = p.satis>0?Math.round((p.satis-p.alis)/p.satis*100):0;
     const durumClass = p.durum==='Yayında'?'badge-yayinda':p.durum==='Beklemede'?'badge-beklemede':'badge-pasif';
+    const stokTukendi = totalMiktar(p)===0;
 
     const cells = vis.map(c=>{
       if(c.id==='sku') return `<td><span style="font-family:monospace;font-size:12px;font-weight:600">${esc(p.kod)}</span></td>`;
@@ -1051,7 +1058,7 @@ function render(){
       return '<td></td>';
     }).join('');
 
-    rows += `<tr class="ana-row">
+    rows += `<tr class="ana-row ${stokTukendi?'stok-tukendi':''}">
       <td class="chk"><input type="checkbox" ${selectedIds.has(p.id)?'checked':''} onclick="event.stopPropagation()" onchange="toggleRowSelect('${p.id}')"></td>
       <td>
         <button class="expand-btn ${isOpen?'open':''}" onclick="toggleExpand('${p.id}')" title="Varyantları göster">

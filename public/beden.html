@@ -69,6 +69,10 @@ header h1{font-size:15px;font-weight:600;flex:1 1 auto;min-width:140px}
   .product-block{break-inside:avoid;margin-bottom:8px}
   body{font-size:12px}
 }
+@media(max-width:600px){
+  /* iOS Safari, odaklanan input/select'in font-size'ı 16px'in altındaysa sayfayı otomatik yakınlaştırır */
+  input,select,textarea{font-size:16px!important}
+}
 </style>
 <script>
 (function(){

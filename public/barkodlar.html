@@ -151,6 +151,10 @@
       body.zebra-mode .zlabel { page-break-after: always; }
       body.zebra-mode .zlabel:last-child { page-break-after: auto; }
     }
+    @media (max-width: 600px) {
+      /* iOS Safari, odaklanan input/select'in font-size'ı 16px'in altındaysa sayfayı otomatik yakınlaştırır */
+      input, select, textarea { font-size: 16px !important; }
+    }
   </style>
   <script>
   (function(){

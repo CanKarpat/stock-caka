@@ -79,6 +79,10 @@ tr:hover td{background:var(--surface2)}
   .sidebar{width:100%;border-right:none;border-bottom:1px solid var(--border)}
   .ted-list{max-height:180px}
 }
+@media(max-width:600px){
+  /* iOS Safari, odaklanan input/select'in font-size'ı 16px'in altındaysa sayfayı otomatik yakınlaştırır */
+  input,select,textarea{font-size:16px!important}
+}
 </style>
 <script>
 (function(){
