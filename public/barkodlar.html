@@ -28,10 +28,10 @@
 
     header {
       background: var(--surface); border-bottom: 1px solid var(--border);
-      padding: 0 16px; height: 56px; display: flex; align-items: center; gap: 12px;
+      padding: 8px 16px; min-height: 56px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
       position: sticky; top: 0; z-index: 10;
     }
-    header h1 { font-size: 16px; font-weight: 600; flex: 1; }
+    header h1 { font-size: 16px; font-weight: 600; flex: 1 1 auto; min-width: 100px; }
     .back-btn {
       display: inline-flex; align-items: center; gap: 6px;
       color: var(--text-sec); text-decoration: none; font-size: 13px;
@@ -70,16 +70,16 @@
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 10px;
     }
 
     .barcode-card {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 14px 12px 10px;
-      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      padding: 12px 10px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
       cursor: pointer;
       transition: border-color .15s, box-shadow .15s;
       position: relative;
@@ -90,13 +90,9 @@
       position: absolute; top: 8px; right: 8px;
       width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent);
     }
-    .barcode-card svg { width: 100%; max-width: 160px; height: auto; }
-    .barcode-card .bc-kod { font-family: monospace; font-size: 11px; color: var(--text-sec); margin-top: -4px; }
-    .barcode-card .bc-ad { font-size: 12px; font-weight: 500; color: var(--text); text-align: center; line-height: 1.3; }
+    .barcode-card svg { width: 100%; max-width: 150px; height: auto; }
+    .barcode-card .bc-kod { font-family: monospace; font-size: 11px; font-weight: 600; color: var(--text); }
     .barcode-card .bc-meta { font-size: 11px; color: var(--text-muted); }
-    .badge { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 10px; }
-    .badge-ana { background: #f0eafe; color: #5b3d8a; }
-    .badge-var { background: var(--accent-bg); color: var(--accent-text); }
 
     .empty { text-align: center; padding: 60px 20px; color: var(--text-muted); }
     .empty p { margin-top: 12px; font-size: 14px; }
@@ -153,6 +149,7 @@
 <div class="container">
   <div class="toolbar">
     <input type="text" id="bc-search" placeholder="SKU, ürün adı veya renk ara..." style="height:34px;padding:0 10px;border:1px solid var(--input-border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:13px;min-width:180px;flex:1" oninput="regenerate()">
+    <span id="bc-result-count" style="font-size:12px;color:var(--text-muted);white-space:nowrap"></span>
     <label>Tedarikçi:</label>
     <select id="bc-tedarikci" onchange="regenerate()"><option value="">Tümü</option></select>
     <label>Barkod türü:</label>
@@ -164,7 +161,7 @@
     <label>Yükseklik:</label>
     <input type="number" id="bc-height" value="60" min="30" max="120" onchange="regenerate()">
     <div class="sep"></div>
-    <button class="btn" onclick="selectAll()">Tümünü seç</button>
+    <button class="btn" onclick="selectAll()" title="Aramaya/filtreye uyan tüm barkodları seçer">Listelenenleri Seç</button>
     <button class="btn" onclick="deselectAll()">Seçimi kaldır</button>
     <button class="btn primary" onclick="printSelected()">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
@@ -275,6 +272,7 @@ function render() {
     (r.tedarikci||'').toLowerCase().includes(q)
   );
   rows = flat;
+  document.getElementById('bc-result-count').textContent = `${rows.length} barkod listelendi`;
 
   if (!rows.length) {
     document.getElementById('content').innerHTML = '<div class="empty"><p>Sonuç bulunamadı.</p></div>';
@@ -292,9 +290,7 @@ function render() {
           <input type="checkbox" ${selected.has(r.id)?'checked':''} onclick="event.stopPropagation()" onchange="toggleCard('${r.id}')">
           <svg id="bc-${r.id}"></svg>
           <span class="bc-kod">${esc(r.kod||r.id)}</span>
-          <span class="bc-ad">${esc(r.ad||'—')}</span>
           <span class="bc-meta">${esc(r.renk||'')}${r.renk&&r.beden?' · ':''}${esc(r.beden||'')}</span>
-          ${r.tedarikci?`<span class="badge badge-var">${esc(r.tedarikci)}</span>`:''}
         </div>
       `).join('')}
     </div>`;

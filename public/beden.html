@@ -20,8 +20,8 @@
   --accent:#6b87ff;--accent-bg:#1a2040;--accent-text:#a0b0ff;
 }}
 body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px}
-header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;height:54px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
-header h1{font-size:15px;font-weight:600;flex:1}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 16px;min-height:54px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;position:sticky;top:0;z-index:10}
+header h1{font-size:15px;font-weight:600;flex:1 1 auto;min-width:140px}
 .btn{height:34px;padding:0 12px;border:1px solid var(--border-strong);border-radius:var(--radius);background:var(--surface);color:var(--text);font-size:12px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:5px;text-decoration:none;transition:background .12s}
 .btn:hover{background:var(--surface2)}
 .container{max-width:1100px;margin:0 auto;padding:16px}
@@ -251,7 +251,10 @@ window.exportBedenExcel = function(){
   products.forEach(p=>{
     const html = buildBedenRehberiHtml(p);
     if(!html) return; // ölçüsü olmayan ürünü atla
-    rows.push([p.ikasGrupId||'', p.ad||'', html, '', '']);
+    // index.html'deki İKAS Excel export'uyla aynı mantık: Ürün Grup ID boşsa (henüz İKAS'a
+    // yüklenmemiş/senkronlanmamış ürün) kendi ID'mizi geçici grup anahtarı olarak kullan —
+    // aksi halde iki farklı export aynı ürün için farklı/boş Grup ID gönderir, tutarsızlık çıkar.
+    rows.push([p.ikasGrupId||p.id, p.ad||'', html, '', '']);
   });
   if(!rows.length){ alert('Dışa aktarılacak beden ölçüsü bulunamadı.'); return; }
   const headers = ['Ürün Grup ID','İsim','Html:Beden Rehberi','Çoklu Seçim:Elbise Modeli','Çoklu Seçim:Kumaş Tipi'];
