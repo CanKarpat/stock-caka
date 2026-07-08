@@ -567,7 +567,7 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
       </div>
       <div id="itab-ikas-content" style="display:none">
         <div style="background:var(--accent-bg);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--accent-text);line-height:1.6">
-          İKAS Admin → Ürünler → Dışa Aktar. "Varyantlı ürün özel alanları" dosyasını (SKU içerir) zorunlu yükle; "Ürün özel alanları" dosyası (Html:Beden Rehberi) opsiyoneldir. Fiyat, stok miktarı ve kategori gibi detaylar bu dosyalarda yok — içe aktardıktan sonra elle girmen gerekir (kategori/özel alan detaylarını İKAS panelinden yönetmen önerilir).
+          İKAS Admin → Ürünler → Dışa Aktar. "Varyantlı ürün özel alanları" dosyasını (SKU içerir) zorunlu yükle; "Ürün özel alanları" dosyası (Html:Beden Rehberi) opsiyoneldir. Stok miktarı "Stok:Ana Depo" sütunundan otomatik alınır. Fiyat ve kategori gibi detaylar bu dosyalarda yok — içe aktardıktan sonra elle girmen gerekir (kategori/özel alan detaylarını İKAS panelinden yönetmen önerilir).
         </div>
         <div class="form-group" style="margin-bottom:10px">
           <label>Varyantlı Ürün Özel Alanları (zorunlu, SKU içerir)</label>
@@ -2019,13 +2019,14 @@ window.processIkasFiles = function(){
       const iGrup=gi('urun grup id'), iVaryantId=gi('varyant id'), iIsim=gi('isim'),
             iTip1=gi('varyant tip 1'), iDeger1=gi('varyant deger 1'),
             iTip2=gi('varyant tip 2'), iDeger2=gi('varyant deger 2'),
-            iSku=gi('sku'), iBarkod=gi('barkod listesi'),
+            iSku=gi('sku'), iBarkod=gi('barkod listesi'), iStok=gi('stok:ana depo'),
             iHtml=vh.findIndex(h=>h.startsWith('html'));
 
       const parsedRows = vRows.slice(1).map(r=>({
         grupId:(r[iGrup]||'').trim(), varyantId:(r[iVaryantId]||'').trim(), isim:(r[iIsim]||'').trim(),
         tip1:r[iTip1]||'', deger1:r[iDeger1]||'', tip2:r[iTip2]||'', deger2:r[iDeger2]||'',
         sku:(r[iSku]||'').trim(), barkod:(r[iBarkod]||'').trim(),
+        stok: iStok>=0 ? (Number(r[iStok])||0) : 0,
         html: iHtml>=0 ? (r[iHtml]||'') : '',
       })).filter(r=>r.grupId);
 
@@ -2068,7 +2069,7 @@ window.processIkasFiles = function(){
           const olcu = bedenOlcuMap[beden] || {};
           return {
             id: uid(), sku: r.sku || (anaKod+'-V'+(i+1)), renk, beden,
-            miktar: 0, barkod: r.barkod||'', ikasVaryantId: r.varyantId||'',
+            miktar: r.stok||0, barkod: r.barkod||'', ikasVaryantId: r.varyantId||'',
             gogus: olcu.gogus||0, bel: olcu.bel||0, basen: olcu.basen||0, boy: 0,
           };
         });
