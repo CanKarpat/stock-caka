@@ -1664,17 +1664,17 @@ function renderVarTable(){
       const b=v.beden||'36';
       if(!bedenMap[b]){
         // Bu bedendeki ilk varyantın ölçülerini al
-        bedenMap[b]={beden:b,gogus:v.gogus||0,bel:v.bel||0,basen:v.basen||0,boy:v.boy||0,varIds:[]};
+        bedenMap[b]={beden:b,gogus:v.gogus||0,bel:v.bel||0,basen:v.basen||0,varIds:[]};
       }
       bedenMap[b].varIds.push(v.id);
     });
     const bedenRows=BEDEN_ORDER.filter(b=>bedenMap[b]).concat(Object.keys(bedenMap).filter(b=>!BEDEN_ORDER.includes(b)));
     thead=`<tr>
       <th>Beden</th><th>Renk(ler)</th>
-      <th class="r">Göğüs (cm)</th><th class="r">Bel (cm)</th><th class="r">Basen (cm)</th><th class="r">Boy (cm)</th>
+      <th class="r">Göğüs (cm)</th><th class="r">Bel (cm)</th><th class="r">Basen (cm)</th>
     </tr>`;
     if(!bedenRows.length){
-      tbody=`<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted)">Henüz varyant yok</td></tr>`;
+      tbody=`<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted)">Henüz varyant yok</td></tr>`;
     } else {
       tbody=bedenRows.map(b=>{
         const bm=bedenMap[b];
@@ -1689,8 +1689,6 @@ function renderVarTable(){
             onchange="updBedenOlcu('${p.id}','${b}','bel',this.value)" style="width:65px"></td>
           <td class="r"><input class="r" type="number" data-field="basen" data-pid="${p.id}" data-beden="${b}" value="${bm.basen||0}" min="0"
             onchange="updBedenOlcu('${p.id}','${b}','basen',this.value)" style="width:65px"></td>
-          <td class="r"><input class="r" type="number" data-field="boy" data-pid="${p.id}" data-beden="${b}" value="${bm.boy||0}" min="0"
-            onchange="updBedenOlcu('${p.id}','${b}','boy',this.value)" style="width:65px"></td>
         </tr>`;
       }).join('');
     }

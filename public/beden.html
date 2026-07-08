@@ -338,7 +338,7 @@ function render(){
     const bedenMap={};
     vars.forEach(v=>{
       const b=v.beden||'36';
-      if(!bedenMap[b]) bedenMap[b]={gogus:v.gogus||0,bel:v.bel||0,basen:v.basen||0,boy:v.boy||0,renkler:[]};
+      if(!bedenMap[b]) bedenMap[b]={gogus:v.gogus||0,bel:v.bel||0,basen:v.basen||0,renkler:[]};
       bedenMap[b].renkler.push(v.renk||'Siyah');
     });
     const bedenRows=BEDEN_ORDER.filter(b=>bedenMap[b]).concat(Object.keys(bedenMap).filter(b=>!BEDEN_ORDER.includes(b)));
@@ -369,7 +369,6 @@ function render(){
           <th class="r">Göğüs (cm)</th>
           <th class="r">Bel (cm)</th>
           <th class="r">Basen (cm)</th>
-          <th class="r">Boy (cm)</th>
         </tr></thead>
         <tbody>
           ${bedenRows.map(b=>{
@@ -384,8 +383,6 @@ function render(){
                 onchange="updBedenOlcu('${p.id}','${b}','bel',this.value)"></td>
               <td class="r"><input type="number" data-field="basen" data-pid="${p.id}" data-beden="${b}" value="${bm.basen||''}" min="0" placeholder="—"
                 onchange="updBedenOlcu('${p.id}','${b}','basen',this.value)"></td>
-              <td class="r"><input type="number" data-field="boy" data-pid="${p.id}" data-beden="${b}" value="${bm.boy||''}" min="0" placeholder="—"
-                onchange="updBedenOlcu('${p.id}','${b}','boy',this.value)"></td>
             </tr>`;
           }).join('')}
         </tbody>
