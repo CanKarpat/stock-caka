@@ -352,6 +352,10 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
     <input type="number" id="bulk-indirim-val" placeholder="10" style="width:80px">
     <button class="btn ghost" onclick="bulkSetIndirim()">Uygula</button>
     <div class="sep2"></div>
+    <label>KDV Oranı %:</label>
+    <input type="number" id="bulk-kdv" min="0" max="100" placeholder="20" style="width:70px">
+    <button class="btn ghost" onclick="bulkSetKdv()">Uygula</button>
+    <div class="sep2"></div>
     <button class="btn ghost" onclick="bulkGenerateSku()" title="Marka-Tedarikçi-ÜrünTipi-TedarikçiKodu-Uzunluk-Renk-Beden">Kısaltmalardan SKU Oluştur</button>
     <div class="sep2"></div>
     <button class="btn danger-btn" onclick="bulkDelete()">Seçilenleri Sil</button>
@@ -1228,6 +1232,17 @@ window.bulkSetIndirim = async function(){
     return saveProduct(p);
   }));
   document.getElementById('bulk-indirim-val').value='';
+};
+window.bulkSetKdv = async function(){
+  if(!selectedIds.size) return;
+  const kdv = parseFloat(document.getElementById('bulk-kdv').value);
+  if(isNaN(kdv) || kdv<0 || kdv>100){ alert('Geçerli bir KDV oranı gir (örn. 20).'); return; }
+  await Promise.all([...selectedIds].map(id=>{
+    const p = products.find(x=>x.id===id); if(!p) return;
+    p.kdvOrani = kdv;
+    return saveProduct(p);
+  }));
+  document.getElementById('bulk-kdv').value='';
 };
 window.bulkGenerateSku = async function(){
   if(!selectedIds.size) return;
