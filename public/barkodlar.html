@@ -86,14 +86,18 @@
     .urun-tab:hover { background: var(--surface2); }
     .urun-tab.active { background: var(--accent); color: #fff; border-color: transparent; }
     .urun-tab .tab-count { font-weight: 500; opacity: .8; }
-    .product-group { margin-bottom: 22px; }
+    .product-group { margin-bottom: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
     .product-group-header {
-      display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
-      padding-bottom: 6px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+      cursor: pointer; user-select: none;
     }
+    .product-group-header:hover { background: var(--surface2); }
+    .product-group-header .pg-check { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); flex-shrink: 0; }
+    .product-group-header .pg-arrow { flex-shrink: 0; color: var(--text-muted); transition: transform .15s; }
+    .product-group-header .pg-arrow.open { transform: rotate(90deg); }
     .product-group-header .pg-ad { font-family: monospace; font-size: 14px; font-weight: 600; color: var(--text); }
     .product-group-header .pg-count { font-size: 12px; color: var(--text-muted); }
-    .product-group-header .pg-select-btn { margin-left: auto; height: 28px; padding: 0 10px; font-size: 12px; }
+    .product-group-body { padding: 4px 12px 14px; border-top: 1px solid var(--border); }
 
     .grid {
       display: grid;
@@ -252,6 +256,7 @@ let products = [];
 let rows = [];
 let selected = new Set();
 let productTab = 'eslesmis'; // 'eslesmis' = İKAS'ta aktif/eşleşmiş, 'yeni' = henüz eşleşmemiş
+let expandedProducts = new Set(); // akordeon: sadece açılan ürünün QR/barkodları üretilir
 
 const DEMO = [
   {id:'1',kod:'ABY-001',ad:'Çiçekli Abiye',tedarikci:'ALFABETA',variants:[{id:'v1',sku:'ABY-001-V1',renk:'Ekru',beden:'36'},{id:'v2',sku:'ABY-001-V2',renk:'Bordo',beden:'38'}]},
@@ -373,25 +378,33 @@ function render() {
   }
 
   function groupsHtml(groups) {
-    return groups.map(g => `
+    return groups.map(g => {
+      const isOpen = expandedProducts.has(g.pid);
+      const allSelected = g.items.length>0 && g.items.every(r=>selected.has(r.id));
+      return `
     <div class="product-group">
-      <div class="product-group-header">
+      <div class="product-group-header" onclick="toggleProductExpand('${g.pid}')">
+        <input type="checkbox" class="pg-check" ${allSelected?'checked':''} onclick="event.stopPropagation()" onchange="toggleGroupAll('${g.pid}',this.checked)">
+        <svg class="pg-arrow ${isOpen?'open':''}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
         <span class="pg-ad">${esc(g.kod || '—')}</span>
         <span class="pg-count">${g.items.length} varyant</span>
-        <button class="btn ghost pg-select-btn" onclick="selectGroup('${g.pid}')">Bu ürünü seç</button>
       </div>
-      <div class="grid">
-        ${g.items.map(r => `
-          <div class="barcode-card ${selected.has(r.id)?'selected':''}" id="card-${r.id}" onclick="toggleCard('${r.id}')">
-            <input type="checkbox" ${selected.has(r.id)?'checked':''} onclick="event.stopPropagation()" onchange="toggleCard('${r.id}')">
-            <span class="bc-code" id="bc-${r.id}"></span>
-            <span class="bc-kod">${esc(r.kod||r.id)}</span>
-            <span class="bc-meta">${esc(r.renk||'')}${r.renk&&r.beden?' · ':''}${esc(r.beden||'')}</span>
-          </div>
-        `).join('')}
-      </div>
+      ${isOpen ? `
+      <div class="product-group-body">
+        <div class="grid">
+          ${g.items.map(r => `
+            <div class="barcode-card ${selected.has(r.id)?'selected':''}" id="card-${r.id}" onclick="toggleCard('${r.id}')">
+              <input type="checkbox" ${selected.has(r.id)?'checked':''} onclick="event.stopPropagation()" onchange="toggleCard('${r.id}')">
+              <span class="bc-code" id="bc-${r.id}"></span>
+              <span class="bc-kod">${esc(r.kod||r.id)}</span>
+              <span class="bc-meta">${esc(r.renk||'')}${r.renk&&r.beden?' · ':''}${esc(r.beden||'')}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>` : ''}
     </div>
-  `).join('');
+  `;
+    }).join('');
   }
 
   document.getElementById('content').innerHTML = groupsHtml(buildGroups(rows));
@@ -429,13 +442,16 @@ function render() {
   updateCount();
 }
 
-window.selectGroup = function(pid) {
+window.toggleProductExpand = function(pid) {
+  expandedProducts.has(pid) ? expandedProducts.delete(pid) : expandedProducts.add(pid);
+  render();
+};
+
+window.toggleGroupAll = function(pid, checked) {
   rows.filter(r => r.pid === pid).forEach(r => {
-    selected.add(r.id);
-    const c = document.getElementById('card-' + r.id);
-    if (c) { c.classList.add('selected'); const cb = c.querySelector('input'); if (cb) cb.checked = true; }
+    checked ? selected.add(r.id) : selected.delete(r.id);
   });
-  updateCount();
+  render();
 };
 
 window.toggleCard = function(id) {
@@ -451,14 +467,13 @@ window.toggleCard = function(id) {
 };
 
 window.selectAll = function() {
-  rows.forEach(r => { selected.add(r.id); const c = document.getElementById('card-'+r.id); if(c){c.classList.add('selected');const cb=c.querySelector('input');if(cb)cb.checked=true;} });
-  updateCount();
+  rows.forEach(r => selected.add(r.id));
+  render();
 };
 
 window.deselectAll = function() {
   selected.clear();
-  document.querySelectorAll('.barcode-card').forEach(c => { c.classList.remove('selected'); const cb=c.querySelector('input');if(cb)cb.checked=false; });
-  updateCount();
+  render();
 };
 
 window.regenerate = function() { render(); };
