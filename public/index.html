@@ -354,7 +354,7 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
     <div class="sep2"></div>
     <label>KDV Oranı %:</label>
     <input type="number" id="bulk-kdv" min="0" max="100" placeholder="20" style="width:70px">
-    <button class="btn ghost" onclick="bulkSetKdv()">Uygula</button>
+    <button class="btn ghost" id="bulk-kdv-btn" onclick="bulkSetKdv()">Uygula</button>
     <div class="sep2"></div>
     <button class="btn ghost" onclick="bulkGenerateSku()" title="Marka-Tedarikçi-ÜrünTipi-TedarikçiKodu-Uzunluk-Renk-Beden">Kısaltmalardan SKU Oluştur</button>
     <div class="sep2"></div>
@@ -1237,12 +1237,28 @@ window.bulkSetKdv = async function(){
   if(!selectedIds.size) return;
   const kdv = parseFloat(document.getElementById('bulk-kdv').value);
   if(isNaN(kdv) || kdv<0 || kdv>100){ alert('Geçerli bir KDV oranı gir (örn. 20).'); return; }
-  await Promise.all([...selectedIds].map(id=>{
-    const p = products.find(x=>x.id===id); if(!p) return;
-    p.kdvOrani = kdv;
-    return saveProduct(p);
-  }));
-  document.getElementById('bulk-kdv').value='';
+  const btn = document.getElementById('bulk-kdv-btn');
+  const eskiMetin = btn.textContent;
+  const toplam = selectedIds.size;
+  btn.disabled = true;
+  btn.textContent = `Uygulanıyor... (0/${toplam})`;
+  let tamamlanan = 0;
+  try {
+    await Promise.all([...selectedIds].map(async id=>{
+      const p = products.find(x=>x.id===id); if(!p) return;
+      p.kdvOrani = kdv;
+      await saveProduct(p);
+      tamamlanan++;
+      btn.textContent = `Uygulanıyor... (${tamamlanan}/${toplam})`;
+    }));
+    document.getElementById('bulk-kdv').value='';
+    alert(`${tamamlanan} ürünün KDV oranı %${kdv} olarak güncellendi.`);
+  } catch(e) {
+    alert(`Hata oluştu — ${tamamlanan}/${toplam} ürün güncellendi, geri kalanı tekrar dene: ${e.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = eskiMetin;
+  }
 };
 window.bulkGenerateSku = async function(){
   if(!selectedIds.size) return;
