@@ -663,7 +663,7 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
       </button>
     </div>
     <div class="modal-body" style="font-size:13px;line-height:1.7;color:var(--text-sec)">
-      <p>Bu dosya İKAS'ın tam ürün Excel şablonundaki <b style="color:var(--text)">tüm sütunları</b>, aynı isim ve sırayla içerir. Bizden gelen bilgilerle dolan sütunlar: İsim, Açıklama, Satış/İndirimli/Alış Fiyatı, Barkod, SKU, Stok, Varyant Tip/Değer (Renk, Beden). Marka ve Tedarikçi her zaman "Grace Code"; Silindi mi?=FALSE, Varyant Aktiflik=TRUE, satış kanalı sütunları=PASSIVE olarak sabit gönderilir. Kategoriler, Etiketler, Resim URL, Metadata, Slug, Desi ve benzeri veri tutmadığımız sütunlar başlık olarak yer alır ama boş bırakılır.</p>
+      <p>Bu dosya İKAS'ın tam ürün Excel şablonundaki <b style="color:var(--text)">tüm sütunları</b>, aynı isim ve sırayla içerir. Bizden gelen bilgilerle dolan sütunlar: İsim, Açıklama, Satış/İndirimli Fiyatı, Barkod, SKU, Stok, Varyant Tip/Değer (Renk, Beden). Marka ve Tedarikçi her zaman "Grace Code"; Silindi mi?=FALSE, Varyant Aktiflik=TRUE, satış kanalı sütunları=PASSIVE olarak sabit gönderilir. <b style="color:var(--text)">Alış Fiyatı sütunu kasıtlı olarak her zaman boş bırakılır</b> — dahili maliyet bilgisi İKAS'a hiç gönderilmez. Kategoriler, Etiketler, Resim URL, Metadata, Slug, Desi ve benzeri veri tutmadığımız sütunlar başlık olarak yer alır ama boş bırakılır.</p>
       <div class="form-group" style="margin-top:10px">
         <label>Kapsam <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(hangi ürünler dosyaya dahil edilsin)</span></label>
         <select id="ikas-export-kapsam">
@@ -716,7 +716,7 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
     </div>
     <div class="modal-body" style="font-size:13px;line-height:1.7;color:var(--text-sec)">
       <p>Buradan oluşturup İKAS'a yüklediğin ürünler İKAS'ta yeni bir <b style="color:var(--text)">Ürün Grup ID</b> / <b style="color:var(--text)">Varyant ID</b> alır. Bu dosyayı yükleyerek o ID'leri SKU eşleştirmesiyle buraya geri kaydet — böylece bir sonraki "İKAS Excel" dışa aktarımın yeni ürün oluşturmak yerine mevcut ürünleri günceller.</p>
-      <p style="margin-top:8px">İKAS Admin → Ürünler → Dışa Aktar ile aldığın dosyayı (Ürün Grup ID, Varyant ID, SKU sütunlarını içeren herhangi bir İKAS export'u — .xlsx veya .csv) seç.</p>
+      <p style="margin-top:8px">İKAS Admin → Ürünler → Dışa Aktar ile aldığın dosyayı (Ürün Grup ID, Varyant ID, SKU sütunlarını içeren herhangi bir İKAS export'u — .xlsx veya .csv) seç. Dosyada varsa Satış Kanalı Durumu ile Satış/İndirimli Fiyat da otomatik alınır. <b style="color:var(--text)">Alış Fiyatı hiçbir zaman buradan okunmaz</b> — dahili maliyet bilgisi sadece elle girilir.</p>
       <div class="form-group" style="margin-top:10px">
         <label>Kapsam <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(hangi ürünler eşleştirme için taransın)</span></label>
         <select id="ikas-sync-kapsam">
@@ -1865,7 +1865,7 @@ window.exportIkasNative = function(){
       // aynı üründeki tüm varyant satırları bu ID'yi paylaşır, İKAS içe aktarınca tek ürün olarak grupluyor.
       const row=[
         p.ikasGrupId||p.id, v?(v.ikasVaryantId||''):'', p.ad||'', p.aciklama||'',
-        p.satis||0, (Number(p.indirimli||0)>0?p.indirimli:''), p.alis||0,
+        p.satis||0, (Number(p.indirimli||0)>0?p.indirimli:''), '', // Alış Fiyatı kasıtlı olarak hiç gönderilmiyor — dahili maliyet bilgisi İKAS'a sızmamalı
         v?(v.barkod||v.sku||''):'', v?(v.sku||p.kod||''):(p.kod||''),
         false, IKAS_MARKA_SABIT,
         '', '', '', '', '', '', // Kategoriler, Etiketler, Resim URL, Metadata Başlık, Metadata Açıklama, Slug
@@ -1935,6 +1935,11 @@ window.runIkasSync = async function(){
   // Satış Kanalı sütununun adı mağazanın kanal ismine göre değişir (ör. "Satış Kanalı:gracecode") —
   // bu yüzden tam eşleşme yerine "satis kanali:" ile başlayan ilk sütunu alıyoruz.
   const iKanalDurumu = headerRow.findIndex(h=>h.startsWith('satis kanali:'));
+  // Satış/İndirimli Fiyat "Varyantlı Ürün Özel Alanları" dosyasında yok, sadece İKAS'ın tam
+  // "Ürünler" export'unda var — bu yüzden fiyat bilgisini buradan (İD Eşitle) çekiyoruz.
+  // Alış Fiyatı kasıtlı olarak hiç okunmuyor — dahili maliyet bilgisi İKAS'ın dosyasından geri alınmaz.
+  const iSatis = headerRow.findIndex(h=>h==='satis fiyati');
+  const iIndirimli = headerRow.findIndex(h=>h==='indirimli fiyati');
   if(iGrup<0 || iVaryantId<0 || iSku<0){
     resultEl.innerHTML = '<span style="color:var(--danger-text)">Dosyada Ürün Grup ID, Varyant ID ve SKU sütunlarının hepsi bulunamadı.</span>';
     return;
@@ -1948,6 +1953,8 @@ window.runIkasSync = async function(){
       grupId: String(row[iGrup]||'').trim(),
       varyantId: String(row[iVaryantId]||'').trim(),
       kanalDurumu: iKanalDurumu>=0 ? String(row[iKanalDurumu]||'').trim().toUpperCase() : '',
+      satis: iSatis>=0 ? (Number(row[iSatis])||0) : null,
+      indirimli: iIndirimli>=0 ? (Number(row[iIndirimli])||0) : null,
     });
   });
 
@@ -1958,7 +1965,7 @@ window.runIkasSync = async function(){
     return true;
   });
 
-  let guncellenenUrun = 0, guncellenenVaryant = 0, guncellenenKanal = 0, eslesmeyen = 0;
+  let guncellenenUrun = 0, guncellenenVaryant = 0, guncellenenKanal = 0, guncellenenFiyat = 0, eslesmeyen = 0;
   const toSave = [];
   taranacakUrunler.forEach(p=>{
     let degisti = false;
@@ -1968,6 +1975,8 @@ window.runIkasSync = async function(){
       if(eslesme.grupId && p.ikasGrupId !== eslesme.grupId){ p.ikasGrupId = eslesme.grupId; degisti = true; }
       if(eslesme.varyantId && v.ikasVaryantId !== eslesme.varyantId){ v.ikasVaryantId = eslesme.varyantId; degisti = true; guncellenenVaryant++; }
       if(eslesme.kanalDurumu && p.satisKanaliDurumu !== eslesme.kanalDurumu){ p.satisKanaliDurumu = eslesme.kanalDurumu; degisti = true; guncellenenKanal++; }
+      if(eslesme.satis!=null && p.satis !== eslesme.satis){ p.satis = eslesme.satis; degisti = true; guncellenenFiyat++; }
+      if(eslesme.indirimli!=null && p.indirimli !== eslesme.indirimli){ p.indirimli = eslesme.indirimli; degisti = true; }
     });
     if(degisti){ guncellenenUrun++; toSave.push(saveProduct(p)); }
   });
@@ -1978,7 +1987,7 @@ window.runIkasSync = async function(){
 
   resultEl.innerHTML = `
     <div style="background:var(--success-bg);color:var(--success-text);border-radius:8px;padding:8px 10px">
-      ${guncellenenUrun} ürün, ${guncellenenVaryant} varyant güncellendi${guncellenenKanal?`, ${guncellenenKanal} ürünün satış kanalı durumu alındı`:''}.
+      ${guncellenenUrun} ürün, ${guncellenenVaryant} varyant güncellendi${guncellenenKanal?`, ${guncellenenKanal} ürünün satış kanalı durumu alındı`:''}${guncellenenFiyat?`, ${guncellenenFiyat} ürünün satış/indirimli fiyatı alındı`:''}.
     </div>
     ${guncellenenUrun>0 ? `<div style="margin-top:6px;color:var(--text-muted)">Güncellenen ürünler "Aktif — İKAS'ta Eşleşmiş" sekmesinde.</div>` : ''}
     ${iKanalDurumu<0 ? `<div style="margin-top:6px;color:var(--text-muted)">Not: bu dosyada "Satış Kanalı:..." sütunu bulunamadı, o alan güncellenmedi.</div>` : ''}
