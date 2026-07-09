@@ -43,6 +43,7 @@ header h1{font-size:15px;font-weight:600;flex:1 1 auto;min-width:140px}
 [id^="br-start-"]:focus,[id^="br-end-"]:focus,[id^="br-list-"]:focus{outline:none;border-color:var(--input-border-focus)}
 
 .product-block{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden}
+.product-block.selected{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
 .urun-tabs{display:flex;gap:6px;margin-bottom:14px}
 .urun-tab{height:34px;padding:0 14px;border:1px solid var(--border-strong);border-radius:var(--radius);background:var(--surface);color:var(--text-sec);font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit}
 .urun-tab:hover{background:var(--surface2)}
@@ -118,9 +119,9 @@ header h1{font-size:15px;font-weight:600;flex:1 1 auto;min-width:140px}
   </a>
   <h1>Beden Tablosu</h1>
   <span class="sync-badge offline" id="sync-badge">● Bağlanıyor</span>
-  <button class="btn" id="export-beden-btn" onclick="exportBedenExcel()" title="Sadece o an açık olan sekmedeki ürünleri dışa aktarır">
+  <button class="btn" id="export-beden-btn" onclick="exportBedenExcel()" title="Sadece işaretlediğin ürünleri dışa aktarır">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-    <span id="export-beden-btn-label">Excel'e Aktar</span>
+    <span id="export-beden-btn-label">Seçilenleri Dışa Aktar</span>
   </button>
   <button class="btn" onclick="window.print()">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
@@ -137,6 +138,9 @@ header h1{font-size:15px;font-weight:600;flex:1 1 auto;min-width:140px}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
       <input type="text" id="search" placeholder="SKU veya ürün adı ara...">
     </div>
+    <span id="beden-selected-count" style="font-size:12px;color:var(--text-muted);white-space:nowrap"></span>
+    <button class="btn" onclick="selectAllVisible()" title="Bu sekmede görünen tüm ürünleri seçer">Listelenenleri Seç</button>
+    <button class="btn" onclick="deselectAllProducts()">Seçimi Kaldır</button>
   </div>
   <div class="urun-tabs" id="urun-tabs"></div>
   <div id="content"><div class="empty">Yükleniyor...</div></div>
@@ -164,6 +168,7 @@ const BEDEN_ORDER=['32','34','36','38','40','42','44','46','48','50'];
 let products=[];
 let search='';
 let productTab='eslesmis'; // 'eslesmis' = İKAS'ta aktif/eşleşmiş, 'yeni' = henüz eşleşmemiş
+let selected=new Set(); // dışa aktarım için elle seçilen ürün id'leri
 
 const setSyncStatus=s=>{const b=document.getElementById('sync-badge');b.className='sync-badge '+s;b.textContent=s==='online'?'● Canlı':'○ Çevrimdışı';};
 const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
@@ -293,11 +298,19 @@ window.copyIkasHtml = function(pid){
 // Çoklu Seçim:Elbise Modeli / Kumaş Tipi bu uygulamada artık tutulmadığı için boş bırakılıyor
 // (İKAS'ın kendi örnek dosyasında da bu alanlar çoğu zaman boştur).
 window.exportBedenExcel = function(){
+  if(!selected.size){ alert('Önce dışa aktarmak istediğin ürünleri işaretle (kutucuklardan seç).'); return; }
+  const secilenUrunler = products.filter(p=>selected.has(p.id));
+
+  // Henüz İKAS'ta eşleşmemiş (gerçek Ürün Grup ID'si olmayan) bir ürünün beden rehberini göndermenin
+  // anlamı yok — İKAS'ta öyle bir ürün henüz yok, geçici ID hiçbir şeye eklenmez. Kullanıcıyı uyar.
+  const eslesmemisSecili = secilenUrunler.filter(p=>!p.ikasGrupId);
+  if(eslesmemisSecili.length){
+    const devamEt = confirm(`Seçtiğin ${eslesmemisSecili.length} ürün henüz İKAS'ta eşleşmemiş (gerçek Ürün Grup ID'si yok) — bu ürünlerin beden rehberi İKAS'a doğru şekilde eklenmez. Önce "İKAS Excel" ile yükleyip "İKAS ID Eşitle" yapman gerekir.\n\nYine de geçici ID ile devam etmek istiyor musun?`);
+    if(!devamEt) return;
+  }
+
   const rows = [];
-  // Sadece o an ekranda açık olan sekmedeki ürünler dışa aktarılır (Aktif / Yeni Girilen) —
-  // her seferinde zaten İKAS'ta olan ürünleri tekrar dışa aktarmamak için.
-  const kaynakUrunler = products.filter(p => productTab==='eslesmis' ? p.ikasGrupId : !p.ikasGrupId);
-  kaynakUrunler.forEach(p=>{
+  secilenUrunler.forEach(p=>{
     const html = buildBedenRehberiHtml(p);
     if(!html) return; // ölçüsü olmayan ürünü atla
     // index.html'deki İKAS Excel export'uyla aynı mantık: Ürün Grup ID boşsa (henüz İKAS'a
@@ -305,7 +318,7 @@ window.exportBedenExcel = function(){
     // aksi halde iki farklı export aynı ürün için farklı/boş Grup ID gönderir, tutarsızlık çıkar.
     rows.push([p.ikasGrupId||p.id, p.ad||'', html, '', '']);
   });
-  if(!rows.length){ alert(`Dışa aktarılacak beden ölçüsü bulunamadı ("${productTab==='eslesmis'?'Aktif':'Yeni Girilen'}" sekmesinde).`); return; }
+  if(!rows.length){ alert('Seçilen ürünlerde beden ölçüsü bulunamadı.'); return; }
   const headers = ['Ürün Grup ID','İsim','Html:Beden Rehberi','Çoklu Seçim:Elbise Modeli','Çoklu Seçim:Kumaş Tipi'];
   const csvCell = val => `"${String(val==null?'':val).replace(/"/g,'""')}"`;
   const lines = [headers, ...rows].map(r=>r.map(csvCell).join(','));
@@ -325,7 +338,8 @@ function render(){
   if(productTab!=='eslesmis' && productTab!=='yeni') productTab='eslesmis';
   const activeList = productTab==='eslesmis' ? eslesmisUrunler : yeniUrunler;
 
-  document.getElementById('export-beden-btn-label').textContent = `Excel'e Aktar (${productTab==='eslesmis'?'Aktif':'Yeni Girilen'})`;
+  document.getElementById('export-beden-btn-label').textContent = selected.size ? `Seçilenleri Dışa Aktar (${selected.size})` : 'Seçilenleri Dışa Aktar';
+  document.getElementById('beden-selected-count').textContent = selected.size ? `${selected.size} ürün seçili` : '';
 
   document.getElementById('urun-tabs').innerHTML = `
     <button class="urun-tab ${productTab==='eslesmis'?'active':''}" onclick="setUrunTab('eslesmis')">Aktif — İKAS'ta Eşleşmiş <span class="tab-count">${eslesmisUrunler.length}</span></button>
@@ -350,8 +364,9 @@ function render(){
 
     if(!bedenRows.length) return '';
 
-    return `<div class="product-block">
+    return `<div class="product-block ${selected.has(p.id)?'selected':''}">
       <div class="product-header">
+        <input type="checkbox" ${selected.has(p.id)?'checked':''} onchange="toggleProductSelect('${p.id}')" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)">
         <span class="sku">${esc(p.kod)}</span>
         <span class="ad">${esc(p.ad||'—')}</span>
         <button class="btn" style="height:26px;font-size:10px" onclick="copyIkasHtml('${p.id}')">İKAS HTML Kopyala</button>
@@ -400,6 +415,18 @@ function render(){
   restoreFocus(focusSnap);
 }
 window.setUrunTab = function(tab){ productTab = tab; render(); };
+
+window.toggleProductSelect = function(id){
+  selected.has(id) ? selected.delete(id) : selected.add(id);
+  render();
+};
+window.selectAllVisible = function(){
+  const q=search.toLowerCase();
+  const filtered=q?products.filter(p=>(p.kod||'').toLowerCase().includes(q)||(p.ad||'').toLowerCase().includes(q)):products;
+  filtered.filter(p=>productTab==='eslesmis'?p.ikasGrupId:!p.ikasGrupId).forEach(p=>selected.add(p.id));
+  render();
+};
+window.deselectAllProducts = function(){ selected.clear(); render(); };
 </script>
 </body>
 </html>
