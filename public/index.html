@@ -340,6 +340,10 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
     </select>
     <button class="btn ghost" onclick="bulkSetDurum()">Uygula</button>
     <div class="sep2"></div>
+    <label>Tedarikçi:</label>
+    <select id="bulk-tedarikci"></select>
+    <button class="btn ghost" id="bulk-tedarikci-btn" onclick="bulkSetTedarikci()">Uygula</button>
+    <div class="sep2"></div>
     <label>Satış fiyatı %:</label>
     <input type="number" id="bulk-pct" placeholder="10 veya -10" style="width:90px">
     <button class="btn ghost" onclick="bulkAdjustPrice()">Uygula</button>
@@ -1199,6 +1203,9 @@ function renderBulkBar(){
   const bar = document.getElementById('bulk-bar');
   document.getElementById('bulk-count').textContent = selectedIds.size;
   bar.classList.toggle('show', selectedIds.size>0);
+  const tedSel = document.getElementById('bulk-tedarikci');
+  const mevcut = tedSel.value;
+  fillKisSelect('bulk-tedarikci', kisaltmalar.tedarikci, mevcut);
 }
 window.bulkSetDurum = async function(){
   if(!selectedIds.size) return;
@@ -1207,6 +1214,32 @@ window.bulkSetDurum = async function(){
     const p = products.find(x=>x.id===id); if(!p) return;
     p.durum = durum; return saveProduct(p);
   }));
+};
+window.bulkSetTedarikci = async function(){
+  if(!selectedIds.size) return;
+  const tedarikci = document.getElementById('bulk-tedarikci').value;
+  if(!tedarikci){ alert('Bir tedarikçi seç.'); return; }
+  const btn = document.getElementById('bulk-tedarikci-btn');
+  const eskiMetin = btn.textContent;
+  const toplam = selectedIds.size;
+  btn.disabled = true;
+  btn.textContent = `Uygulanıyor... (0/${toplam})`;
+  let tamamlanan = 0;
+  try {
+    await Promise.all([...selectedIds].map(async id=>{
+      const p = products.find(x=>x.id===id); if(!p) return;
+      p.tedarikci = tedarikci;
+      await saveProduct(p);
+      tamamlanan++;
+      btn.textContent = `Uygulanıyor... (${tamamlanan}/${toplam})`;
+    }));
+    alert(`${tamamlanan} ürünün tedarikçisi "${tedarikci}" olarak güncellendi.`);
+  } catch(e) {
+    alert(`Hata oluştu — ${tamamlanan}/${toplam} ürün güncellendi, geri kalanı tekrar dene: ${e.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = eskiMetin;
+  }
 };
 window.bulkAdjustPrice = async function(){
   if(!selectedIds.size) return;
