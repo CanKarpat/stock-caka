@@ -49,6 +49,19 @@ header h1{font-size:15px;font-weight:600;flex:1 1 auto;min-width:140px}
 .urun-tab:hover{background:var(--surface2)}
 .urun-tab.active{background:var(--accent);color:#fff;border-color:transparent}
 .urun-tab .tab-count{font-weight:500;opacity:.8}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-bg.hidden{display:none}
+.modal{background:var(--surface);border-radius:14px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden;display:flex;flex-direction:column;max-height:90vh}
+.modal-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0}
+.modal-header h2{font-size:16px;font-weight:600}
+.modal-body{padding:20px;overflow-y:auto;flex:1}
+.modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0}
+.bulk-beden-table{width:100%;border-collapse:collapse;font-size:13px}
+.bulk-beden-table th{font-size:10px;text-transform:uppercase;color:var(--text-muted);text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)}
+.bulk-beden-table td{padding:4px 6px}
+.bulk-beden-table td.r{text-align:right}
+.bulk-beden-table input{width:64px;border:1px solid var(--input-border);border-radius:5px;padding:4px 6px;text-align:right;background:var(--surface2);color:var(--text);font-family:inherit}
+.bulk-beden-table input:focus{outline:none;border-color:var(--input-border-focus)}
 .product-header{padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:var(--surface2)}
 .product-header .sku{font-family:monospace;font-size:12px;font-weight:700;color:var(--accent-text);background:var(--accent-bg);padding:2px 8px;border-radius:6px}
 .product-header .ad{font-size:14px;font-weight:500;flex:1}
@@ -141,9 +154,30 @@ header h1{font-size:15px;font-weight:600;flex:1 1 auto;min-width:140px}
     <span id="beden-selected-count" style="font-size:12px;color:var(--text-muted);white-space:nowrap"></span>
     <button class="btn" onclick="selectAllVisible()" title="Bu sekmede görünen tüm ürünleri seçer">Listelenenleri Seç</button>
     <button class="btn" onclick="deselectAllProducts()">Seçimi Kaldır</button>
+    <button class="btn" onclick="openBulkBedenModal()" title="Seçili ürünlerin beden tablosuna aynı ölçüleri toplu uygular">Toplu Beden Tablosu Uygula</button>
   </div>
   <div class="urun-tabs" id="urun-tabs"></div>
   <div id="content"><div class="empty">Yükleniyor...</div></div>
+</div>
+
+<div class="modal-bg hidden" id="bulk-beden-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Toplu Beden Tablosu Uygula</h2>
+      <button class="btn" onclick="closeBulkBedenModal()" style="height:26px;width:26px;padding:0;justify-content:center">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--text-sec);margin-bottom:12px;line-height:1.5">Seçili <b id="bulk-beden-count">0</b> ürüne uygulanır. Sadece doldurduğun bedenler güncellenir; bir üründe o beden yoksa o ürün için atlanır.</p>
+      <table class="bulk-beden-table">
+        <thead><tr><th>Beden</th><th class="r">Göğüs</th><th class="r">Bel</th><th class="r">Basen</th></tr></thead>
+        <tbody id="bulk-beden-tbody"></tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeBulkBedenModal()">İptal</button>
+      <button class="btn" id="bulk-beden-apply-btn" style="background:var(--accent);color:#fff;border-color:transparent" onclick="applyBulkBeden()">Uygula</button>
+    </div>
+  </div>
 </div>
 
 <script type="module">
@@ -218,11 +252,28 @@ async function saveProduct(p){
 
 document.getElementById('search').addEventListener('input',e=>{search=e.target.value.toLowerCase();render();});
 
-window.updBedenOlcu=async function(pid,beden,field,val){
+// Her tek hücre değişikliğinde anında Firestore'a yazmak, onSnapshot'ı tetikleyip TÜM sayfayı
+// (yüzlerce ürün) yeniden çiziyordu — hızlı art arda giriş yaparken (Enter ile sıradaki hücreye
+// atlarken) bu her seferinde takılma/veri kaybına yol açıyordu. Bunun yerine ürün başına
+// birkaç yüz ms bekleyip (debounce) art arda gelen değişiklikleri tek yazmada birleştiriyoruz.
+const saveDebounceTimers = {};
+function scheduleSave(p){
+  clearTimeout(saveDebounceTimers[p.id]);
+  saveDebounceTimers[p.id] = setTimeout(()=>{ delete saveDebounceTimers[p.id]; saveProduct(p); }, 600);
+}
+window.addEventListener('beforeunload', ()=>{
+  // Sekme kapanırken bekleyen değişiklikleri kaybetmemek için hepsini hemen gönder
+  Object.keys(saveDebounceTimers).forEach(pid=>{
+    clearTimeout(saveDebounceTimers[pid]);
+    const p = products.find(x=>x.id===pid);
+    if(p) saveProduct(p);
+  });
+});
+window.updBedenOlcu=function(pid,beden,field,val){
   const p=products.find(x=>x.id===pid);if(!p)return;
   const num=parseFloat(val)||0;
   (p.variants||[]).filter(v=>v.beden===beden).forEach(v=>{v[field]=num;});
-  await saveProduct(p);
+  scheduleSave(p);
 };
 
 const uid=()=>String(Date.now())+Math.random().toString(36).slice(2,6);
@@ -427,6 +478,66 @@ window.selectAllVisible = function(){
   render();
 };
 window.deselectAllProducts = function(){ selected.clear(); render(); };
+
+// ── Toplu Beden Tablosu Uygula ──────────────────────────────────────
+// Aynı markanın ürünlerinde beden kalıpları genelde birebir aynı oluyor (ör. Kenzel) —
+// tek tek her üründe aynı ölçüleri girmek yerine seçili ürünlerin hepsine tek seferde uygular.
+// Sadece doldurulan bedenler güncellenir; bir üründe o beden hiç yoksa o ürün için atlanır
+// (yeni varyant/beden OLUŞTURULMAZ, sadece var olanlar güncellenir).
+window.openBulkBedenModal = function(){
+  if(!selected.size){ alert('Önce ürün seç (kartlardaki kutucuklardan işaretle).'); return; }
+  document.getElementById('bulk-beden-count').textContent = selected.size;
+  document.getElementById('bulk-beden-tbody').innerHTML = BEDEN_ORDER.map(b=>`
+    <tr>
+      <td><span class="beden-num">${b}</span></td>
+      <td class="r"><input type="number" id="bb-gogus-${b}" min="0" placeholder="—"></td>
+      <td class="r"><input type="number" id="bb-bel-${b}" min="0" placeholder="—"></td>
+      <td class="r"><input type="number" id="bb-basen-${b}" min="0" placeholder="—"></td>
+    </tr>
+  `).join('');
+  document.getElementById('bulk-beden-modal').classList.remove('hidden');
+};
+window.closeBulkBedenModal = function(){
+  document.getElementById('bulk-beden-modal').classList.add('hidden');
+};
+window.applyBulkBeden = async function(){
+  const girilenler = BEDEN_ORDER.map(b=>{
+    const g = parseFloat(document.getElementById('bb-gogus-'+b).value);
+    const bl = parseFloat(document.getElementById('bb-bel-'+b).value);
+    const bs = parseFloat(document.getElementById('bb-basen-'+b).value);
+    return { beden:b, gogus:isNaN(g)?null:g, bel:isNaN(bl)?null:bl, basen:isNaN(bs)?null:bs };
+  }).filter(x=>x.gogus!=null || x.bel!=null || x.basen!=null);
+  if(!girilenler.length){ alert('En az bir beden için değer gir.'); return; }
+
+  const btn = document.getElementById('bulk-beden-apply-btn');
+  const eskiMetin = btn.textContent;
+  const hedefUrunler = [...selected].map(id=>products.find(p=>p.id===id)).filter(Boolean);
+  const toplam = hedefUrunler.length;
+  btn.disabled = true;
+  let tamam = 0, guncellenen = 0, atlanan = 0;
+  try{
+    await Promise.all(hedefUrunler.map(async p=>{
+      let degisti = false;
+      girilenler.forEach(g=>{
+        (p.variants||[]).filter(v=>v.beden===g.beden).forEach(v=>{
+          if(g.gogus!=null){ v.gogus = g.gogus; degisti = true; }
+          if(g.bel!=null){ v.bel = g.bel; degisti = true; }
+          if(g.basen!=null){ v.basen = g.basen; degisti = true; }
+        });
+      });
+      if(degisti){ await saveProduct(p); guncellenen++; } else { atlanan++; }
+      tamam++;
+      btn.textContent = `Uygulanıyor... (${tamam}/${toplam})`;
+    }));
+    closeBulkBedenModal();
+    alert(`${guncellenen} üründe beden ölçüleri güncellendi.` + (atlanan ? `\n${atlanan} ürün atlandı (girilen bedenler o üründe yok).` : ''));
+  } catch(e){
+    alert('Hata oluştu, tekrar dene: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = eskiMetin;
+  }
+};
 </script>
 </body>
 </html>
