@@ -2525,13 +2525,15 @@ window.setupIkasWebhook = async function(){
   btn.disabled = true; btn.textContent = 'Kuruluyor...';
   resultEl.innerHTML = '';
   try{
-    let webhookSecret;
-    const gizliSnap = await getDoc(doc(db,'config','ikasAyarlariGizli'));
-    webhookSecret = gizliSnap.exists() ? gizliSnap.data().webhookSecret : null;
-    if(!webhookSecret){
-      webhookSecret = crypto.randomUUID();
-      await setDoc(doc(db,'config','ikasAyarlariGizli'), { webhookSecret }, { merge:true });
-    }
+    // DİKKAT: config/ikasAyarlariGizli'yi client'tan OKUYAMAYIZ (Firestore kuralı bilerek
+    // `allow read: if false` — client secret sızmasın diye). Bu yüzden var olan bir
+    // webhookSecret olup olmadığını kontrol edemiyoruz; her "Webhook Kur" tıklamasında
+    // yeni bir secret üretip hem Firestore'a yazıyor hem de AYNI ANDA İKAS'a kaydediyoruz
+    // — saveWebhook scope'a göre upsert yaptığı için eski kayıt sorunsuz üzerine yazılır,
+    // eski secret'lı URL artık İKAS tarafından hiç kullanılmaz. Mağaza değiştirince de
+    // aynı akış geçerli: tekrar "Webhook Kur"a basmak yeterli.
+    const webhookSecret = crypto.randomUUID();
+    await setDoc(doc(db,'config','ikasAyarlariGizli'), { webhookSecret }, { merge:true });
     const endpoint = `${location.origin}/api/ikas-webhook?secret=${webhookSecret}`;
     await ikasApi(`mutation($input: WebhookInput!) { saveWebhook(input: $input) { id endpoint scope } }`,
       { input: { scopes: 'store/order/created', endpoint } });
