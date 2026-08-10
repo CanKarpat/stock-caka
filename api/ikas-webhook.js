@@ -2,18 +2,27 @@
 // modeli tamamen farklı: burada İKAS bizi çağırıyor, giriş yapmış bir Firebase kullanıcısı
 // değil — api/ikas.js'deki "Authorization: Bearer <idToken>" doğrulaması burada geçerli değil.
 //
-// GÜVENLİK NOTU: İKAS'ın webhook çağrılarını imzaladığına dair (HMAC/imza header'ı) hiçbir
-// dokümantasyon bulunamadı (ikas.dev, 2026-08 itibarıyla sadece "3 kez tekrar dener" diyor,
-// imzalamadan bahsetmiyor). Bu yüzden tek savunma hattımız, webhook kaydı sırasında URL'ye
-// gömülen tahmin edilemez bir "secret" query param'ı (bkz. index.html: setupIkasWebhook()).
-// Gerçek bir webhook isteği geldiğinde Vercel loglarından TÜM header'lar bir kez incelenip
-// İKAS'ın dokümante edilmemiş bir imza header'ı (ör. X-Ikas-Signature) gönderip göndermediği
-// kontrol edilmeli — gönderiyorsa doğrulama buna göre sıkılaştırılmalı.
+// GÜVENLİK NOTU: gelen webhook body'sinde bir "signature" alanı VAR (2026-08-10'da ilk
+// gerçek teslimatla keşfedildi) — İKAS aslında imzalıyor olabilir, ama imzalama algoritması/
+// anahtarı dokümante değil, bu yüzden şimdilik doğrulayamıyoruz. Tek savunma hattımız hâlâ,
+// webhook kaydı sırasında URL'ye gömülen tahmin edilemez bir "secret" query param'ı (bkz.
+// index.html: setupIkasWebhook()). İleride signature alanının nasıl hesaplandığı bulunursa
+// (İKAS destek ekibine sorulabilir) buraya gerçek doğrulama eklenebilir.
 //
-// Sipariş payload şekli DOĞRULANMADI — bu yüzden aşağıdaki pick*() yardımcıları birden
-// fazla olası alan adını dener ve HER durumda ham payload'ı (hamVeri) da kaydeder; gerçek
-// şekil netleşince (ilk canlı teslimatın Vercel loglarından/hamVeri'den incelenmesiyle)
-// pick*() fonksiyonları düzeltilebilir.
+// Sipariş payload şekli 2026-08-10'da ilk gerçek teslimatla DOĞRULANDI: dış zarf şöyle —
+//   { authorizedAppId, createdAt (webhook olay zamanı), data: "<JSON STRING>", id (webhook
+//     OLAY ID'si, sipariş ID'si DEĞİL), isPrivateApp, merchantId, scope, signature }
+// Asıl sipariş, `data` alanında JSON-STRING olarak geliyor (obje değil, önce JSON.parse
+// gerekiyor!) — parse edilince: { id (gerçek sipariş ID'si), orderNumber, orderedAt,
+// totalPrice, totalFinalPrice, currencyCode, status, orderLineItems: [{ id, price,
+// finalPrice, quantity, variant: { id, productId, name, sku, ... } }] }.
+function parseOrderData(payload) {
+  if (payload && typeof payload.data === 'string') {
+    try { return JSON.parse(payload.data); } catch (_) { return null; }
+  }
+  if (payload && payload.data && typeof payload.data === 'object') return payload.data;
+  return null;
+}
 
 const { initializeApp, getApps, cert } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
@@ -37,28 +46,19 @@ async function getWebhookSecret(app) {
   return value;
 }
 
-function pickOrderId(payload) {
-  return payload.id || (payload.data && payload.data.id) || (payload.order && payload.order.id) || payload.orderId || null;
-}
-function pickOrderNumber(payload) {
-  return payload.orderNumber || (payload.data && payload.data.orderNumber) || (payload.order && payload.order.orderNumber) || null;
-}
-function pickOrderedAt(payload) {
-  return payload.orderedAt || (payload.data && payload.data.orderedAt) || (payload.order && payload.order.orderedAt) || null;
-}
-function pickLineItems(payload) {
-  return payload.orderLineItems || (payload.data && payload.data.orderLineItems) || (payload.order && payload.order.orderLineItems) || payload.lineItems || [];
-}
 function pickLineSku(item) {
-  return item.sku || (item.variant && item.variant.sku) || (item.productVariant && item.productVariant.sku) || null;
+  return (item.variant && item.variant.sku) || item.sku || null;
 }
 function pickLineQty(item) {
-  const q = item.quantity ?? item.qty ?? item.amount ?? 1;
-  return Number(q) || 1;
+  return Number(item.quantity ?? 1) || 1;
 }
 function pickLinePrice(item) {
-  const p = item.price ?? item.finalPrice ?? item.unitPrice ?? item.sellPrice ?? 0;
+  // finalPrice, indirim varsa gerçek satış fiyatını yansıtır; price yoksa ona düş.
+  const p = item.finalPrice ?? item.price ?? 0;
   return Number(p) || 0;
+}
+function pickLineName(item) {
+  return (item.variant && item.variant.name) || null;
 }
 
 module.exports = async (req, res) => {
@@ -101,10 +101,12 @@ module.exports = async (req, res) => {
   // gereksiz yere 3 kez daha aynı isteği tekrar dener.
   try {
     const db = getFirestore(app);
-    const orderId = pickOrderId(payload);
-    const orderNumber = pickOrderNumber(payload);
-    const orderedAt = pickOrderedAt(payload);
-    const lineItems = pickLineItems(payload);
+    // Güvenlik ağı: data hiç parse edilemezse ham payload'a düş (yine de hamVeri kaybolmasın).
+    const orderData = parseOrderData(payload) || payload;
+    const orderId = orderData.id || null;
+    const orderNumber = orderData.orderNumber || null;
+    const orderedAt = orderData.orderedAt || null;
+    const lineItems = orderData.orderLineItems || [];
 
     // stok koleksiyonunu SKU'ya göre belleğe al — pullIkasProducts()'ın (index.html) client
     // tarafında yaptığı SKU-eşleştirmesinin sunucu tarafındaki eşleniği. Koleksiyon küçük
@@ -135,11 +137,15 @@ module.exports = async (req, res) => {
         if (!stokDusurmeGrup.has(productId)) stokDusurmeGrup.set(productId, []);
         stokDusurmeGrup.get(productId).push({ sku: skuTemiz, adet });
       }
+      // Ürün adı önce KENDİ Firestore'umuzdaki (SKU eşleşen) kayıttan, o yoksa İKAS'ın
+      // webhook'ta zaten gönderdiği variant.name'den alınır — SKU henüz yerel katalogda
+      // yoksa/eşleşmiyorsa bile satır boş görünmesin diye.
+      const urunAdi = (productId ? productNameById.get(productId) : null) || (li ? pickLineName(li) : null) || '';
       yazilacaklar.push({
         docId: `${orderId || 'bilinmeyen'}_${index}`,
         data: {
           sku: skuTemiz,
-          urunAdi: productId ? (productNameById.get(productId) || '') : '',
+          urunAdi,
           adet: adet,
           fiyat: fiyat,
           ikasSiparisNo: orderNumber || null,
