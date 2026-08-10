@@ -86,18 +86,21 @@ service cloud.firestore {
 
 ## İKAS API Entegrasyonu (isteğe bağlı, ileri seviye)
 
-İKAS'a API üzerinden bağlanmak için Vercel projenin **Settings → Environment Variables** bölümüne şu 4 değişkeni ekle:
+Mağaza adı / Client ID / Client Secret artık **uygulama içinden** yönetiliyor: Stok Listesi sayfasında **"İKAS Ayarları"** butonuna tıkla, formu doldur, Kaydet — Vercel'e tekrar deploy etmene gerek yok. Bu bilgiler Firestore'da `config/ikasAyarlari` (mağaza adı, client id) ve `config/ikasAyarlariGizli` (client secret) dokümanlarında tutulur; client secret hiçbir zaman geri okunup forma basılmaz, boş bırakırsan mevcut değer korunur.
 
-| Değişken | Değer |
-|---|---|
-| `IKAS_CLIENT_ID` | İKAS Özel Uygulama'nın Client ID'si |
-| `IKAS_CLIENT_SECRET` | İKAS Özel Uygulama'nın Client Secret'ı (gizli tut) |
-| `IKAS_STORE_NAME` | Mağaza alt alan adın (örn. `dev-gracecode`, yani `dev-gracecode.myikas.com`) |
-| `APP_SHARED_SECRET` | Kaba/otomatik istismara karşı basit bir engel — gerçek bir şifre değil |
+Formu kaydedebilmen için giriş yapmış olman yeterli — ama `/api/ikas.js` sunucu tarafında bu girişin gerçekten geçerli olduğunu doğrulayabilmesi (Firebase ID token doğrulaması) için **bir kere** şu adımı yapman gerekiyor:
 
-`APP_SHARED_SECRET`'ı Vercel'e ekledikten sonra **aynı değeri** `public/index.html` içindeki `IKAS_APP_SECRET` sabitine de elle yapıştırman gerekiyor (site derleme adımı olmadığı için otomatik aktarılmıyor — ikisi de elle güncellenmeli).
+1. Firebase Console → ⚙️ Project Settings → **Service Accounts** → **Generate new private key** (bir `.json` dosyası iner).
+2. Bu dosyayı tek satırlık base64'e çevir (macOS'un varsayılan `base64` komutu satırları kırdığı için normal `base64` KULLANMA):
+   ```
+   openssl base64 -A -in indirilen-dosya.json
+   ```
+3. Çıkan uzun tek satırı Vercel projenin **Settings → Environment Variables** bölümüne `FIREBASE_SERVICE_ACCOUNT_B64` adıyla ekle.
+4. Deployments → ⋯ → **Redeploy**.
 
-Değişkenleri ekledikten/değiştirdikten sonra Vercel'de yeni bir deploy tetiklemen gerekir (Deployments → ⋯ → Redeploy).
+Bu adımı tamamladıktan sonra "İKAS Bağlantı Testi" ve "İKAS'tan Çek (API)" butonları hem giriş kontrolünü hem de İKAS bağlantısını uygulama içinden yönetilen ayarlarla kullanabilir.
+
+Eski `IKAS_STORE_NAME` / `IKAS_CLIENT_ID` / `IKAS_CLIENT_SECRET` env değişkenleri hâlâ çalışır ama artık sadece **yedek**: Firestore'da "İKAS Ayarları" formundan bir değer girilmemişse bunlara düşülür. `APP_SHARED_SECRET` artık hiç kullanılmıyor (gerçek giriş sistemi geldiği için kaldırıldı) — Vercel'de duruyorsa silebilirsin, zararı yok.
 
 ---
 

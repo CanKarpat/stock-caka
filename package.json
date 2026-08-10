@@ -4,5 +4,8 @@
   "version": "1.0.0",
   "engines": {
     "node": "20.x"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.2.0"
   }
 }

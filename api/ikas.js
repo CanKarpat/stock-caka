@@ -1,38 +1,88 @@
 // Thin server-side proxy to the İKAS Admin GraphQL API.
 //
 // Why this exists: İKAS's docs explicitly disallow calling their API directly from a
-// browser, and IKAS_CLIENT_SECRET must never ship to the public static frontend. This
-// function is the ONLY place that ever sees it.
+// browser, and the İKAS client_secret must never ship to the public static frontend.
+// This function is the ONLY place that ever sees it.
 //
-// Design: intentionally "dumb". It knows nothing about products, variants, or
-// Firestore — it gets a bearer token (cached in memory per warm instance) and forwards
-// {query, variables} to İKAS, returning İKAS's raw JSON back unchanged. All İKAS-shape
-// <-> Firestore-shape mapping stays in public/index.html, next to the existing
-// processIkasFiles()/runIkasSync() mapping logic — see ikasApi() there.
+// Design: intentionally "dumb" about İKAS itself — it gets a bearer token (cached in
+// memory per warm instance) and forwards {query, variables} to İKAS, returning İKAS's
+// raw JSON back unchanged. All İKAS-shape <-> Firestore-shape mapping stays in
+// public/index.html, next to the existing processIkasFiles()/runIkasSync() mapping
+// logic — see ikasApi() there.
 //
-// Faz 1 koruması (GERÇEK BİR GÜVENLİK SINIRI DEĞİL — aşağıdaki APP_SHARED_SECRET
-// kontrolüne bakın): mutation'lar tamamen reddediliyor. Yazma yolu kasıtlı olarak
+// Faz 1 koruması (mutation reddi) hâlâ geçerli — yazma yolu kasıtlı olarak
 // tasarlanana kadar salt okunur. Bu kontrolü sadece o iş yapılırken kaldırın/gevşetin.
+//
+// 2026-08-10: artık uygulamada gerçek bir giriş sistemi (Firebase Auth) olduğu için bu
+// uç nokta sayfa kaynağında görünen bir "paylaşılan gizli anahtar" yerine gerçek bir
+// Firebase kimlik doğrulama token'ı (Authorization: Bearer <idToken>) istiyor — bu artık
+// gerçek bir güvenlik sınırı, öncekinin aksine.
+//
+// Aynı güncellemeyle İKAS bağlantı bilgileri (mağaza adı, client id, client secret)
+// artık öncelikle Firestore'dan (config/ikasAyarlari + config/ikasAyarlariGizli) okunuyor
+// — uygulama içindeki "İKAS Ayarları" formundan yönetilebilsin diye. Firestore'da henüz
+// ayar girilmemişse eski Vercel env değişkenlerine (IKAS_STORE_NAME vb.) düşülüyor, geçiş
+// sırasında hiçbir şey bozulmasın diye.
 
-let cachedToken = null; // { accessToken, expiresAt } — sadece warm invocation'lar arası yaşar;
-                         // cold start'ta kaybolur, bu sadece bir ekstra token isteğine mal olur.
+// firebase-admin v14+ modüler API kullanıyor — eski admin.apps/admin.auth()/admin.firestore()
+// namespace'i artık yok, getApps()/getAuth()/getFirestore() ile çağrılıyor (client SDK'nın
+// modüler yapısıyla aynı desen).
+const { initializeApp, getApps, cert } = require('firebase-admin/app');
+const { getAuth } = require('firebase-admin/auth');
+const { getFirestore } = require('firebase-admin/firestore');
 
-async function getIkasToken() {
+function getAdminApp() {
+  if (getApps().length) return getApps()[0];
+  const b64 = process.env.FIREBASE_SERVICE_ACCOUNT_B64;
+  if (!b64) throw new Error('FIREBASE_SERVICE_ACCOUNT_B64 env değişkeni eksik.');
+  const serviceAccount = JSON.parse(Buffer.from(b64, 'base64').toString('utf8'));
+  return initializeApp({ credential: cert(serviceAccount) });
+}
+
+async function verifyCaller(req, app) {
+  const authHeader = req.headers['authorization'] || '';
+  const m = authHeader.match(/^Bearer (.+)$/);
+  if (!m) throw Object.assign(new Error('Giriş yapmadan bu işlem yapılamaz.'), { status: 401 });
+  try {
+    return await getAuth(app).verifyIdToken(m[1]);
+  } catch (err) {
+    throw Object.assign(new Error('Oturum geçersiz/süresi dolmuş, tekrar giriş yap.'), { status: 401 });
+  }
+}
+
+let cachedToken = null; // { accessToken, expiresAt } — sadece warm invocation'lar arası yaşar
+
+async function getIkasCredentials(app) {
+  const db = getFirestore(app);
+  const [ayarSnap, gizliSnap] = await Promise.all([
+    db.doc('config/ikasAyarlari').get(),
+    db.doc('config/ikasAyarlariGizli').get(),
+  ]);
+  const ayar = ayarSnap.exists ? ayarSnap.data() : {};
+  const gizli = gizliSnap.exists ? gizliSnap.data() : {};
+  return {
+    storeName: ayar.storeName || process.env.IKAS_STORE_NAME,
+    clientId: ayar.clientId || process.env.IKAS_CLIENT_ID,
+    clientSecret: gizli.clientSecret || process.env.IKAS_CLIENT_SECRET,
+  };
+}
+
+async function getIkasToken(app) {
   const now = Date.now();
   if (cachedToken && cachedToken.expiresAt > now + 30_000) {
     return cachedToken.accessToken;
   }
 
-  const { IKAS_STORE_NAME, IKAS_CLIENT_ID, IKAS_CLIENT_SECRET } = process.env;
-  if (!IKAS_STORE_NAME || !IKAS_CLIENT_ID || !IKAS_CLIENT_SECRET) {
-    throw new Error('IKAS_STORE_NAME / IKAS_CLIENT_ID / IKAS_CLIENT_SECRET env değişkenleri eksik.');
+  const { storeName, clientId, clientSecret } = await getIkasCredentials(app);
+  if (!storeName || !clientId || !clientSecret) {
+    throw new Error('İKAS bağlantı bilgileri eksik (Mağaza Adı / Client ID / Client Secret) — "İKAS Ayarları" formunu doldur.');
   }
 
-  const tokenUrl = `https://${IKAS_STORE_NAME}.myikas.com/api/admin/oauth/token`;
+  const tokenUrl = `https://${storeName}.myikas.com/api/admin/oauth/token`;
   const body = new URLSearchParams({
     grant_type: 'client_credentials',
-    client_id: IKAS_CLIENT_ID,
-    client_secret: IKAS_CLIENT_SECRET,
+    client_id: clientId,
+    client_secret: clientSecret,
   });
 
   const res = await fetch(tokenUrl, {
@@ -60,18 +110,18 @@ module.exports = async (req, res) => {
     return;
   }
 
-  // İstismar caydırıcı — GERÇEK GÜVENLİK DEĞİL. Bu site tamamen statik/herkese açık,
-  // giriş sistemi yok; bu header değeri index.html kaynağında da düz metin olarak
-  // duruyor, devtools açan herkes görebilir. Firestore kurallarımızla aynı güven modeli
-  // (allow read, write: if true) — amaç kaza/otomatik istismarı (bot, crawler) durdurmak,
-  // kararlı bir saldırganı değil.
-  const expected = process.env.APP_SHARED_SECRET;
-  if (!expected) {
-    res.status(500).json({ error: 'Sunucuda APP_SHARED_SECRET tanımlı değil.' });
+  let app;
+  try {
+    app = getAdminApp();
+  } catch (err) {
+    res.status(500).json({ error: 'Sunucu yapılandırması eksik: ' + err.message });
     return;
   }
-  if (req.headers['x-app-secret'] !== expected) {
-    res.status(401).json({ error: 'Yetkisiz.' });
+
+  try {
+    await verifyCaller(req, app);
+  } catch (err) {
+    res.status(err.status || 401).json({ error: err.message });
     return;
   }
 
@@ -87,9 +137,7 @@ module.exports = async (req, res) => {
     return;
   }
 
-  // Faz 1 koruması — dosya başındaki açıklamaya bakın. Basit bir alt-metin kontrolü,
-  // güvenlik sınırı değil, sadece salt-okunur fazdayken yanlışlıkla/deneysel bir
-  // yazma isteğinin tetiklenmesini engelliyor.
+  // Faz 1 koruması — dosya başındaki açıklamaya bakın.
   if (/\bmutation\b/i.test(query)) {
     res.status(403).json({ error: 'Bu fazda sadece okuma (query) destekleniyor; mutation reddedildi.' });
     return;
@@ -97,7 +145,7 @@ module.exports = async (req, res) => {
 
   let token;
   try {
-    token = await getIkasToken();
+    token = await getIkasToken(app);
   } catch (err) {
     res.status(502).json({ error: 'İKAS ile bağlantı kurulamadı: ' + err.message });
     return;

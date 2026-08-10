@@ -329,6 +329,10 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       İKAS'tan Çek (API)
     </button>
+    <button class="btn ghost" onclick="showIkasSettingsModal()" title="İKAS bağlantı bilgilerini (mağaza adı, client id, client secret) düzenle">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      İKAS Ayarları
+    </button>
     <button class="btn ghost" id="scan-btn" onclick="openScanner()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
       Kamera
@@ -811,6 +815,40 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
 </div>
 
 <!-- ═══════════════════════════════════════════
+     İKAS AYARLARI MODAL
+═══════════════════════════════════════════ -->
+<div class="modal-bg hidden" id="ikas-settings-modal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h2>İKAS Ayarları</h2>
+      <button class="icon-btn" onclick="closeIkasSettingsModal()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" style="font-size:13px;line-height:1.7;color:var(--text-sec)">
+      <p>İKAS bağlantı bilgilerini buradan değiştirebilirsin — Vercel'e tekrar deploy etmene gerek kalmaz.</p>
+      <div class="form-group" style="margin-top:10px">
+        <label>Mağaza Adı <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(ör. dev-gracecode)</span></label>
+        <input type="text" id="ikas-set-store" placeholder="mağaza-adı" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Client ID</label>
+        <input type="text" id="ikas-set-clientid" placeholder="Client ID" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Client Secret <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(boş bırakırsan mevcut değer korunur)</span></label>
+        <input type="password" id="ikas-set-secret" placeholder="••••••••" autocomplete="new-password">
+      </div>
+      <div id="ikas-settings-result" style="margin-top:10px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn ghost" onclick="closeIkasSettingsModal()">Kapat</button>
+      <button class="btn primary" id="ikas-settings-btn" onclick="saveIkasSettings()">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
      KISALTMALAR MODAL (SKU üretimi için)
 ═══════════════════════════════════════════ -->
 <div class="modal-bg hidden" id="kisaltma-modal">
@@ -900,7 +938,7 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
 <script src="https://unpkg.com/@zxing/library@0.23.0/umd/index.min.js"></script>
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, getDocs, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getFirestore, collection, onSnapshot, doc, setDoc, getDoc, deleteDoc, getDocs, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 // ── Firebase ─────────────────────────────────────────────────────
@@ -2137,16 +2175,14 @@ window.runIkasSync = async function(){
 // ── İKAS API (Faz 1 — sadece okuma) ─────────────────────────────────
 // Tarayıcıdan İKAS'a doğrudan istek ATILAMAZ (İKAS bunu engelliyor; client_secret da
 // tarayıcıda hiç barınamaz) — bu yüzden her istek /api/ikas.js proxy'mizden geçer.
-// IKAS_APP_SECRET burada sadece kaba/otomatik istismarı caydırmak için var, GERÇEK BİR
-// GÜVENLİK ÖNLEMİ DEĞİL — bu statik sitede giriş sistemi yok, sayfa kaynağında görünür.
-// Firestore kurallarımızın zaten herkese açık olmasıyla aynı güven modeli.
-// Vercel'deki APP_SHARED_SECRET env değişkeniyle AYNI değer olmalı — biri değişirse öbürü de elle güncellenmeli.
-const IKAS_APP_SECRET = 'f2824641415d8599118a14a1d896f680ffeaa97d5b592391';
-
+// Yetkilendirme artık gerçek bir Firebase kimlik doğrulama token'ı ile yapılıyor
+// (Authorization: Bearer <idToken>) — sunucu tarafında verifyIdToken() ile doğrulanıyor.
 async function ikasApi(query, variables){
+  if(!auth.currentUser) throw new Error('Oturum bulunamadı, tekrar giriş yap.');
+  const idToken = await auth.currentUser.getIdToken();
   const res = await fetch('/api/ikas', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-app-secret': IKAS_APP_SECRET },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
     body: JSON.stringify({ query, variables: variables||{} }),
   });
   const json = await res.json().catch(()=>null);
@@ -2258,6 +2294,53 @@ window.pullIkasProducts = async function(){
   }catch(err){
     resultEl.innerHTML = `<div style="background:var(--danger-bg);color:var(--danger-text);border-radius:8px;padding:8px 10px">Hata: ${esc(err.message)}</div>`;
     alert('İKAS\'tan Çek başarısız: ' + err.message);
+  }finally{
+    btn.disabled = false; btn.textContent = eskiMetin;
+  }
+};
+
+// İKAS bağlantı ayarları: storeName/clientId config/ikasAyarlari'nda (client'tan okunabilir),
+// clientSecret ise config/ikasAyarlariGizli'de tutulur — Firestore kuralları o dokümanı
+// sadece yazılabilir/okunamaz yapmalı (bkz. KURULUM.md). Secret hiçbir zaman geri okunup
+// forma basılmaz — boş bırakılırsa mevcut değer aynen korunur (proxy'de fallback zaten var).
+window.showIkasSettingsModal = async function(){
+  const resultEl = document.getElementById('ikas-settings-result');
+  resultEl.innerHTML = '';
+  document.getElementById('ikas-set-store').value = '';
+  document.getElementById('ikas-set-clientid').value = '';
+  document.getElementById('ikas-set-secret').value = '';
+  document.getElementById('ikas-settings-modal').classList.remove('hidden');
+  try{
+    const snap = await getDoc(doc(db,'config','ikasAyarlari'));
+    if(snap.exists()){
+      const d = snap.data();
+      document.getElementById('ikas-set-store').value = d.storeName || '';
+      document.getElementById('ikas-set-clientid').value = d.clientId || '';
+    }
+  }catch(err){
+    resultEl.innerHTML = `<div style="background:var(--danger-bg);color:var(--danger-text);border-radius:8px;padding:8px 10px">Mevcut ayarlar okunamadı: ${esc(err.message)}</div>`;
+  }
+};
+window.closeIkasSettingsModal = ()=>document.getElementById('ikas-settings-modal').classList.add('hidden');
+
+window.saveIkasSettings = async function(){
+  const btn = document.getElementById('ikas-settings-btn');
+  const resultEl = document.getElementById('ikas-settings-result');
+  const storeName = document.getElementById('ikas-set-store').value.trim();
+  const clientId = document.getElementById('ikas-set-clientid').value.trim();
+  const clientSecret = document.getElementById('ikas-set-secret').value;
+  const eskiMetin = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Kaydediliyor...';
+  resultEl.innerHTML = '';
+  try{
+    await setDoc(doc(db,'config','ikasAyarlari'), { storeName, clientId }, { merge:true });
+    if(clientSecret){
+      await setDoc(doc(db,'config','ikasAyarlariGizli'), { clientSecret }, { merge:true });
+    }
+    document.getElementById('ikas-set-secret').value = '';
+    resultEl.innerHTML = `<div style="background:var(--success-bg);color:var(--success-text);border-radius:8px;padding:8px 10px">Kaydedildi.</div>`;
+  }catch(err){
+    resultEl.innerHTML = `<div style="background:var(--danger-bg);color:var(--danger-text);border-radius:8px;padding:8px 10px">Kaydedilemedi: ${esc(err.message)}</div>`;
   }finally{
     btn.disabled = false; btn.textContent = eskiMetin;
   }
