@@ -10,8 +10,12 @@
 // public/index.html, next to the existing processIkasFiles()/runIkasSync() mapping
 // logic — see ikasApi() there.
 //
-// Faz 1 koruması (mutation reddi) hâlâ geçerli — yazma yolu kasıtlı olarak
-// tasarlanana kadar salt okunur. Bu kontrolü sadece o iş yapılırken kaldırın/gevşetin.
+// Faz 2 (2026-08): köründen mutation reddi yerine dar bir beyaz liste var (aşağıda
+// ALLOWED_MUTATIONS) — sadece belirli, incelenmiş mutation'lara izin veriliyor, geri
+// kalan her şey hâlâ reddediliyor. YENİ bir mutation eklemeden önce mutlaka bir
+// introspection sorgusuyla ({ __type(name:"X"){fields{name}} }) gerçek adını/girdi
+// şeklini doğrula, sonra ALLOWED_MUTATIONS'a ekle ve hangi alanları (özellikle alış
+// fiyatını) ASLA göndermediğini yorum olarak yaz.
 //
 // 2026-08-10: artık uygulamada gerçek bir giriş sistemi (Firebase Auth) olduğu için bu
 // uç nokta sayfa kaynağında görünen bir "paylaşılan gizli anahtar" yerine gerçek bir
@@ -49,6 +53,18 @@ async function verifyCaller(req, app) {
     throw Object.assign(new Error('Oturum geçersiz/süresi dolmuş, tekrar giriş yap.'), { status: 401 });
   }
 }
+
+// Beyaz listedeki mutation'lar dışında hiçbir yazma işlemine izin verilmiyor.
+// index.html'den gönderilen mutation'lar İSİMSİZ kalmalı (`mutation { ... }`,
+// `mutation SaveX(...) { ... }` DEĞİL) — isimli bir operasyon da aşağıdaki
+// "isim(" deseniyle eşleşip beyaz listeye eklenmesi gerekir, kafa karıştırır.
+const ALLOWED_MUTATIONS = new Set([
+  'saveProduct',             // yeni ürün gönderme / var olan ürüne varyant ekleme
+  'saveVariantPrices',       // fiyat push — DOĞRULANDI (ikas.dev)
+  'bulkUpdateProductStock',  // stok push — AD TAHMİNİ, kullanmadan önce introspection ile doğrula
+  'saveWebhook',             // webhook kurulum — DOĞRULANDI
+  'deleteWebhook',           // webhook kaldırma — DOĞRULANDI
+]);
 
 let cachedToken = null; // { accessToken, expiresAt } — sadece warm invocation'lar arası yaşar
 
@@ -137,10 +153,23 @@ module.exports = async (req, res) => {
     return;
   }
 
-  // Faz 1 koruması — dosya başındaki açıklamaya bakın.
+  // Faz 2 mutation beyaz listesi — dosya başındaki açıklamaya bakın.
   if (/\bmutation\b/i.test(query)) {
-    res.status(403).json({ error: 'Bu fazda sadece okuma (query) destekleniyor; mutation reddedildi.' });
-    return;
+    // Sorgudaki TÜM "isim(" çağrılarını çıkar — sadece ilk eşleşmeye bakmak, izinli
+    // bir mutation'ın yanına gizlice ikinci, izinsiz bir mutation eklemeyi (query
+    // smuggling) mümkün kılar. 'mutation'/'query' kendisi de bu desenle eşleşebilir
+    // (ör. `mutation($input: X!) { ... }` içindeki "mutation(") — bunlar GraphQL'in
+    // ayrılmış operasyon anahtar kelimeleri, gerçek bir alan/mutation adı değil, o
+    // yüzden listeden çıkarılıyor.
+    const GRAPHQL_OP_KEYWORDS = new Set(['query', 'mutation', 'subscription']);
+    const calledFields = [...query.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g)]
+      .map(m => m[1])
+      .filter(name => !GRAPHQL_OP_KEYWORDS.has(name));
+    const disallowed = calledFields.filter(name => !ALLOWED_MUTATIONS.has(name));
+    if (!calledFields.length || disallowed.length) {
+      res.status(403).json({ error: `Bu mutation'a izin verilmiyor: ${disallowed.join(', ') || '(tanınmayan)'}` });
+      return;
+    }
   }
 
   let token;

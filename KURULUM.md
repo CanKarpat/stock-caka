@@ -67,20 +67,36 @@ Herkes aynı anda aynı veriyi görür ve düzenleyebilir — otomatik senkroniz
 
 ---
 
-## Firestore Güvenlik Kuralları (isteğe bağlı)
+## Firestore Güvenlik Kuralları
 
-Test modunda herkes okuyup yazabilir. İleride kısıtlamak istersen Firebase Console → Firestore → Rules:
+Uygulamada artık gerçek bir giriş sistemi olduğu için kurallar kilitli — sadece giriş yapmış kullanıcılar okuyup yazabiliyor, İKAS'ın gizli client secret'ı ise hiç kimse tarafından (giriş yapmış olsa bile) geri okunamıyor. Firebase Console → Firestore Database → Rules'ta şu an canlıda olan, olması gereken metin:
 
 ```
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /stok/{document} {
-      allow read, write: if true; // Şimdilik herkese açık
+      allow read, write: if request.auth != null;
+    }
+    match /config/kisaltmalar {
+      allow read, write: if request.auth != null;
+    }
+    match /config/ikasAyarlari {
+      allow read, write: if request.auth != null;
+    }
+    match /config/ikasAyarlariGizli {
+      allow read: if false;   // client secret ve webhook secret hiçbir zaman geri okunmaz
+      allow write: if request.auth != null;
+    }
+    match /satislar/{document} {
+      allow read: if request.auth != null;
+      allow write: if false;  // sadece sunucu tarafı (api/ikas-webhook.js) yazar
     }
   }
 }
 ```
+
+**Dikkat**: `config/{document}` gibi genel bir joker yol KULLANMA — Firestore kuralları toplamalı (additive) çalışır, genel bir kural varsa `ikasAyarlariGizli`'yi "okunamaz" yapan özel kural yine de etkisiz kalır. Her doküman yolu ayrı ayrı yazılmalı, yukarıdaki gibi.
 
 ---
 
@@ -101,6 +117,14 @@ Formu kaydedebilmen için giriş yapmış olman yeterli — ama `/api/ikas.js` s
 Bu adımı tamamladıktan sonra "İKAS Bağlantı Testi" ve "İKAS'tan Çek (API)" butonları hem giriş kontrolünü hem de İKAS bağlantısını uygulama içinden yönetilen ayarlarla kullanabilir.
 
 Eski `IKAS_STORE_NAME` / `IKAS_CLIENT_ID` / `IKAS_CLIENT_SECRET` env değişkenleri hâlâ çalışır ama artık sadece **yedek**: Firestore'da "İKAS Ayarları" formundan bir değer girilmemişse bunlara düşülür. `APP_SHARED_SECRET` artık hiç kullanılmıyor (gerçek giriş sistemi geldiği için kaldırıldı) — Vercel'de duruyorsa silebilirsin, zararı yok.
+
+### İKAS'a Gönderme ("İKAS'a Gönder" butonu)
+
+Stok Listesi'nde ürün seçip **"İKAS'a Gönder"**'e basınca: henüz İKAS'ta olmayan ürünler yeni ürün olarak oluşturulur, daha önce gönderilip sonradan yeni beden eklenmiş ürünlere o bedenler eklenir, tamamen eşleşmiş ürünlerin ise sadece stok/fiyatı güncellenir. **Alış (maliyet) fiyatı bu işlemlerin hiçbirinde İKAS'a gönderilmez.** Bu, canlı mağazana yazan bir işlem olduğu için önce **tek bir test ürünüyle** deneyip İKAS panelinden doğru göründüğünü kontrol etmen önerilir.
+
+### Satışlar sayfası + Webhook
+
+"Satışlar" sayfasının dolabilmesi için İKAS Ayarları modalindeki **"Webhook Kur"** butonuna bir kere basman gerekiyor (Mağaza Adı/Client ID/Client Secret zaten kayıtlı olmalı). Bundan sonra İKAS'ta bir satış oldukça hangi SKU'nun kaç liraya satıldığı otomatik olarak "Satışlar" sayfasına düşer ve ilgili ürünün stoğu otomatik azalır.
 
 ---
 

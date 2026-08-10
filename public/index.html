@@ -275,6 +275,10 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
     Tedarikçiler
   </a>
+  <a href="satislar.html" class="btn ghost" style="height:30px;font-size:11px">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+    Satışlar
+  </a>
   <button class="btn ghost" style="height:30px;font-size:11px" onclick="showKisaltmaModal()">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
     Kısaltmalar
@@ -378,6 +382,8 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
     <button class="btn ghost" id="bulk-kdv-btn" onclick="bulkSetKdv()">Uygula</button>
     <div class="sep2"></div>
     <button class="btn ghost" onclick="bulkGenerateSku()" title="Marka-Tedarikçi-ÜrünTipi-TedarikçiKodu-Uzunluk-Renk-Beden">Kısaltmalardan SKU Oluştur</button>
+    <div class="sep2"></div>
+    <button class="btn ghost" id="bulk-ikas-push-btn" onclick="pushToIkas()" title="Yeni ürünleri İKAS'a oluştur, eşleşmiş ürünlerin stok/fiyatını güncelle">İKAS'a Gönder</button>
     <div class="sep2"></div>
     <button class="btn danger-btn" onclick="bulkDelete()">Seçilenleri Sil</button>
     <div style="flex:1"></div>
@@ -796,7 +802,7 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
       </button>
     </div>
     <div class="modal-body" style="font-size:13px;line-height:1.7;color:var(--text-sec)">
-      <p>İKAS API'sinden ürün/varyant listesini çekip SKU eşleşmesine göre <b style="color:var(--text)">Ürün Grup ID</b> / <b style="color:var(--text)">Varyant ID</b>'leri buraya yazar — "İKAS ID Eşitle"nin dosya yüklemeden, API üzerinden yapılan hızlı hali. Salt okunur: İKAS'taki hiçbir şeyi değiştirmez.</p>
+      <p>İKAS API'sinden ürün/varyant listesini çekip SKU eşleşmesine göre <b style="color:var(--text)">Ürün Grup ID</b> / <b style="color:var(--text)">Varyant ID</b>'leri, <b style="color:var(--text)">stok</b> ve <b style="color:var(--text)">satış fiyatını</b> buraya yazar — "İKAS ID Eşitle"nin dosya yüklemeden, API üzerinden yapılan hızlı hali. Salt okunur: İKAS'taki hiçbir şeyi değiştirmez.</p>
       <div class="form-group" style="margin-top:10px">
         <label>Kapsam <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(hangi ürünler eşleştirme için taransın)</span></label>
         <select id="ikas-pull-kapsam">
@@ -840,6 +846,11 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
         <input type="password" id="ikas-set-secret" placeholder="••••••••" autocomplete="new-password">
       </div>
       <div id="ikas-settings-result" style="margin-top:10px"></div>
+      <div style="border-top:1px solid var(--border);margin:16px 0 12px;padding-top:12px">
+        <p style="margin-bottom:8px">Satış oldukça anlık haber almak için İKAS'a bir kere "webhook" kaydı yapılması gerekiyor — mağaza adı/client bilgileri kayıtlı olmalı (yukarıdan önce Kaydet'e bas).</p>
+        <button class="btn ghost" id="ikas-webhook-btn" onclick="setupIkasWebhook()">Webhook Kur</button>
+        <div id="ikas-webhook-result" style="margin-top:8px"></div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn ghost" onclick="closeIkasSettingsModal()">Kapat</button>
@@ -2223,6 +2234,7 @@ window.closeIkasPullModal = ()=>document.getElementById('ikas-pull-modal').class
 // (ör. ikasApi('{ __type(name:"Product"){ fields { name } } }')) alan adlarını teyit et,
 // gerekirse aşağıdaki sorguyu düzelt. Buradaki alan adları (sku, variants, listProduct,
 // pagination:{page,limit}) dokümantasyon özetlerinden, ham şemadan doğrulanmadı.
+// stocks/prices alt alanları TAHMİNİ — ilk canlı denemeden önce introspection ile teyit et.
 const IKAS_PULL_QUERY = `
   query ListProductsForSync($pagination: PaginationInput) {
     listProduct(pagination: $pagination) {
@@ -2232,6 +2244,8 @@ const IKAS_PULL_QUERY = `
         variants {
           id
           sku
+          stocks { stockCount }
+          prices { sellPrice }
         }
       }
     }
@@ -2257,7 +2271,14 @@ window.pullIkasProducts = async function(){
       if(!rows.length) break;
       rows.forEach(prod=>{
         (prod.variants||[]).forEach(v=>{
-          if(v.sku) skuMap.set(String(v.sku).trim(), { grupId: String(prod.id), varyantId: String(v.id) });
+          if(!v.sku) return;
+          const stok = (v.stocks && v.stocks[0] && v.stocks[0].stockCount);
+          const fiyat = (v.prices && v.prices[0] && v.prices[0].sellPrice);
+          skuMap.set(String(v.sku).trim(), {
+            grupId: String(prod.id), varyantId: String(v.id),
+            stok: (stok===undefined||stok===null) ? null : Number(stok),
+            fiyat: (fiyat===undefined||fiyat===null) ? null : Number(fiyat),
+          });
         });
       });
       if(rows.length < 100) break; // son sayfa
@@ -2270,7 +2291,7 @@ window.pullIkasProducts = async function(){
       return true;
     });
 
-    let guncellenenUrun = 0, guncellenenVaryant = 0, tamamlanan = 0;
+    let guncellenenUrun = 0, guncellenenVaryant = 0, guncellenenFiyat = 0, tamamlanan = 0;
     const toplam = taranacakUrunler.length;
     const toSave = [];
     taranacakUrunler.forEach(p=>{
@@ -2280,6 +2301,9 @@ window.pullIkasProducts = async function(){
         if(!eslesme) return;
         if(p.ikasGrupId !== eslesme.grupId){ p.ikasGrupId = eslesme.grupId; degisti = true; }
         if(v.ikasVaryantId !== eslesme.varyantId){ v.ikasVaryantId = eslesme.varyantId; degisti = true; guncellenenVaryant++; }
+        if(eslesme.stok!==null && v.miktar !== eslesme.stok){ v.miktar = eslesme.stok; degisti = true; }
+        // Fiyat İKAS'ta varyant bazlı, yerelde ürün bazlı — ürüne son eşleşen varyantın fiyatı yazılır (bilinen basitleştirme).
+        if(eslesme.fiyat!==null && p.satis !== eslesme.fiyat){ p.satis = eslesme.fiyat; degisti = true; guncellenenFiyat++; }
       });
       if(degisti){
         guncellenenUrun++;
@@ -2289,11 +2313,152 @@ window.pullIkasProducts = async function(){
     await Promise.all(toSave);
 
     if(guncellenenUrun>0){ productTab = 'eslesmis'; render(); }
-    resultEl.innerHTML = `<div style="background:var(--success-bg);color:var(--success-text);border-radius:8px;padding:8px 10px">İKAS'tan ${skuMap.size} varyant SKU'su çekildi. ${guncellenenUrun} ürün, ${guncellenenVaryant} varyant güncellendi.</div>`;
+    resultEl.innerHTML = `<div style="background:var(--success-bg);color:var(--success-text);border-radius:8px;padding:8px 10px">İKAS'tan ${skuMap.size} varyant SKU'su çekildi. ${guncellenenUrun} ürün, ${guncellenenVaryant} varyant (${guncellenenFiyat} fiyat) güncellendi.</div>`;
     alert(`İKAS'tan Çek tamamlandı: ${guncellenenUrun} ürün güncellendi.`);
   }catch(err){
     resultEl.innerHTML = `<div style="background:var(--danger-bg);color:var(--danger-text);border-radius:8px;padding:8px 10px">Hata: ${esc(err.message)}</div>`;
     alert('İKAS\'tan Çek başarısız: ' + err.message);
+  }finally{
+    btn.disabled = false; btn.textContent = eskiMetin;
+  }
+};
+
+// ── İKAS'a Gönderme (Push) ──────────────────────────────────────────
+// DİKKAT: saveProduct'ın gerçek girdi şekli (zorunlu alanlar, iç içe tip adları) HİÇBİR
+// ŞEKİLDE doğrulanmadı — sadece mutation'ın var olduğu confirmed (ikas.dev). İlk gerçek
+// göndermeden önce mutlaka introspection çalıştır, ör.:
+//   ikasApi('{ __type(name:"ProductInput"){ inputFields { name type { name kind } } } }')
+// ve gerekirse aşağıdaki değişken şeklini düzelt. Alan adları exportIkasNative'in ürettiği
+// Excel şablonundaki (yukarıda ~satır 2017) aynı kavramların GraphQL karşılığı OLABİLİR — tahmin.
+// KURAL SABİT: p.alis (maliyet fiyatı) hiçbir zaman bu mutation'a girmez.
+const IKAS_SAVE_PRODUCT_MUTATION = `
+  mutation($input: ProductInput!) {
+    saveProduct(input: $input) {
+      id
+      variants { id sku }
+    }
+  }
+`;
+
+// DOĞRULANDI (ikas.dev örneği) — sadece sellPrice gönderiyoruz. buyPrice bilerek
+// atlanıyor: gerçek anlamı (maliyet mi, karşılaştırma fiyatı mı) doğrulanmadı, p.alis
+// (maliyet) hiçbir İKAS alanına ASLA yazılmaz. İKAS buyPrice'ı zorunlu tutuyorsa mutation
+// burada hata verir — bu, sessizce yanlış veri göndermekten daha güvenli bir başarısızlık.
+const IKAS_SAVE_PRICE_MUTATION = `
+  mutation($input: SaveVariantPricesInput!) {
+    saveVariantPrices(input: $input)
+  }
+`;
+
+// DİKKAT: mutation adı ("bulkUpdateProductStock") TAHMİNİ — sadece girdi tipi
+// (BulkUpdateProductStockInput: {stockCount, stockLocationId}) ikas.dev'de doğrulandı.
+// İlk gerçek göndermeden önce introspection ile mutation adını teyit et.
+const IKAS_UPDATE_STOCK_MUTATION = `
+  mutation($input: [BulkUpdateProductStockInput!]!) {
+    bulkUpdateProductStock(input: $input)
+  }
+`;
+
+let _ikasPriceListId = null, _ikasStockLocationId = null; // sunucudaki cachedToken gibi, sayfa ömrü boyunca önbellek
+async function getDefaultIkasPriceListId(){
+  if(_ikasPriceListId) return _ikasPriceListId;
+  const data = await ikasApi('{ listPriceList { id isDefault } }');
+  const listeler = (data && data.listPriceList) || [];
+  const secilen = listeler.find(l=>l.isDefault) || listeler[0];
+  if(!secilen) throw new Error('İKAS\'ta hiç fiyat listesi bulunamadı.');
+  if(listeler.length>1) console.warn('Birden fazla İKAS fiyat listesi var, ilki kullanılıyor (seçim arayüzü henüz yok):', secilen.id);
+  _ikasPriceListId = secilen.id;
+  return _ikasPriceListId;
+}
+async function getDefaultIkasStockLocationId(){
+  if(_ikasStockLocationId) return _ikasStockLocationId;
+  const data = await ikasApi('{ listStockLocation { id name } }');
+  const yerler = (data && data.listStockLocation) || [];
+  if(!yerler.length) throw new Error('İKAS\'ta hiç stok lokasyonu bulunamadı.');
+  if(yerler.length>1) console.warn('Birden fazla İKAS stok lokasyonu var, ilki kullanılıyor (seçim arayüzü henüz yok):', yerler[0].id);
+  _ikasStockLocationId = yerler[0].id;
+  return _ikasStockLocationId;
+}
+
+// Seçili ürünleri İKAS'a gönderir — ürün başına 3 durumdan biri:
+//  1) ikasGrupId yok            → saveProduct ile YENİ ürün oluştur, dönen ID'leri geri yaz.
+//  2) ikasGrupId var, yeni beden eklenmiş (bazı varyantlarda ikasVaryantId yok) → saveProduct'ı
+//     mevcut ID ile tekrar çağır (var olan ürünü güncelleyip sadece yeni varyantları eklediği
+//     VARSAYILIYOR — gerçek bir ürünle doğrulanmadan bu yola güvenilmemeli, bkz. plan notu).
+//  3) her şey zaten eşleşmiş     → sadece fiyat/stok güncelle (saveVariantPrices + stok mutation).
+window.pushToIkas = async function(){
+  if(!selectedIds.size) return;
+  const secilenler = [...selectedIds].map(id=>products.find(p=>p.id===id)).filter(Boolean);
+  if(!secilenler.length) return;
+  if(!confirm(`${secilenler.length} ürün İKAS'a (canlı mağaza) gönderilecek. Emin misin?`)) return;
+
+  const btn = document.getElementById('bulk-ikas-push-btn');
+  const eskiMetin = btn.textContent;
+  const toplam = secilenler.length;
+  let tamamlanan = 0, yeniOlusturulan = 0, varyantEklenen = 0, sadeceGuncellenen = 0;
+  const hatalar = [];
+  btn.disabled = true; btn.textContent = `Gönderiliyor... (0/${toplam})`;
+
+  try{
+    const priceListId = await getDefaultIkasPriceListId();
+    const stockLocationId = await getDefaultIkasStockLocationId();
+
+    await Promise.all(secilenler.map(async p=>{
+      try{
+        const yeniVaryantlar = (p.variants||[]).filter(v=>!v.ikasVaryantId);
+        if(!p.ikasGrupId || yeniVaryantlar.length){
+          const inputVariants = (p.variants||[]).map(v=>{
+            const renkDeger = (v.renk||'').trim().toLocaleUpperCase('tr-TR');
+            const bedenDeger = (v.beden||'').trim();
+            return {
+              id: v.ikasVaryantId || undefined,
+              sku: v.sku || p.kod || '',
+              barcodeList: [v.barkod || v.sku || ''],
+              attributes: [{ name:'Renk', value: renkDeger }, { name:'Beden', value: bedenDeger }],
+            };
+          });
+          const input = {
+            id: p.ikasGrupId || undefined,
+            name: p.ad || '',
+            description: p.aciklama || '',
+            brandName: IKAS_MARKA_SABIT,
+            type: 'PHYSICAL',
+            variants: inputVariants,
+            // DİKKAT: p.alis (maliyet fiyatı) buraya KASITLI olarak hiç girmiyor.
+          };
+          const data = await ikasApi(IKAS_SAVE_PRODUCT_MUTATION, { input });
+          const donenUrun = data && data.saveProduct;
+          if(!donenUrun) throw new Error('İKAS\'tan beklenmeyen yanıt (saveProduct boş döndü).');
+          const yeniMi = !p.ikasGrupId;
+          p.ikasGrupId = String(donenUrun.id);
+          (donenUrun.variants||[]).forEach(dv=>{
+            const yerelV = (p.variants||[]).find(v=>v.sku===dv.sku);
+            if(yerelV) yerelV.ikasVaryantId = String(dv.id);
+          });
+          await saveProduct(p);
+          if(yeniMi) yeniOlusturulan++; else varyantEklenen++;
+        } else {
+          await Promise.all((p.variants||[]).map(async v=>{
+            if(!v.ikasVaryantId) return;
+            await ikasApi(IKAS_SAVE_PRICE_MUTATION, { input: {
+              priceListId,
+              variantPriceInputs: [{ productId: p.ikasGrupId, variantId: v.ikasVaryantId, price: { sellPrice: Number(p.indirimli||p.satis||0) } }],
+            }});
+            await ikasApi(IKAS_UPDATE_STOCK_MUTATION, { input: [{ variantId: v.ikasVaryantId, stockLocationId, stockCount: Number(v.miktar||0) }] });
+          }));
+          sadeceGuncellenen++;
+        }
+      }catch(e){
+        hatalar.push(`${p.kod||p.ad||p.id}: ${e.message}`);
+      }finally{
+        tamamlanan++; btn.textContent = `Gönderiliyor... (${tamamlanan}/${toplam})`;
+      }
+    }));
+
+    render();
+    alert(`Tamamlandı: ${yeniOlusturulan} yeni oluşturuldu, ${varyantEklenen} ürüne varyant eklendi, ${sadeceGuncellenen} fiyat/stok güncellendi, ${hatalar.length} hata.` + (hatalar.length ? `\n\nHatalar:\n${hatalar.slice(0,15).join('\n')}${hatalar.length>15?`\n...ve ${hatalar.length-15} tane daha`:''}` : ''));
+  }catch(e){
+    alert('İKAS\'a gönderme başarısız: ' + e.message);
   }finally{
     btn.disabled = false; btn.textContent = eskiMetin;
   }
@@ -2341,6 +2506,38 @@ window.saveIkasSettings = async function(){
     resultEl.innerHTML = `<div style="background:var(--success-bg);color:var(--success-text);border-radius:8px;padding:8px 10px">Kaydedildi.</div>`;
   }catch(err){
     resultEl.innerHTML = `<div style="background:var(--danger-bg);color:var(--danger-text);border-radius:8px;padding:8px 10px">Kaydedilemedi: ${esc(err.message)}</div>`;
+  }finally{
+    btn.disabled = false; btn.textContent = eskiMetin;
+  }
+};
+
+// Webhook kaydı tek seferlik, elle tetiklenen bir adım (otomatik değil) — saveWebhook
+// scope'a göre upsert yaptığı için (ikas.dev) birden fazla tıklamak zararsız.
+// DİKKAT: scope string'i ("store/order/created") TAHMİNİ — ikas.dev'de sadece
+// "store/customer/created" örneği görüldü, ilk gerçek denemeden önce introspection/panel
+// üzerinden teyit et. Webhook çağrılarının İKAS tarafından imzalandığına dair hiçbir
+// dokümantasyon yok — bu yüzden URL'ye gömülü tahmin edilemez bir secret tek savunmamız
+// (bkz. api/ikas-webhook.js).
+window.setupIkasWebhook = async function(){
+  const btn = document.getElementById('ikas-webhook-btn');
+  const resultEl = document.getElementById('ikas-webhook-result');
+  const eskiMetin = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Kuruluyor...';
+  resultEl.innerHTML = '';
+  try{
+    let webhookSecret;
+    const gizliSnap = await getDoc(doc(db,'config','ikasAyarlariGizli'));
+    webhookSecret = gizliSnap.exists() ? gizliSnap.data().webhookSecret : null;
+    if(!webhookSecret){
+      webhookSecret = crypto.randomUUID();
+      await setDoc(doc(db,'config','ikasAyarlariGizli'), { webhookSecret }, { merge:true });
+    }
+    const endpoint = `${location.origin}/api/ikas-webhook?secret=${webhookSecret}`;
+    await ikasApi(`mutation($input: WebhookInput!) { saveWebhook(input: $input) { id endpoint scope } }`,
+      { input: { scopes: 'store/order/created', endpoint } });
+    resultEl.innerHTML = `<div style="background:var(--success-bg);color:var(--success-text);border-radius:8px;padding:8px 10px">Webhook kuruldu.</div>`;
+  }catch(err){
+    resultEl.innerHTML = `<div style="background:var(--danger-bg);color:var(--danger-text);border-radius:8px;padding:8px 10px">Kurulamadı: ${esc(err.message)}</div>`;
   }finally{
     btn.disabled = false; btn.textContent = eskiMetin;
   }
