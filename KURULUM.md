@@ -84,6 +84,23 @@ service cloud.firestore {
 
 ---
 
+## İKAS API Entegrasyonu (isteğe bağlı, ileri seviye)
+
+İKAS'a API üzerinden bağlanmak için Vercel projenin **Settings → Environment Variables** bölümüne şu 4 değişkeni ekle:
+
+| Değişken | Değer |
+|---|---|
+| `IKAS_CLIENT_ID` | İKAS Özel Uygulama'nın Client ID'si |
+| `IKAS_CLIENT_SECRET` | İKAS Özel Uygulama'nın Client Secret'ı (gizli tut) |
+| `IKAS_STORE_NAME` | Mağaza alt alan adın (örn. `dev-gracecode`, yani `dev-gracecode.myikas.com`) |
+| `APP_SHARED_SECRET` | Kaba/otomatik istismara karşı basit bir engel — gerçek bir şifre değil |
+
+`APP_SHARED_SECRET`'ı Vercel'e ekledikten sonra **aynı değeri** `public/index.html` içindeki `IKAS_APP_SECRET` sabitine de elle yapıştırman gerekiyor (site derleme adımı olmadığı için otomatik aktarılmıyor — ikisi de elle güncellenmeli).
+
+Değişkenleri ekledikten/değiştirdikten sonra Vercel'de yeni bir deploy tetiklemen gerekir (Deployments → ⋯ → Redeploy).
+
+---
+
 ## Sorun mu var?
 
 Herhangi bir adımda takılırsan bu sohbette "şurada takıldım" diye yaz, yardım ederim!

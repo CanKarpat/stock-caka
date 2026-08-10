@@ -282,6 +282,11 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
   <button class="btn ghost" id="theme-toggle" style="height:30px;width:30px;padding:0;justify-content:center" onclick="toggleTheme()" title="Görünüm modu (açık/koyu)">
     <svg id="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"></svg>
   </button>
+  <span id="user-email" style="font-size:11px;color:var(--text-muted);white-space:nowrap"></span>
+  <button class="btn ghost" style="height:30px;font-size:11px" onclick="logout()" title="Çıkış yap">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+    Çıkış
+  </button>
 </header>
 
 <div class="container">
@@ -315,6 +320,14 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
     <button class="btn ghost" onclick="showIkasSyncModal()" title="İKAS'ta oluşan Ürün Grup ID / Varyant ID'leri SKU'ya göre eşleştirip kaydet">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
       İKAS ID Eşitle
+    </button>
+    <button class="btn ghost" onclick="showIkasTestModal()" title="İKAS API bağlantısını test et">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      İKAS Bağlantı Testi
+    </button>
+    <button class="btn ghost" onclick="showIkasPullModal()" title="İKAS'tan ürün eşleştirmesini API ile çek (salt okunur)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      İKAS'tan Çek (API)
     </button>
     <button class="btn ghost" id="scan-btn" onclick="openScanner()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
@@ -746,6 +759,58 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
 </div>
 
 <!-- ═══════════════════════════════════════════
+     İKAS BAĞLANTI TESTİ MODAL
+═══════════════════════════════════════════ -->
+<div class="modal-bg hidden" id="ikas-test-modal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h2>İKAS Bağlantı Testi</h2>
+      <button class="icon-btn" onclick="closeIkasTestModal()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" style="font-size:13px;line-height:1.7;color:var(--text-sec)">
+      <p>Sunucu üzerinden İKAS API'sine bağlanıp bağlanamadığını test eder (hiçbir veri okumaz/yazmaz, sadece bağlantı doğrular).</p>
+      <div id="ikas-test-result" style="margin-top:10px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn ghost" onclick="closeIkasTestModal()">Kapat</button>
+      <button class="btn primary" id="ikas-test-btn" onclick="testIkasConnection()">Bağlantıyı Test Et</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     İKAS'TAN ÇEK (API) MODAL
+═══════════════════════════════════════════ -->
+<div class="modal-bg hidden" id="ikas-pull-modal">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <h2>İKAS'tan Çek (API)</h2>
+      <button class="icon-btn" onclick="closeIkasPullModal()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" style="font-size:13px;line-height:1.7;color:var(--text-sec)">
+      <p>İKAS API'sinden ürün/varyant listesini çekip SKU eşleşmesine göre <b style="color:var(--text)">Ürün Grup ID</b> / <b style="color:var(--text)">Varyant ID</b>'leri buraya yazar — "İKAS ID Eşitle"nin dosya yüklemeden, API üzerinden yapılan hızlı hali. Salt okunur: İKAS'taki hiçbir şeyi değiştirmez.</p>
+      <div class="form-group" style="margin-top:10px">
+        <label>Kapsam <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(hangi ürünler eşleştirme için taransın)</span></label>
+        <select id="ikas-pull-kapsam">
+          <option value="hepsi">Tümü</option>
+          <option value="eslesmis">Sadece Aktif — İKAS'ta Eşleşmiş</option>
+          <option value="yeni" selected>Sadece Yeni Girilenler — Henüz Eşleşmemiş</option>
+        </select>
+      </div>
+      <div id="ikas-pull-result" style="margin-top:10px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn ghost" onclick="closeIkasPullModal()">Kapat</button>
+      <button class="btn primary" id="ikas-pull-btn" onclick="pullIkasProducts()">Çek ve Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
      KISALTMALAR MODAL (SKU üretimi için)
 ═══════════════════════════════════════════ -->
 <div class="modal-bg hidden" id="kisaltma-modal">
@@ -836,6 +901,7 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, getDocs, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 // ── Firebase ─────────────────────────────────────────────────────
 const app = initializeApp({
@@ -847,6 +913,8 @@ const app = initializeApp({
   appId:"1:599549832875:web:4570ade50e2731469091ee"
 });
 const db = getFirestore(app);
+const auth = getAuth(app);
+window.logout = () => signOut(auth);
 
 // ── Renk haritası ─────────────────────────────────────────────────
 const CMAP={Siyah:'#1a1a1a',Ekru:'#f5f0e0',Bordo:'#7b1e34',Lacivert:'#1a2a5e',Pudra:'#f2c4ce',
@@ -907,19 +975,27 @@ COLS.forEach(c => { visibleCols[c.id] = c.always || c.default; });
 // ── Firebase sync ─────────────────────────────────────────────────
 function setSyncStatus(s){ const b=document.getElementById('sync-badge'); b.className='sync-badge '+s; b.textContent=s==='online'?'● Canlı':s==='syncing'?'◌ Senkronize':'○ Çevrimdışı'; }
 
-onSnapshot(collection(db,'stok'), snap => {
-  products = snap.docs.map(d=>({id:d.id,...d.data()}));
-  products.sort((a,b)=>(a.sira||0)-(b.sira||0));
-  setSyncStatus('online');
-  render();
-  if(currentVarProductId) renderVarTable();
-}, ()=>setSyncStatus('offline'));
-
 // ── Kısaltmalar (SKU üretimi için tedarikçi/tip/uzunluk/renk kod tabloları) ──
 let kisaltmalar = {marka:'GC', tedarikci:{}, tip:{}, uzunluk:{}, renk:{}};
-onSnapshot(doc(db,'config','kisaltmalar'), snap => {
-  const d = snap.exists() ? snap.data() : {};
-  kisaltmalar = {marka:d.marka||'GC', tedarikci:d.tedarikci||{}, tip:d.tip||{}, uzunluk:d.uzunluk||{}, renk:d.renk||{}};
+
+// Giriş yapılmadan Firestore'a hiç istek atılmaz — onSnapshot çağrıları kasıtlı olarak
+// auth durumu netleşene kadar başlamıyor (bkz. giris.html + Firestore kuralları).
+onAuthStateChanged(auth, user => {
+  if(!user){ location.href = 'giris.html?redirect=index.html'; return; }
+  document.getElementById('user-email').textContent = user.email || '';
+
+  onSnapshot(collection(db,'stok'), snap => {
+    products = snap.docs.map(d=>({id:d.id,...d.data()}));
+    products.sort((a,b)=>(a.sira||0)-(b.sira||0));
+    setSyncStatus('online');
+    render();
+    if(currentVarProductId) renderVarTable();
+  }, ()=>setSyncStatus('offline'));
+
+  onSnapshot(doc(db,'config','kisaltmalar'), snap => {
+    const d = snap.exists() ? snap.data() : {};
+    kisaltmalar = {marka:d.marka||'GC', tedarikci:d.tedarikci||{}, tip:d.tip||{}, uzunluk:d.uzunluk||{}, renk:d.renk||{}};
+  });
 });
 
 async function saveProduct(p){
@@ -2056,6 +2132,135 @@ window.runIkasSync = async function(){
     ${guncellenenUrun>0 ? `<div style="margin-top:6px;color:var(--text-muted)">Güncellenen ürünler "Aktif — İKAS'ta Eşleşmiş" sekmesinde.</div>` : ''}
     ${iKanalDurumu<0 ? `<div style="margin-top:6px;color:var(--text-muted)">Not: bu dosyada "Satış Kanalı:..." sütunu bulunamadı, o alan güncellenmedi.</div>` : ''}
     ${eslesmeyen ? `<div style="margin-top:6px;color:var(--text-muted)">${eslesmeyen} varyantımızın SKU'su dosyada bulunamadı (henüz İKAS'a yüklenmemiş olabilir).</div>` : ''}`;
+};
+
+// ── İKAS API (Faz 1 — sadece okuma) ─────────────────────────────────
+// Tarayıcıdan İKAS'a doğrudan istek ATILAMAZ (İKAS bunu engelliyor; client_secret da
+// tarayıcıda hiç barınamaz) — bu yüzden her istek /api/ikas.js proxy'mizden geçer.
+// IKAS_APP_SECRET burada sadece kaba/otomatik istismarı caydırmak için var, GERÇEK BİR
+// GÜVENLİK ÖNLEMİ DEĞİL — bu statik sitede giriş sistemi yok, sayfa kaynağında görünür.
+// Firestore kurallarımızın zaten herkese açık olmasıyla aynı güven modeli.
+// Vercel'deki APP_SHARED_SECRET env değişkeniyle AYNI değer olmalı — biri değişirse öbürü de elle güncellenmeli.
+const IKAS_APP_SECRET = 'f2824641415d8599118a14a1d896f680ffeaa97d5b592391';
+
+async function ikasApi(query, variables){
+  const res = await fetch('/api/ikas', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-app-secret': IKAS_APP_SECRET },
+    body: JSON.stringify({ query, variables: variables||{} }),
+  });
+  const json = await res.json().catch(()=>null);
+  if(!res.ok) throw new Error((json && json.error) || `İKAS API isteği başarısız (HTTP ${res.status})`);
+  if(json && json.errors && json.errors.length) throw new Error(json.errors.map(e=>e.message).join('; '));
+  return json.data;
+}
+
+window.showIkasTestModal = function(){
+  document.getElementById('ikas-test-result').innerHTML='';
+  document.getElementById('ikas-test-modal').classList.remove('hidden');
+};
+window.closeIkasTestModal = ()=>document.getElementById('ikas-test-modal').classList.add('hidden');
+
+window.testIkasConnection = async function(){
+  const btn = document.getElementById('ikas-test-btn');
+  const resultEl = document.getElementById('ikas-test-result');
+  const eskiMetin = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Test ediliyor...';
+  resultEl.innerHTML = '';
+  try{
+    await ikasApi('{ __typename }');
+    resultEl.innerHTML = `<div style="background:var(--success-bg);color:var(--success-text);border-radius:8px;padding:8px 10px">Bağlantı başarılı — İKAS API'ye ulaşıldı.</div>`;
+  }catch(err){
+    resultEl.innerHTML = `<div style="background:var(--danger-bg);color:var(--danger-text);border-radius:8px;padding:8px 10px">Bağlantı başarısız: ${esc(err.message)}</div>`;
+  }finally{
+    btn.disabled = false; btn.textContent = eskiMetin;
+  }
+};
+
+window.showIkasPullModal = function(){
+  document.getElementById('ikas-pull-result').innerHTML='';
+  document.getElementById('ikas-pull-modal').classList.remove('hidden');
+};
+window.closeIkasPullModal = ()=>document.getElementById('ikas-pull-modal').classList.add('hidden');
+
+// DİKKAT: gerçek bir çalıştırmadan önce doğrulanması lazım — bir introspection sorgusuyla
+// (ör. ikasApi('{ __type(name:"Product"){ fields { name } } }')) alan adlarını teyit et,
+// gerekirse aşağıdaki sorguyu düzelt. Buradaki alan adları (sku, variants, listProduct,
+// pagination:{page,limit}) dokümantasyon özetlerinden, ham şemadan doğrulanmadı.
+const IKAS_PULL_QUERY = `
+  query ListProductsForSync($pagination: PaginationInput) {
+    listProduct(pagination: $pagination) {
+      count
+      data {
+        id
+        variants {
+          id
+          sku
+        }
+      }
+    }
+  }
+`;
+
+window.pullIkasProducts = async function(){
+  const btn = document.getElementById('ikas-pull-btn');
+  const resultEl = document.getElementById('ikas-pull-result');
+  const eskiMetin = btn.textContent;
+  const pullKapsam = document.getElementById('ikas-pull-kapsam').value;
+  btn.disabled = true;
+  resultEl.innerHTML = '';
+
+  const skuMap = new Map();
+  const MAX_PAGES = 50; // güvenlik kapağı — sayfalama şeklini yanlış varsaymışsak sonsuz döngüye girmeyelim
+  try{
+    let page = 1;
+    while(page <= MAX_PAGES){
+      btn.textContent = `Çekiliyor... (sayfa ${page})`;
+      const data = await ikasApi(IKAS_PULL_QUERY, { pagination: { page, limit: 100 } });
+      const rows = (data && data.listProduct && data.listProduct.data) || [];
+      if(!rows.length) break;
+      rows.forEach(prod=>{
+        (prod.variants||[]).forEach(v=>{
+          if(v.sku) skuMap.set(String(v.sku).trim(), { grupId: String(prod.id), varyantId: String(v.id) });
+        });
+      });
+      if(rows.length < 100) break; // son sayfa
+      page++;
+    }
+
+    const taranacakUrunler = products.filter(p=>{
+      if(pullKapsam==='eslesmis') return !!p.ikasGrupId;
+      if(pullKapsam==='yeni') return !p.ikasGrupId;
+      return true;
+    });
+
+    let guncellenenUrun = 0, guncellenenVaryant = 0, tamamlanan = 0;
+    const toplam = taranacakUrunler.length;
+    const toSave = [];
+    taranacakUrunler.forEach(p=>{
+      let degisti = false;
+      (p.variants||[]).forEach(v=>{
+        const eslesme = skuMap.get(String(v.sku||'').trim());
+        if(!eslesme) return;
+        if(p.ikasGrupId !== eslesme.grupId){ p.ikasGrupId = eslesme.grupId; degisti = true; }
+        if(v.ikasVaryantId !== eslesme.varyantId){ v.ikasVaryantId = eslesme.varyantId; degisti = true; guncellenenVaryant++; }
+      });
+      if(degisti){
+        guncellenenUrun++;
+        toSave.push(saveProduct(p).then(()=>{ tamamlanan++; btn.textContent = `Kaydediliyor... (${tamamlanan}/${toplam})`; }));
+      }
+    });
+    await Promise.all(toSave);
+
+    if(guncellenenUrun>0){ productTab = 'eslesmis'; render(); }
+    resultEl.innerHTML = `<div style="background:var(--success-bg);color:var(--success-text);border-radius:8px;padding:8px 10px">İKAS'tan ${skuMap.size} varyant SKU'su çekildi. ${guncellenenUrun} ürün, ${guncellenenVaryant} varyant güncellendi.</div>`;
+    alert(`İKAS'tan Çek tamamlandı: ${guncellenenUrun} ürün güncellendi.`);
+  }catch(err){
+    resultEl.innerHTML = `<div style="background:var(--danger-bg);color:var(--danger-text);border-radius:8px;padding:8px 10px">Hata: ${esc(err.message)}</div>`;
+    alert('İKAS\'tan Çek başarısız: ' + err.message);
+  }finally{
+    btn.disabled = false; btn.textContent = eskiMetin;
+  }
 };
 
 // ── Import ────────────────────────────────────────────────────────

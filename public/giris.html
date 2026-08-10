@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Giriş — Abiye Stok</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f8f7f5;--surface:#fff;--surface2:#f1efe9;--border:#e0ddd6;--border-strong:#c8c4bc;
+  --text:#1a1a18;--text-sec:#6b6860;--text-muted:#9e9b94;
+  --accent:#4f6ef7;--accent-bg:#eef1fe;--accent-text:#2d49c4;
+  --success-bg:#eaf3de;--success-text:#3b6d11;
+  --danger-bg:#fcebeb;--danger-text:#a32d2d;
+  --warning-bg:#faeeda;--warning-text:#854f0b;
+  --input-border:#8b5cf6;--input-border-focus:#ffffff;
+  --radius:8px;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#181816;--surface:#242422;--surface2:#2e2e2b;--border:#3a3a36;--border-strong:#4e4e4a;
+  --text:#f0ede6;--text-sec:#a09d96;--text-muted:#6b6860;
+  --accent:#6b87ff;--accent-bg:#1a2040;--accent-text:#a0b0ff;
+  --success-bg:#172510;--success-text:#7acc44;
+  --danger-bg:#2a1010;--danger-text:#f08080;
+  --warning-bg:#2a1e08;--warning-text:#f0b060;
+}}
+:root[data-theme="light"]{
+  --bg:#f8f7f5;--surface:#fff;--surface2:#f1efe9;--border:#e0ddd6;--border-strong:#c8c4bc;
+  --text:#1a1a18;--text-sec:#6b6860;--text-muted:#9e9b94;
+  --accent:#4f6ef7;--accent-bg:#eef1fe;--accent-text:#2d49c4;
+  --success-bg:#eaf3de;--success-text:#3b6d11;
+  --danger-bg:#fcebeb;--danger-text:#a32d2d;
+  --warning-bg:#faeeda;--warning-text:#854f0b;
+}
+:root[data-theme="dark"]{
+  --bg:#181816;--surface:#242422;--surface2:#2e2e2b;--border:#3a3a36;--border-strong:#4e4e4a;
+  --text:#f0ede6;--text-sec:#a09d96;--text-muted:#6b6860;
+  --accent:#6b87ff;--accent-bg:#1a2040;--accent-text:#a0b0ff;
+  --success-bg:#172510;--success-text:#7acc44;
+  --danger-bg:#2a1010;--danger-text:#f08080;
+  --warning-bg:#2a1e08;--warning-text:#f0b060;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{width:100%;max-width:360px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px 26px;box-shadow:0 10px 40px rgba(0,0,0,.08)}
+.card h1{font-size:18px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.card p.sub{font-size:12px;color:var(--text-muted);margin-bottom:20px}
+.form-group{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.form-group label{font-size:12px;font-weight:500;color:var(--text-sec)}
+.form-group input{height:38px;padding:0 12px;border:1px solid var(--input-border);border-radius:var(--radius);background:var(--surface2);color:var(--text);font-size:14px;font-family:inherit}
+.form-group input:focus{outline:none;border-color:var(--input-border-focus)}
+.btn-submit{width:100%;height:40px;border:none;border-radius:var(--radius);background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer;margin-top:6px}
+.btn-submit:hover{opacity:.92}
+.btn-submit:disabled{opacity:.6;cursor:default}
+#error-box{display:none;margin-bottom:14px;padding:9px 12px;background:var(--danger-bg);color:var(--danger-text);border-radius:8px;font-size:12px;line-height:1.5}
+.forgot{display:block;text-align:center;margin-top:16px;font-size:12px;color:var(--text-muted);text-decoration:none;cursor:pointer}
+.forgot:hover{color:var(--accent-text)}
+#theme-toggle{position:fixed;top:16px;right:16px;width:32px;height:32px;padding:0;border:1px solid var(--border-strong);border-radius:var(--radius);background:var(--surface);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center}
+@media(max-width:600px){
+  input{font-size:16px!important}
+}
+</style>
+<script>
+(function(){
+  var saved = localStorage.getItem('theme');
+  if (saved === 'light' || saved === 'dark') document.documentElement.setAttribute('data-theme', saved);
+  window.toggleTheme = function(){
+    var current = document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    var next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    updateThemeIcon();
+  };
+  window.updateThemeIcon = function(){
+    var icon = document.getElementById('theme-icon');
+    if (!icon) return;
+    var current = document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    icon.innerHTML = current === 'dark'
+      ? '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>'
+      : '<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>';
+  };
+  document.addEventListener('DOMContentLoaded', updateThemeIcon);
+})();
+</script>
+</head>
+<body>
+
+<button id="theme-toggle" onclick="toggleTheme()" title="Görünüm modu (açık/koyu)">
+  <svg id="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"></svg>
+</button>
+
+<div class="card">
+  <h1>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+    Abiye Stok Yönetimi
+  </h1>
+  <p class="sub">Devam etmek için giriş yap</p>
+
+  <div id="error-box"></div>
+
+  <form id="login-form">
+    <div class="form-group">
+      <label>E-posta</label>
+      <input type="email" id="email" autocomplete="username" required>
+    </div>
+    <div class="form-group">
+      <label>Şifre</label>
+      <input type="password" id="password" autocomplete="current-password" required>
+    </div>
+    <button type="submit" class="btn-submit" id="submit-btn">Giriş Yap</button>
+  </form>
+  <a class="forgot" id="forgot-link">Şifremi unuttum</a>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+const app = initializeApp({
+  apiKey:"AIzaSyBED4SOH13mpdpuGLHwG_wl6lhe1a4YNos",
+  authDomain:"stok-19117.firebaseapp.com",
+  projectId:"stok-19117",
+  storageBucket:"stok-19117.firebasestorage.app",
+  messagingSenderId:"599549832875",
+  appId:"1:599549832875:web:4570ade50e2731469091ee"
+});
+const auth = getAuth(app);
+
+function redirectTarget(){
+  const params = new URLSearchParams(location.search);
+  const to = params.get('redirect');
+  // açık yönlendirmeyi önlemek için sadece bu sitedeki bilinen sayfalara izin ver
+  const izinli = ['index.html','beden.html','barkodlar.html','tedarikci.html'];
+  return (to && izinli.includes(to)) ? to : 'index.html';
+}
+
+// zaten giriş yapılmışsa giriş ekranında oyalanma, direkt yönlendir
+onAuthStateChanged(auth, user => {
+  if(user) location.href = redirectTarget();
+});
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+function showError(msg){
+  const box = document.getElementById('error-box');
+  box.textContent = msg;
+  box.style.display = 'block';
+}
+function hideError(){
+  document.getElementById('error-box').style.display = 'none';
+}
+
+const HATA_MESAJLARI = {
+  'auth/invalid-email': 'Geçersiz e-posta adresi.',
+  'auth/user-disabled': 'Bu hesap devre dışı bırakılmış.',
+  'auth/user-not-found': 'E-posta veya şifre hatalı.',
+  'auth/wrong-password': 'E-posta veya şifre hatalı.',
+  'auth/invalid-credential': 'E-posta veya şifre hatalı.',
+  'auth/too-many-requests': 'Çok fazla deneme yapıldı, biraz sonra tekrar dene.',
+  'auth/configuration-not-found': 'Giriş sistemi henüz etkinleştirilmemiş — Firebase Console → Authentication → Get started → Email/Password sağlayıcısını açman gerekiyor.',
+};
+
+document.getElementById('login-form').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  hideError();
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true; btn.textContent = 'Giriş yapılıyor...';
+  try{
+    await signInWithEmailAndPassword(auth, email, password);
+    // onAuthStateChanged yönlendirmeyi yapacak
+  }catch(err){
+    showError(HATA_MESAJLARI[err.code] || ('Giriş yapılamadı: ' + err.message));
+    btn.disabled = false; btn.textContent = 'Giriş Yap';
+  }
+});
+
+document.getElementById('forgot-link').addEventListener('click', async ()=>{
+  hideError();
+  const email = document.getElementById('email').value.trim();
+  if(!email){ showError('Şifre sıfırlama bağlantısı gönderebilmek için önce e-posta alanını doldur.'); return; }
+  try{
+    await sendPasswordResetEmail(auth, email);
+    const box = document.getElementById('error-box');
+    box.style.background = 'var(--success-bg)';
+    box.style.color = 'var(--success-text)';
+    box.textContent = `${email} adresine şifre sıfırlama bağlantısı gönderildi.`;
+    box.style.display = 'block';
+  }catch(err){
+    showError(HATA_MESAJLARI[err.code] || ('Gönderilemedi: ' + err.message));
+  }
+});
+</script>
+</body>
+</html>
