@@ -319,7 +319,12 @@ function init() {
   };
   if (cfg) {
     try {
-      const app = initializeApp(cfg, 'barkod-' + Date.now());
+      // Diğer sayfalarla (index/beden/tedarikci/giris) AYNI (varsayılan/isimsiz) app'i kullan —
+      // Firebase Auth'un oturumu tarayıcıda sakladığı anahtar app adına göre değişiyor; burada
+      // eskiden her sayfa yüklemesinde rastgele bir isim ('barkod-'+Date.now()) kullanılıyordu,
+      // bu da diğer sayfalarda kaydedilen oturumun hiç tanınmamasına ve giris.html'e sürekli
+      // geri yönlendirme döngüsüne sebep oluyordu.
+      const app = initializeApp(cfg);
       const db = getFirestore(app);
       const auth = getAuth(app);
       window.logout = () => signOut(auth);
