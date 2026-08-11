@@ -165,6 +165,7 @@ header h1{font-size:15px;font-weight:600;flex:1 1 auto;min-width:140px}
     <button class="btn" onclick="deselectAllProducts()">Seçimi Kaldır</button>
     <button class="btn" onclick="openBulkBedenModal()" title="Seçili ürünlerin beden tablosuna aynı ölçüleri toplu uygular">Toplu Beden Tablosu Uygula</button>
     <button class="btn" onclick="openBulkAddBedenModal()" title="Seçili ürünlerin hepsine, var olan renklerinde, aynı anda yeni beden ekler">Toplu Yeni Beden Ekle</button>
+    <button class="btn" id="push-beden-rehberi-btn" onclick="pushBedenRehberiToIkas()" title="Seçili, İKAS'ta eşleşmiş ürünlerin beden rehberini API ile doğrudan İKAS'a gönderir (Excel yüklemeye gerek kalmadan)">Beden Rehberini İKAS'a Gönder (API)</button>
   </div>
   <div class="urun-tabs" id="urun-tabs"></div>
   <div id="content"><div class="empty">Yükleniyor...</div></div>
@@ -232,6 +233,22 @@ const app = initializeApp({
 const db = getFirestore(app);
 const auth = getAuth(app);
 window.logout = () => signOut(auth);
+
+// index.html'deki ikasApi() ile birebir aynı — sayfa-başına-kendi-kodu geleneği
+// (bkz. project_overview hafıza notu), paylaşılan bir modül yok.
+async function ikasApi(query, variables){
+  if(!auth.currentUser) throw new Error('Oturum bulunamadı, tekrar giriş yap.');
+  const idToken = await auth.currentUser.getIdToken();
+  const res = await fetch('/api/ikas', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+    body: JSON.stringify({ query, variables: variables||{} }),
+  });
+  const json = await res.json().catch(()=>null);
+  if(!res.ok) throw new Error((json && json.error) || `İKAS API isteği başarısız (HTTP ${res.status})`);
+  if(json && json.errors && json.errors.length) throw new Error(json.errors.map(e=>e.message).join('; '));
+  return json.data;
+}
 
 const CMAP={Siyah:'#1a1a1a',Ekru:'#f5f0e0',Bordo:'#7b1e34',Lacivert:'#1a2a5e',Pudra:'#f2c4ce',
   'Yeşil':'#4a7c59',Mor:'#5b3d8a','Kırmızı':'#c0392b','Altın':'#c9a84c','Gümüş':'#a8a9ad',
@@ -388,6 +405,70 @@ window.copyIkasHtml = function(pid){
   const html = buildBedenRehberiHtml(p);
   if(!html){ alert('Bu üründe henüz beden ölçüsü yok.'); return; }
   navigator.clipboard.writeText(html).then(()=>alert('İKAS beden rehberi HTML\'i panoya kopyalandı.')).catch(()=>alert('Kopyalanamadı, tarayıcı izni gerekebilir.'));
+};
+
+// ── Beden Rehberini İKAS'a Gönder (API) ─────────────────────────────
+// "Toplu Excel'e Aktar"ın API hali — Excel indirip elle İKAS'a yükleme turunun yerine,
+// seçili (ve zaten İKAS'ta eşleşmiş) ürünlerin beden rehberini doğrudan gönderir.
+//
+// DİKKAT — İKİ AYRI TAHMİN, İLK GERÇEK DENEMEDEN ÖNCE DOĞRULANMALI:
+// 1) "Beden Rehberi" özel alanının ID'sini bulmak için kullanılan sorgu (listProductAttribute)
+//    ADI TAHMİNİ — ikas.dev'de bu sorgunun var olduğu doğrulanmadı, sadece Product.attributes
+//    alanının (ProductAttributeValue) var olduğu doğrulandı. İlk denemede hata alırsan
+//    (ör. "Cannot query field") introspection ile gerçek sorgu adını bul, burayı düzelt.
+// 2) saveProduct'a sadece {id, attributes} gönderip diğer alanları (name, variants vb.)
+//    HİÇ göndermeden kısmi güncelleme yapıp yapamayacağımız DOĞRULANMADI — İKAS bunu tam
+//    güncelleme olarak yorumlayıp diğer alanları sıfırlayabilir. İlk denemeyi tek, önemsiz
+//    bir test ürünüyle yap, İKAS panelinden ürünün diğer bilgilerinin (isim, varyantlar)
+//    bozulmadığını kontrol et.
+let _bedenRehberiAttrId = null;
+async function getBedenRehberiAttrId(){
+  if(_bedenRehberiAttrId) return _bedenRehberiAttrId;
+  const data = await ikasApi('{ listProductAttribute { id name } }');
+  const list = (data && data.listProductAttribute) || [];
+  const found = list.find(a=>(a.name||'').toLocaleLowerCase('tr-TR').includes('beden rehberi'));
+  if(!found) throw new Error('İKAS\'ta "Beden Rehberi" özel alanı bulunamadı — panelden Özel Alanlar bölümündeki gerçek adını kontrol et.');
+  _bedenRehberiAttrId = found.id;
+  return _bedenRehberiAttrId;
+}
+
+window.pushBedenRehberiToIkas = async function(){
+  if(!selected.size){ alert('Önce ürün seç (kartlardaki kutucuklardan işaretle).'); return; }
+  const hedefUrunler = [...selected].map(id=>products.find(p=>p.id===id)).filter(Boolean);
+  const eslesmis = hedefUrunler.filter(p=>p.ikasGrupId);
+  const eslesmemis = hedefUrunler.length - eslesmis.length;
+  if(!eslesmis.length){ alert('Seçili ürünlerin hiçbiri İKAS\'ta eşleşmemiş (Ürün Grup ID yok) — önce İKAS\'a Gönder ya da İKAS\'tan Çek ile eşleştir.'); return; }
+  if(!confirm(`${eslesmis.length} ürünün beden rehberi İKAS'a (canlı mağaza) gönderilecek${eslesmemis?`, ${eslesmemis} eşleşmemiş ürün atlanacak`:''}. Emin misin?`)) return;
+
+  const btn = document.getElementById('push-beden-rehberi-btn');
+  const eskiMetin = btn.textContent;
+  btn.disabled = true;
+  let tamam=0, gonderilen=0, olcusuzAtlanan=0;
+  const hatalar=[];
+  const toplam = eslesmis.length;
+  try{
+    const attrId = await getBedenRehberiAttrId();
+    await Promise.all(eslesmis.map(async p=>{
+      try{
+        const html = buildBedenRehberiHtml(p);
+        if(!html){ olcusuzAtlanan++; return; }
+        await ikasApi(`mutation($input: ProductInput!) { saveProduct(input: $input) { id } }`,
+          { input: { id: p.ikasGrupId, attributes: [{ productAttributeId: attrId, value: html }] } });
+        gonderilen++;
+      }catch(e){
+        hatalar.push(`${p.kod||p.id}: ${e.message}`);
+      }finally{
+        tamam++; btn.textContent = `Gönderiliyor... (${tamam}/${toplam})`;
+      }
+    }));
+    alert(`Tamamlandı: ${gonderilen}/${toplam} ürünün beden rehberi gönderildi.`
+      + (olcusuzAtlanan?`\n${olcusuzAtlanan} ürün atlandı (henüz ölçü girilmemiş).`:'')
+      + (hatalar.length?`\n\nHatalar:\n${hatalar.slice(0,15).join('\n')}${hatalar.length>15?`\n...ve ${hatalar.length-15} tane daha`:''}`:''));
+  }catch(e){
+    alert('Beden rehberi gönderilemedi: ' + e.message);
+  }finally{
+    btn.disabled = false; btn.textContent = eskiMetin;
+  }
 };
 
 // ── Toplu Excel'e Aktar (İKAS "Ürün Özel Alanları" formatı — ürün başına tek satır) ──
