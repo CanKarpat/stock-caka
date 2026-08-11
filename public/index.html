@@ -2231,6 +2231,19 @@ async function ikasApi(query, variables){
   return json.data;
 }
 
+// Geçici hata ayıklama aracı — İKAS'ın GraphQL şemasında bir alan adını tahmin etmek yerine
+// gerçeğini görmek için: tarayıcı konsolunda (F12) `ikasIntrospect('Variant')` gibi çalıştır,
+// sonuç konsola yazdırılır. Kalıcı bir özellik değil, ihtiyaç oldukça kullanılan bir araç.
+window.ikasIntrospect = async function(typeName){
+  try{
+    const data = await ikasApi(`{ __type(name:"${typeName}"){ name kind fields { name type { name kind ofType { name kind ofType { name kind } } } } } }`);
+    console.log(JSON.stringify(data, null, 2));
+    alert('Sonuç konsola yazdırıldı (F12 > Console sekmesi). Oradan kopyala.');
+  }catch(e){
+    alert('Hata: ' + e.message);
+  }
+};
+
 window.showIkasTestModal = function(){
   document.getElementById('ikas-test-result').innerHTML='';
   document.getElementById('ikas-test-modal').classList.remove('hidden');
