@@ -2403,20 +2403,29 @@ const IKAS_IMPORT_QUERY = `
   }
 `;
 
-// Renk/Beden ID'lerini isme çevirmek için mağaza-geneli tanım listesi — introspection ile
-// DOĞRULANDI: listVariantType { id name values { id name } }. Sayfa ömrü boyunca bir kez
-// çekilip önbelleğe alınır (fiyat listesi/stok lokasyonu ID'leri gibi, bkz. getDefaultIkasPriceListId).
-let _ikasVariantTypeMaps = null; // { typeNameById: Map, valueNameById: Map }
+// Renk/Beden ID↔isim çevirisi için mağaza-geneli tanım listesi — introspection ile DOĞRULANDI:
+// listVariantType { id name values { id name } }. Sayfa ömrü boyunca bir kez çekilip
+// önbelleğe alınır (fiyat listesi/stok lokasyonu ID'leri gibi, bkz. getDefaultIkasPriceListId).
+// İKİ yönde de kullanılıyor: çekerken (ID→isim, importNewIkasProducts) ve gönderirken
+// (isim→ID, pushToIkas — VariantInput.variantValueIds ID istiyor, isim değil; DOĞRULANDI
+// introspection'la, VariantInput.attributes ise ayrı bir kavram: ProductAttributeValueInput,
+// productAttributeId istiyor, Renk/Beden için KULLANILMAZ).
+let _ikasVariantTypeMaps = null; // { typeNameById, valueNameById, typeIdByName, valueIdByName }
 async function getIkasVariantTypeMaps(){
   if(_ikasVariantTypeMaps) return _ikasVariantTypeMaps;
   const data = await ikasApi('{ listVariantType { id name values { id name } } }');
   const list = (data && data.listVariantType) || [];
   const typeNameById = new Map(), valueNameById = new Map();
+  const typeIdByName = new Map(), valueIdByName = new Map(); // valueIdByName anahtarı: "TipAdı|DeğerAdı" (aynı değer adı farklı tiplerde tekrar edebilir)
   list.forEach(t=>{
     typeNameById.set(t.id, t.name);
-    (t.values||[]).forEach(v=>valueNameById.set(v.id, v.name));
+    typeIdByName.set(t.name, t.id);
+    (t.values||[]).forEach(v=>{
+      valueNameById.set(v.id, v.name);
+      valueIdByName.set(t.name+'|'+v.name, v.id);
+    });
   });
-  _ikasVariantTypeMaps = { typeNameById, valueNameById };
+  _ikasVariantTypeMaps = { typeNameById, valueNameById, typeIdByName, valueIdByName };
   return _ikasVariantTypeMaps;
 }
 
@@ -2623,19 +2632,32 @@ window.pushToIkas = async function(){
   try{
     const priceListId = await getDefaultIkasPriceListId();
     const stockLocationId = await getDefaultIkasStockLocationId();
+    const { typeIdByName, valueIdByName } = await getIkasVariantTypeMaps();
 
     await Promise.all(secilenler.map(async p=>{
       try{
         const yeniVaryantlar = (p.variants||[]).filter(v=>!v.ikasVaryantId);
         if(!p.ikasGrupId || yeniVaryantlar.length){
+          // DİKKAT — canlı hatalarla düzeltildi (2026-08-11): VariantInput.attributes Renk/Beden
+          // İÇİN DEĞİL (o, productAttributeId isteyen genel özel-alan mekanizması) — Renk/Beden
+          // variantValueIds ile, İKAS'ın mağaza genelinde tanımlı ID'leriyle gönderiliyor.
+          // isActive ve prices (en az sellPrice) da zorunlu — introspection ile doğrulandı.
+          // buyPrice OPSİYONEL, hiç gönderilmiyor (p.alis buraya KASITLI olarak hiç girmiyor).
           const inputVariants = (p.variants||[]).map(v=>{
             const renkDeger = (v.renk||'').trim().toLocaleUpperCase('tr-TR');
             const bedenDeger = (v.beden||'').trim();
+            const variantValueIds = [];
+            const renkValId = valueIdByName.get('Renk|'+renkDeger);
+            const bedenValId = valueIdByName.get('Beden|'+bedenDeger);
+            if(renkValId) variantValueIds.push({ variantTypeId: typeIdByName.get('Renk'), variantValueId: renkValId });
+            if(bedenValId) variantValueIds.push({ variantTypeId: typeIdByName.get('Beden'), variantValueId: bedenValId });
             return {
               id: v.ikasVaryantId || undefined,
               sku: v.sku || p.kod || '',
               barcodeList: [v.barkod || v.sku || ''],
-              attributes: [{ name:'Renk', value: renkDeger }, { name:'Beden', value: bedenDeger }],
+              isActive: true,
+              prices: [{ sellPrice: Number(p.indirimli || p.satis || 0) }],
+              variantValueIds,
             };
           });
           const input = {

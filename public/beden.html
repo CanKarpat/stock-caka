@@ -414,16 +414,12 @@ window.copyIkasHtml = function(pid){
 // "Toplu Excel'e Aktar"ın API hali — Excel indirip elle İKAS'a yükleme turunun yerine,
 // seçili (ve zaten İKAS'ta eşleşmiş) ürünlerin beden rehberini doğrudan gönderir.
 //
-// DİKKAT — İKİ AYRI TAHMİN, İLK GERÇEK DENEMEDEN ÖNCE DOĞRULANMALI:
-// 1) "Beden Rehberi" özel alanının ID'sini bulmak için kullanılan sorgu (listProductAttribute)
-//    ADI TAHMİNİ — ikas.dev'de bu sorgunun var olduğu doğrulanmadı, sadece Product.attributes
-//    alanının (ProductAttributeValue) var olduğu doğrulandı. İlk denemede hata alırsan
-//    (ör. "Cannot query field") introspection ile gerçek sorgu adını bul, burayı düzelt.
-// 2) saveProduct'a sadece {id, attributes} gönderip diğer alanları (name, variants vb.)
-//    HİÇ göndermeden kısmi güncelleme yapıp yapamayacağımız DOĞRULANMADI — İKAS bunu tam
-//    güncelleme olarak yorumlayıp diğer alanları sıfırlayabilir. İlk denemeyi tek, önemsiz
-//    bir test ürünüyle yap, İKAS panelinden ürünün diğer bilgilerinin (isim, varyantlar)
-//    bozulmadığını kontrol et.
+// Aşağıdaki her şey 2026-08-11'de canlı hatalar + introspection ile DOĞRULANDI:
+// listProductAttribute gerçekten var; saveProduct kısmi güncellemeyi desteklemiyor (tam
+// ürün — isim/tip/varyantlar — gönderilmeli); VariantInput.attributes Renk/Beden İÇİN
+// DEĞİL (o, productAttributeId isteyen ayrı bir mekanizma) — Renk/Beden variantValueIds
+// ile ID üzerinden gönderiliyor (bkz. getIkasVariantTypeMaps). Her varyantta isActive ve
+// prices (en az sellPrice) zorunlu; buyPrice OPSİYONEL — hiç gönderilmiyor.
 let _bedenRehberiAttrId = null;
 async function getBedenRehberiAttrId(){
   if(_bedenRehberiAttrId) return _bedenRehberiAttrId;
@@ -433,6 +429,27 @@ async function getBedenRehberiAttrId(){
   if(!found) throw new Error('İKAS\'ta "Beden Rehberi" özel alanı bulunamadı — panelden Özel Alanlar bölümündeki gerçek adını kontrol et.');
   _bedenRehberiAttrId = found.id;
   return _bedenRehberiAttrId;
+}
+
+// index.html'deki getIkasVariantTypeMaps() ile birebir aynı (sayfa-başına-kendi-kodu
+// geleneği) — Renk/Beden ID↔isim çevirisi için mağaza-geneli tanım listesi.
+let _ikasVariantTypeMaps = null;
+async function getIkasVariantTypeMaps(){
+  if(_ikasVariantTypeMaps) return _ikasVariantTypeMaps;
+  const data = await ikasApi('{ listVariantType { id name values { id name } } }');
+  const list = (data && data.listVariantType) || [];
+  const typeNameById = new Map(), valueNameById = new Map();
+  const typeIdByName = new Map(), valueIdByName = new Map();
+  list.forEach(t=>{
+    typeNameById.set(t.id, t.name);
+    typeIdByName.set(t.name, t.id);
+    (t.values||[]).forEach(v=>{
+      valueNameById.set(v.id, v.name);
+      valueIdByName.set(t.name+'|'+v.name, v.id);
+    });
+  });
+  _ikasVariantTypeMaps = { typeNameById, valueNameById, typeIdByName, valueIdByName };
+  return _ikasVariantTypeMaps;
 }
 
 window.pushBedenRehberiToIkas = async function(){
@@ -451,22 +468,29 @@ window.pushBedenRehberiToIkas = async function(){
   const toplam = eslesmis.length;
   try{
     const attrId = await getBedenRehberiAttrId();
+    const { typeIdByName, valueIdByName } = await getIkasVariantTypeMaps();
     await Promise.all(eslesmis.map(async p=>{
       try{
         const html = buildBedenRehberiHtml(p);
         if(!html){ olcusuzAtlanan++; return; }
-        // DİKKAT (canlıda doğrulandı): saveProduct kısmi güncellemeyi desteklemiyor — sadece
-        // {id, attributes} göndermek "name/type/variants zorunlu" hatası veriyor. Bu yüzden
-        // index.html'deki pushToIkas()'la aynı desenle ürünün TAMAMINI (isim, tip, varyantlar)
-        // birlikte gönderiyoruz, attributes'i de yanına ekliyoruz.
+        // index.html'deki pushToIkas()'la aynı desen: ürünün TAMAMI (isim, tip, varyantlar)
+        // gönderiliyor (saveProduct kısmi güncellemeyi desteklemiyor), Renk/Beden
+        // variantValueIds ile ID üzerinden (attributes DEĞİL — o ayrı bir mekanizma).
         const inputVariants = (p.variants||[]).map(v=>{
           const renkDeger = (v.renk||'').trim().toLocaleUpperCase('tr-TR');
           const bedenDeger = (v.beden||'').trim();
+          const variantValueIds = [];
+          const renkValId = valueIdByName.get('Renk|'+renkDeger);
+          const bedenValId = valueIdByName.get('Beden|'+bedenDeger);
+          if(renkValId) variantValueIds.push({ variantTypeId: typeIdByName.get('Renk'), variantValueId: renkValId });
+          if(bedenValId) variantValueIds.push({ variantTypeId: typeIdByName.get('Beden'), variantValueId: bedenValId });
           return {
             id: v.ikasVaryantId || undefined,
             sku: v.sku || p.kod || '',
             barcodeList: [v.barkod || v.sku || ''],
-            attributes: [{ name:'Renk', value: renkDeger }, { name:'Beden', value: bedenDeger }],
+            isActive: true,
+            prices: [{ sellPrice: Number(p.indirimli || p.satis || 0) }], // buyPrice OPSİYONEL, hiç gönderilmiyor
+            variantValueIds,
           };
         });
         await ikasApi(`mutation($input: ProductInput!) { saveProduct(input: $input) { id } }`,
