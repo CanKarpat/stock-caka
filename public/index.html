@@ -2236,7 +2236,14 @@ async function ikasApi(query, variables){
 // sonuç konsola yazdırılır. Kalıcı bir özellik değil, ihtiyaç oldukça kullanılan bir araç.
 window.ikasIntrospect = async function(typeName){
   try{
-    const data = await ikasApi(`{ __type(name:"${typeName}"){ name kind fields { name type { name kind ofType { name kind ofType { name kind } } } } } }`);
+    // fields: normal (OBJECT/INTERFACE) tipler için. inputFields: mutation girdi (INPUT_OBJECT)
+    // tipleri için (ör. VariantInput, ProductInput) — GraphQL bu ikisini ayrı listeler, tipin
+    // "kind"ine göre sadece biri dolu gelir, diğeri null olur. İkisini birden isteyip
+    // hangisinin dolu geldiğine bakmak, her seferinde doğru sorguyu tahmin etmekten kolay.
+    const data = await ikasApi(`{ __type(name:"${typeName}"){ name kind
+      fields { name type { name kind ofType { name kind ofType { name kind } } } }
+      inputFields { name type { name kind ofType { name kind ofType { name kind } } } }
+    } }`);
     console.log(JSON.stringify(data, null, 2));
     alert('Sonuç konsola yazdırıldı (F12 > Console sekmesi). Oradan kopyala.');
   }catch(e){
