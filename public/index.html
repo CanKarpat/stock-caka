@@ -2223,8 +2223,11 @@ async function ikasApi(query, variables){
     body: JSON.stringify({ query, variables: variables||{} }),
   });
   const json = await res.json().catch(()=>null);
-  if(!res.ok) throw new Error((json && json.error) || `İKAS API isteği başarısız (HTTP ${res.status})`);
+  // Önce GraphQL hata dizisini kontrol et (İKAS'ın kendi 400/403 vb. yanıtları genelde
+  // {errors:[...]} şeklinde gerçek sebebi taşır) — sadece res.ok'a bakıp bunu atlarsak
+  // gerçek hata mesajı yerine anlamsız bir "HTTP 400" gösterilir.
   if(json && json.errors && json.errors.length) throw new Error(json.errors.map(e=>e.message).join('; '));
+  if(!res.ok) throw new Error((json && json.error) || `İKAS API isteği başarısız (HTTP ${res.status})`);
   return json.data;
 }
 
