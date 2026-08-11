@@ -164,6 +164,7 @@ header h1{font-size:15px;font-weight:600;flex:1 1 auto;min-width:140px}
     <button class="btn" onclick="selectAllVisible()" title="Bu sekmede görünen tüm ürünleri seçer">Listelenenleri Seç</button>
     <button class="btn" onclick="deselectAllProducts()">Seçimi Kaldır</button>
     <button class="btn" onclick="openBulkBedenModal()" title="Seçili ürünlerin beden tablosuna aynı ölçüleri toplu uygular">Toplu Beden Tablosu Uygula</button>
+    <button class="btn" onclick="openBulkAddBedenModal()" title="Seçili ürünlerin hepsine, var olan renklerinde, aynı anda yeni beden ekler">Toplu Yeni Beden Ekle</button>
   </div>
   <div class="urun-tabs" id="urun-tabs"></div>
   <div id="content"><div class="empty">Yükleniyor...</div></div>
@@ -185,6 +186,32 @@ header h1{font-size:15px;font-weight:600;flex:1 1 auto;min-width:140px}
     <div class="modal-footer">
       <button class="btn" onclick="closeBulkBedenModal()">İptal</button>
       <button class="btn" id="bulk-beden-apply-btn" style="background:var(--accent);color:#fff;border-color:transparent" onclick="applyBulkBeden()">Uygula</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg hidden" id="bulk-add-beden-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Toplu Yeni Beden Ekle</h2>
+      <button class="btn" onclick="closeBulkAddBedenModal()" style="height:26px;width:26px;padding:0;justify-content:center">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--text-sec);margin-bottom:12px;line-height:1.5">Seçili <b id="bulk-add-beden-count">0</b> ürüne, her ürünün var olan renklerinde, aşağıdaki bedenleri yeni varyant olarak ekler. Zaten var olan renk+beden kombinasyonları atlanır (yinelenen oluşturulmaz).</p>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+        <label style="color:var(--text-sec);font-size:12px">Beden aralığı:</label>
+        <select id="bab-start" style="height:28px;border:1px solid var(--input-border);border-radius:5px;background:var(--surface2);color:var(--text)"></select>
+        <span>–</span>
+        <select id="bab-end" style="height:28px;border:1px solid var(--input-border);border-radius:5px;background:var(--surface2);color:var(--text)"></select>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <label style="color:var(--text-sec);font-size:12px">veya değer gir:</label>
+        <input type="text" id="bab-list" placeholder="36,38,40,44" style="width:140px;height:28px;padding:0 8px;border:1px solid var(--input-border);border-radius:5px;background:var(--surface2);color:var(--text);font-size:12px">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeBulkAddBedenModal()">İptal</button>
+      <button class="btn" id="bulk-add-beden-btn" style="background:var(--accent);color:#fff;border-color:transparent" onclick="bulkAddBeden()">Ekle</button>
     </div>
   </div>
 </div>
@@ -550,6 +577,63 @@ window.applyBulkBeden = async function(){
     }));
     closeBulkBedenModal();
     alert(`${guncellenen} üründe beden ölçüleri güncellendi.` + (atlanan ? `\n${atlanan} ürün atlandı (girilen bedenler o üründe yok).` : ''));
+  } catch(e){
+    alert('Hata oluştu, tekrar dene: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = eskiMetin;
+  }
+};
+
+// ── Toplu Yeni Beden Ekle ─────────────────────────────────────────
+// Tek ürün için zaten var olan generateBedenRange()/generateBedenList()'in aynı çekirdek
+// mantığı (buildMissingSizeVariants) — sadece selected setindeki HER ürün için tek seferde
+// çalıştırılıyor. Var olan renk+beden kombinasyonları atlanır, yeni varyant OLUŞTURULMAZ.
+window.openBulkAddBedenModal = function(){
+  if(!selected.size){ alert('Önce ürün seç (kartlardaki kutucuklardan işaretle).'); return; }
+  document.getElementById('bulk-add-beden-count').textContent = selected.size;
+  document.getElementById('bab-start').innerHTML = BEDEN_ORDER.map(b=>`<option>${b}</option>`).join('');
+  document.getElementById('bab-end').innerHTML = BEDEN_ORDER.map(b=>`<option${b===BEDEN_ORDER[BEDEN_ORDER.length-1]?' selected':''}>${b}</option>`).join('');
+  document.getElementById('bab-list').value = '';
+  document.getElementById('bulk-add-beden-modal').classList.remove('hidden');
+};
+window.closeBulkAddBedenModal = function(){
+  document.getElementById('bulk-add-beden-modal').classList.add('hidden');
+};
+window.bulkAddBeden = async function(){
+  const raw = document.getElementById('bab-list').value.trim();
+  let sizes;
+  if(raw){
+    sizes = raw.split(',').map(s=>s.trim()).filter(Boolean);
+  } else {
+    const si = BEDEN_ORDER.indexOf(document.getElementById('bab-start').value);
+    const ei = BEDEN_ORDER.indexOf(document.getElementById('bab-end').value);
+    if(si<0||ei<0||si>ei){ alert('Geçerli bir beden aralığı seç, ya da değer gir.'); return; }
+    sizes = BEDEN_ORDER.slice(si, ei+1);
+  }
+  if(!sizes.length){ alert('En az bir beden değeri gir.'); return; }
+
+  const btn = document.getElementById('bulk-add-beden-btn');
+  const eskiMetin = btn.textContent;
+  const hedefUrunler = [...selected].map(id=>products.find(p=>p.id===id)).filter(Boolean);
+  const toplam = hedefUrunler.length;
+  btn.disabled = true;
+  let tamam = 0, guncellenenUrun = 0, eklenenVaryant = 0, atlanan = 0;
+  try{
+    await Promise.all(hedefUrunler.map(async p=>{
+      const yeni = buildMissingSizeVariants(p, sizes);
+      if(yeni.length){
+        p.variants = [...(p.variants||[]), ...yeni];
+        await saveProduct(p);
+        guncellenenUrun++; eklenenVaryant += yeni.length;
+      } else {
+        atlanan++;
+      }
+      tamam++;
+      btn.textContent = `Ekleniyor... (${tamam}/${toplam})`;
+    }));
+    closeBulkAddBedenModal();
+    alert(`${guncellenenUrun} üründe toplam ${eklenenVaryant} yeni varyant eklendi.` + (atlanan ? `\n${atlanan} ürün atlandı (girilen bedenler hepsinde zaten mevcuttu).` : ''));
   } catch(e){
     alert('Hata oluştu, tekrar dene: ' + e.message);
   } finally {

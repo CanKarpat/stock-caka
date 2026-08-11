@@ -203,6 +203,13 @@ td input.r{text-align:right}
 .tab-toggle button{border:none;border-radius:16px;padding:5px 14px;font-size:12px;font-weight:500;cursor:pointer;background:transparent;color:var(--text-muted);transition:all .15s}
 .tab-toggle button.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.1)}
 
+/* ── TAG INPUT (Etiketler) ── */
+.tag-input-wrap{border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2);padding:6px 8px;display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.tag-input-wrap input{border:none;background:transparent;outline:none;flex:1;min-width:120px;font-size:13px;color:var(--text);font-family:inherit;padding:3px 0}
+.tag-chip{display:inline-flex;align-items:center;gap:4px;background:var(--accent-bg);color:var(--accent-text);font-size:11px;font-weight:600;padding:3px 6px 3px 9px;border-radius:12px;white-space:nowrap}
+.tag-chip button{background:none;border:none;color:inherit;cursor:pointer;font-size:13px;line-height:1;padding:0 2px;opacity:.7}
+.tag-chip button:hover{opacity:1}
+
 /* ── KISALTMA SATIRI ── */
 .kis-row{display:flex;gap:6px;align-items:center;margin-bottom:6px}
 .kis-row input{flex:1;padding:6px 8px;border:1px solid var(--input-border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:12px;font-family:inherit}
@@ -385,6 +392,9 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
     <input type="number" id="bulk-kdv" min="0" max="100" placeholder="20" style="width:70px">
     <button class="btn ghost" id="bulk-kdv-btn" onclick="bulkSetKdv()">Uygula</button>
     <div class="sep2"></div>
+    <input type="text" id="bulk-tag" placeholder="Etiket ekle...">
+    <button class="btn ghost" onclick="bulkAddTag()">Etiket Ekle</button>
+    <div class="sep2"></div>
     <button class="btn ghost" onclick="bulkGenerateSku()" title="Marka-Tedarikçi-ÜrünTipi-TedarikçiKodu-Uzunluk-Renk-Beden">Kısaltmalardan SKU Oluştur</button>
     <div class="sep2"></div>
     <button class="btn ghost" id="bulk-ikas-push-btn" onclick="pushToIkas()" title="Yeni ürünleri İKAS'a oluştur, eşleşmiş ürünlerin stok/fiyatını güncelle">İKAS'a Gönder</button>
@@ -427,6 +437,15 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
         <div class="form-group">
           <label>Ürün Açıklaması</label>
           <textarea id="pm-aciklama" placeholder="Ürün detayları, notlar..."></textarea>
+        </div>
+      </div>
+      <div class="form-grid full" style="margin-top:8px">
+        <div class="form-group">
+          <label>Etiketler <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(İKAS: etiket eşleniği)</span></label>
+          <div class="tag-input-wrap" id="pm-etiket-wrap">
+            <input id="pm-etiket-input" placeholder="Uzun Abiye, Saten... (Enter ile ekle)" list="etiket-suggestions">
+          </div>
+          <datalist id="etiket-suggestions"></datalist>
         </div>
       </div>
       <div class="form-grid" style="margin-top:8px">
@@ -1020,6 +1039,7 @@ function fillKisSelect(elId, map, current){
 const COLS = [
   {id:'sku',     label:'SKU',           always:true},
   {id:'ad',      label:'Ürün Adı',      always:false, default:false},
+  {id:'etiketler',label:'Etiketler',    always:false, default:false},
   {id:'tedarikci',label:'Tedarikçi',    always:false, default:true},
   {id:'durum',   label:'Durum',         always:false, default:true},
   {id:'renk',    label:'Renk',          always:false, default:true},
@@ -1041,6 +1061,7 @@ let activeVarTab = 'genel';
 let currentVarProductId = null;
 let importedRows = [];
 let importTab = 'kendi';
+let pmEtiketler = [];
 let selectedIds = new Set();
 let productTab = 'eslesmis'; // 'eslesmis' = İKAS'ta aktif/eşleşmiş, 'yeni' = henüz eşleşmemiş
 
@@ -1207,6 +1228,7 @@ function render(){
     (p.kod||'').toLowerCase().includes(q)||
     (p.ad||'').toLowerCase().includes(q)||
     (p.tedarikci||'').toLowerCase().includes(q)||
+    (p.etiketler||[]).some(t=>t.toLowerCase().includes(q))||
     (p.variants||[]).some(v=>(v.renk||'').toLowerCase().includes(q)||(v.sku||'').toLowerCase().includes(q)||(v.barkod||'').toLowerCase().includes(q))
   ) : products;
 
@@ -1229,6 +1251,7 @@ function render(){
     <th style="width:70px"></th>
   </tr>`;
 
+  updateTagSuggestions();
   renderBulkBar();
 
   if(!activeList.length){
@@ -1248,6 +1271,7 @@ function render(){
     const cells = vis.map(c=>{
       if(c.id==='sku') return `<td><span style="font-family:monospace;font-size:12px;font-weight:600">${esc(p.kod)}</span></td>`;
       if(c.id==='ad') return `<td>${esc(p.ad)}</td>`;
+      if(c.id==='etiketler') return `<td style="font-size:11px;color:var(--text-sec)">${(p.etiketler||[]).map(t=>esc(t)).join(', ')}</td>`;
       if(c.id==='tedarikci') return `<td style="font-size:12px">${esc(p.tedarikci)}</td>`;
       if(c.id==='durum') return `<td><select class="inline-sel durum-sel" data-field="durum" data-pid="${p.id}" onchange="updProd('${p.id}','durum',this.value)" onclick="event.stopPropagation()">
         <option class="badge-yayinda" ${(p.durum||'Yayında')==='Yayında'?'selected':''}>Yayında</option>
@@ -1295,6 +1319,7 @@ function render(){
         const vcells = vis.map(c=>{
           if(c.id==='sku') return `<td style="padding-left:28px"><span style="font-family:monospace;font-size:11px;color:var(--text-sec)">${esc(v.sku||'—')}</span></td>`;
           if(c.id==='ad') return `<td style="color:var(--text-muted);font-size:12px">${esc(v.aciklama||'')}</td>`;
+          if(c.id==='etiketler') return `<td></td>`;
           if(c.id==='tedarikci') return `<td></td>`;
           if(c.id==='durum') return `<td></td>`;
           if(c.id==='renk') return `<td><span class="color-dot" style="background:${CMAP[v.renk]||'#aaa'}"></span>${esc(v.renk)}</td>`;
@@ -1339,6 +1364,7 @@ window.toggleSelectAll = function(checked){
   let list = q ? products.filter(p=>
     (p.kod||'').toLowerCase().includes(q)||(p.ad||'').toLowerCase().includes(q)||
     (p.tedarikci||'').toLowerCase().includes(q)||
+    (p.etiketler||[]).some(t=>t.toLowerCase().includes(q))||
     (p.variants||[]).some(v=>(v.renk||'').toLowerCase().includes(q)||(v.sku||'').toLowerCase().includes(q)||(v.barkod||'').toLowerCase().includes(q))
   ) : products;
   list = list.filter(p => productTab==='eslesmis' ? p.ikasGrupId : !p.ikasGrupId);
@@ -1443,6 +1469,17 @@ window.bulkSetKdv = async function(){
     btn.disabled = false;
     btn.textContent = eskiMetin;
   }
+};
+window.bulkAddTag = async function(){
+  if(!selectedIds.size) return;
+  const tag = document.getElementById('bulk-tag').value.trim();
+  if(!tag) return;
+  await Promise.all([...selectedIds].map(id=>{
+    const p = products.find(x=>x.id===id); if(!p) return;
+    p.etiketler = [...new Set([...(p.etiketler||[]), tag])];
+    return saveProduct(p);
+  }));
+  document.getElementById('bulk-tag').value='';
 };
 window.bulkGenerateSku = async function(){
   if(!selectedIds.size) return;
@@ -1588,6 +1625,37 @@ window.createFromHizliSku = async function(){
   openProductModal(id, p);
 };
 
+// ── Etiket girişi ────────────────────────────────────────────────
+function renderTagChips(arr, wrapId, inputId){
+  const wrap = document.getElementById(wrapId);
+  const input = document.getElementById(inputId);
+  wrap.querySelectorAll('.tag-chip').forEach(el=>el.remove());
+  arr.forEach((t,i)=>{
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip';
+    chip.innerHTML = `${esc(t)}<button type="button" onclick="removeTag(${i})">×</button>`;
+    wrap.insertBefore(chip, input);
+  });
+}
+window.removeTag = function(idx){
+  pmEtiketler.splice(idx,1);
+  renderTagChips(pmEtiketler, 'pm-etiket-wrap', 'pm-etiket-input');
+};
+function addTagFromInput(inputEl){
+  const val = inputEl.value.trim().replace(/,$/,'');
+  if(!val) return;
+  if(!pmEtiketler.includes(val)) pmEtiketler.push(val);
+  inputEl.value='';
+  renderTagChips(pmEtiketler, 'pm-etiket-wrap', inputEl.id);
+}
+document.getElementById('pm-etiket-input').addEventListener('keydown', e=>{
+  if(e.key==='Enter'||e.key===','){ e.preventDefault(); addTagFromInput(e.target); }
+});
+function updateTagSuggestions(){
+  const set = new Set();
+  products.forEach(p=>(p.etiketler||[]).forEach(t=>set.add(t)));
+  document.getElementById('etiket-suggestions').innerHTML = [...set].map(t=>`<option value="${esc(t)}">`).join('');
+}
 
 // ── Kısaltmalar modalı ────────────────────────────────────────────
 let kisaltmaDraft = {marka:'GC', tedarikci:[], tip:[], uzunluk:[], renk:[]};
@@ -1646,6 +1714,8 @@ window.openProductModal = function(id=null, presetP=null){
   document.getElementById('pm-kod').value = p?p.kod:'';
   document.getElementById('pm-ad').value = p?p.ad:'';
   document.getElementById('pm-aciklama').value = p?p.aciklama:'';
+  pmEtiketler = p ? [...(p.etiketler||[])] : [];
+  renderTagChips(pmEtiketler, 'pm-etiket-wrap', 'pm-etiket-input');
   fillKisSelect('pm-tedarikci', kisaltmalar.tedarikci, p?(p.tedarikci||''):'');
   fillKisSelect('pm-urun-tipi', kisaltmalar.tip, p?(p.urunTipi||''):'');
   fillKisSelect('pm-uzunluk', kisaltmalar.uzunluk, p?(p.uzunluk||''):'');
@@ -1707,6 +1777,7 @@ window.saveProduct = async function(){
     kod: document.getElementById('pm-kod').value,
     ad: document.getElementById('pm-ad').value,
     aciklama: document.getElementById('pm-aciklama').value,
+    etiketler: [...pmEtiketler],
     tedarikci: document.getElementById('pm-tedarikci').value,
     urunTipi: document.getElementById('pm-urun-tipi').value,
     uzunluk: document.getElementById('pm-uzunluk').value,
@@ -2261,12 +2332,19 @@ window.closeIkasPullModal = ()=>document.getElementById('ikas-pull-modal').class
 // gerekirse aşağıdaki sorguyu düzelt. Buradaki alan adları (sku, variants, listProduct,
 // pagination:{page,limit}) dokümantasyon özetlerinden, ham şemadan doğrulanmadı.
 // stocks/prices alt alanları TAHMİNİ — ilk canlı denemeden önce introspection ile teyit et.
+// tags{name} DOĞRULANDI (ikas.dev: Product.tags: [SimpleProductTag!] {id,name}).
+// attributes{...} TAHMİNİ — Product.attributes: [ProductAttributeValue!] var olduğu doğrulandı
+// ama bunun panel'deki "Özel Alanlar" ile aynı şey olup olmadığı, ID'lerin nasıl insan-okunur
+// isme çevrildiği DOĞRULANMADI. p.ikasOzelAlanlar'a ham haliyle yazılır, işlenmez — bunun
+// üzerine bir düzenleme arayüzü kurmadan önce introspection ile netleştir.
 const IKAS_PULL_QUERY = `
   query ListProductsForSync($pagination: PaginationInput) {
     listProduct(pagination: $pagination) {
       count
       data {
         id
+        tags { name }
+        attributes { productAttributeId productAttributeOptionId value }
         variants {
           id
           sku
@@ -2287,6 +2365,7 @@ window.pullIkasProducts = async function(){
   resultEl.innerHTML = '';
 
   const skuMap = new Map();
+  const grupBilgiMap = new Map(); // grupId -> {etiketler, ozelAlanlar} — tags/attributes ürün seviyesinde, sku'dan bağımsız
   const MAX_PAGES = 50; // güvenlik kapağı — sayfalama şeklini yanlış varsaymışsak sonsuz döngüye girmeyelim
   try{
     let page = 1;
@@ -2296,6 +2375,10 @@ window.pullIkasProducts = async function(){
       const rows = (data && data.listProduct && data.listProduct.data) || [];
       if(!rows.length) break;
       rows.forEach(prod=>{
+        grupBilgiMap.set(String(prod.id), {
+          etiketler: (prod.tags||[]).map(t=>t.name).filter(Boolean),
+          ozelAlanlar: prod.attributes || [],
+        });
         (prod.variants||[]).forEach(v=>{
           if(!v.sku) return;
           const stok = (v.stocks && v.stocks[0] && v.stocks[0].stockCount);
@@ -2331,6 +2414,11 @@ window.pullIkasProducts = async function(){
         // Fiyat İKAS'ta varyant bazlı, yerelde ürün bazlı — ürüne son eşleşen varyantın fiyatı yazılır (bilinen basitleştirme).
         if(eslesme.fiyat!==null && p.satis !== eslesme.fiyat){ p.satis = eslesme.fiyat; degisti = true; guncellenenFiyat++; }
       });
+      if(p.ikasGrupId && grupBilgiMap.has(p.ikasGrupId)){
+        const gb = grupBilgiMap.get(p.ikasGrupId);
+        if(JSON.stringify(p.etiketler||[]) !== JSON.stringify(gb.etiketler)){ p.etiketler = gb.etiketler; degisti = true; }
+        p.ikasOzelAlanlar = gb.ozelAlanlar; // ham veri, karşılaştırma yapmadan hep güncellenir
+      }
       if(degisti){
         guncellenenUrun++;
         toSave.push(saveProduct(p).then(()=>{ tamamlanan++; btn.textContent = `Kaydediliyor... (${tamamlanan}/${toplam})`; }));
@@ -2358,6 +2446,7 @@ window.pullIkasProducts = async function(){
 // webhook teslimatındaki sipariş satırı içindeki varyant objesinden (bkz. api/ikas-webhook.js
 // üst yorumu) İKAS'ın Variant tipinin gerçek şeklini gördük. stocks/stockCount HÂLÂ TAHMİNİ —
 // ilk gerçek çalıştırmadan önce introspection ile teyit et (aynı uyarı IKAS_PULL_QUERY'de de var).
+// tags/attributes için aynı doğrulanmış/tahmini ayrımı geçerli — bkz. IKAS_PULL_QUERY yorumu.
 const IKAS_IMPORT_QUERY = `
   query ListProductsForImport($pagination: PaginationInput) {
     listProduct(pagination: $pagination) {
@@ -2366,6 +2455,8 @@ const IKAS_IMPORT_QUERY = `
         id
         name
         description
+        tags { name }
+        attributes { productAttributeId productAttributeOptionId value }
         variants {
           id
           sku
@@ -2452,6 +2543,8 @@ window.importNewIkasProducts = async function(){
         kod: cozum.kod || ilkVaryant.sku || '',
         ad: iu.name || '',
         aciklama: iu.description || '',
+        etiketler: (iu.tags||[]).map(t=>t.name).filter(Boolean),
+        ikasOzelAlanlar: iu.attributes || [], // ham veri, bkz. IKAS_PULL_QUERY yorumu
         tedarikci: cozum.tedarikci || '',
         tedarikciKodu: cozum.tedarikciKodu || '',
         urunTipi: cozum.urunTipi || '',
@@ -2595,6 +2688,11 @@ window.pushToIkas = async function(){
             description: p.aciklama || '',
             brandName: IKAS_MARKA_SABIT,
             type: 'PHYSICAL',
+            // DİKKAT: ProductInput'ta etiketlerin isim listesi (tags:[String!], isme göre upsert)
+            // mi yoksa ID listesi (tagIds:[String!], önce ayrı bir sorguyla ID çözümlemesi
+            // gerektiren) mi olduğu DOĞRULANMADI — ilk gerçek göndermeden önce introspection
+            // ile teyit et ({ __type(name:"ProductInput"){inputFields{name}} }).
+            tags: p.etiketler || [],
             variants: inputVariants,
             // DİKKAT: p.alis (maliyet fiyatı) buraya KASITLI olarak hiç girmiyor.
           };
