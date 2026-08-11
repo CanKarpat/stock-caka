@@ -668,11 +668,11 @@ function render(){
               <td><span class="beden-num">${b}</span></td>
               <td><div class="renk-wrap">${renkDots}</div></td>
               <td class="r"><input type="number" data-field="gogus" data-pid="${p.id}" data-beden="${b}" value="${bm.gogus||''}" min="0" placeholder="—"
-                onchange="updBedenOlcu('${p.id}','${b}','gogus',this.value)"></td>
+                oninput="updBedenOlcu('${p.id}','${b}','gogus',this.value)"></td>
               <td class="r"><input type="number" data-field="bel" data-pid="${p.id}" data-beden="${b}" value="${bm.bel||''}" min="0" placeholder="—"
-                onchange="updBedenOlcu('${p.id}','${b}','bel',this.value)"></td>
+                oninput="updBedenOlcu('${p.id}','${b}','bel',this.value)"></td>
               <td class="r"><input type="number" data-field="basen" data-pid="${p.id}" data-beden="${b}" value="${bm.basen||''}" min="0" placeholder="—"
-                onchange="updBedenOlcu('${p.id}','${b}','basen',this.value)"></td>
+                oninput="updBedenOlcu('${p.id}','${b}','basen',this.value)"></td>
             </tr>`;
           }).join('')}
         </tbody>
