@@ -253,6 +253,21 @@ async function ikasApi(query, variables){
   return json.data;
 }
 
+// index.html'deki ikasIntrospect() ile birebir aynı — tarayıcı konsolundan
+// ikasIntrospect('TipAdı') çağrılıp gerçek İKAS şeması görülebiliyor.
+window.ikasIntrospect = async function(typeName){
+  try{
+    const data = await ikasApi(`{ __type(name:"${typeName}"){ name kind
+      fields { name type { name kind ofType { name kind ofType { name kind } } } }
+      inputFields { name type { name kind ofType { name kind ofType { name kind } } } }
+    } }`);
+    console.log(JSON.stringify(data, null, 2));
+    alert('Sonuç konsola yazdırıldı (F12 > Console sekmesi). Oradan kopyala.');
+  }catch(e){
+    alert('Hata: ' + e.message);
+  }
+};
+
 const CMAP={Siyah:'#1a1a1a',Ekru:'#f5f0e0',Bordo:'#7b1e34',Lacivert:'#1a2a5e',Pudra:'#f2c4ce',
   'Yeşil':'#4a7c59',Mor:'#5b3d8a','Kırmızı':'#c0392b','Altın':'#c9a84c','Gümüş':'#a8a9ad',
   Mavi:'#2e6fb4',Bej:'#d4b896',Beyaz:'#f8f8f8',Pembe:'#f4a7b9',Kahverengi:'#7b5533'};
