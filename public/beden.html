@@ -455,8 +455,28 @@ window.pushBedenRehberiToIkas = async function(){
       try{
         const html = buildBedenRehberiHtml(p);
         if(!html){ olcusuzAtlanan++; return; }
+        // DİKKAT (canlıda doğrulandı): saveProduct kısmi güncellemeyi desteklemiyor — sadece
+        // {id, attributes} göndermek "name/type/variants zorunlu" hatası veriyor. Bu yüzden
+        // index.html'deki pushToIkas()'la aynı desenle ürünün TAMAMINI (isim, tip, varyantlar)
+        // birlikte gönderiyoruz, attributes'i de yanına ekliyoruz.
+        const inputVariants = (p.variants||[]).map(v=>{
+          const renkDeger = (v.renk||'').trim().toLocaleUpperCase('tr-TR');
+          const bedenDeger = (v.beden||'').trim();
+          return {
+            id: v.ikasVaryantId || undefined,
+            sku: v.sku || p.kod || '',
+            barcodeList: [v.barkod || v.sku || ''],
+            attributes: [{ name:'Renk', value: renkDeger }, { name:'Beden', value: bedenDeger }],
+          };
+        });
         await ikasApi(`mutation($input: ProductInput!) { saveProduct(input: $input) { id } }`,
-          { input: { id: p.ikasGrupId, attributes: [{ productAttributeId: attrId, value: html }] } });
+          { input: {
+            id: p.ikasGrupId,
+            name: p.ad || '',
+            type: 'PHYSICAL',
+            variants: inputVariants,
+            attributes: [{ productAttributeId: attrId, value: html }],
+          } });
         gonderilen++;
       }catch(e){
         hatalar.push(`${p.kod||p.id}: ${e.message}`);
