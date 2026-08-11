@@ -333,6 +333,10 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       İKAS'tan Çek (API)
     </button>
+    <button class="btn ghost" onclick="showIkasImportModal()" title="İKAS'ta olup burada hiç olmayan ürünleri yeni kayıt olarak içe aktar">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/><circle cx="19" cy="6" r="3" fill="var(--surface)"/><line x1="19" y1="4.5" x2="19" y2="7.5"/><line x1="17.5" y1="6" x2="20.5" y2="6"/></svg>
+      İKAS'tan Yeni Ürün İçe Aktar
+    </button>
     <button class="btn ghost" onclick="showIkasSettingsModal()" title="İKAS bağlantı bilgilerini (mağaza adı, client id, client secret) düzenle">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
       İKAS Ayarları
@@ -816,6 +820,28 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
     <div class="modal-footer">
       <button class="btn ghost" onclick="closeIkasPullModal()">Kapat</button>
       <button class="btn primary" id="ikas-pull-btn" onclick="pullIkasProducts()">Çek ve Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     İKAS'TAN YENİ ÜRÜN İÇE AKTAR MODAL
+═══════════════════════════════════════════ -->
+<div class="modal-bg hidden" id="ikas-import-modal">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <h2>İKAS'tan Yeni Ürün İçe Aktar</h2>
+      <button class="icon-btn" onclick="closeIkasImportModal()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" style="font-size:13px;line-height:1.7;color:var(--text-sec)">
+      <p>İKAS'ta olup burada (Firestore) hiç karşılığı olmayan ürünleri <b style="color:var(--text)">yeni kayıt</b> olarak oluşturur — "İKAS'tan Çek"in aksine, sadece var olan ürünleri güncellemekle kalmaz. Tedarikçi/Ürün Tipi/Uzunluk, SKU kalıbına uyuyorsa Kısaltmalar tablosundan otomatik çözülür; uymuyorsa boş bırakılır (sonradan toplu düzenlenebilir). <b style="color:var(--text)">Alış (maliyet) fiyatı İKAS'tan hiçbir zaman gelmez</b>, 0 kalır.</p>
+      <div id="ikas-import-result" style="margin-top:10px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn ghost" onclick="closeIkasImportModal()">Kapat</button>
+      <button class="btn primary" id="ikas-import-btn" onclick="importNewIkasProducts()">Tara ve İçe Aktar</button>
     </div>
   </div>
 </div>
@@ -2318,6 +2344,152 @@ window.pullIkasProducts = async function(){
   }catch(err){
     resultEl.innerHTML = `<div style="background:var(--danger-bg);color:var(--danger-text);border-radius:8px;padding:8px 10px">Hata: ${esc(err.message)}</div>`;
     alert('İKAS\'tan Çek başarısız: ' + err.message);
+  }finally{
+    btn.disabled = false; btn.textContent = eskiMetin;
+  }
+};
+
+// ── İKAS'tan Yeni Ürünleri İçe Aktar ────────────────────────────────
+// pullIkasProducts() sadece Firestore'da ZATEN VAR olan ürünleri SKU'suyla eşleştirip
+// günceller — İKAS'ta olup burada hiç karşılığı olmayan bir ürünü yeni kayıt olarak
+// oluşturmaz. Bu bölüm o boşluğu dolduruyor.
+//
+// sku/barcodeList/variantValues/prices alan adları DOĞRULANDI — 2026-08-10'da gerçek bir
+// webhook teslimatındaki sipariş satırı içindeki varyant objesinden (bkz. api/ikas-webhook.js
+// üst yorumu) İKAS'ın Variant tipinin gerçek şeklini gördük. stocks/stockCount HÂLÂ TAHMİNİ —
+// ilk gerçek çalıştırmadan önce introspection ile teyit et (aynı uyarı IKAS_PULL_QUERY'de de var).
+const IKAS_IMPORT_QUERY = `
+  query ListProductsForImport($pagination: PaginationInput) {
+    listProduct(pagination: $pagination) {
+      count
+      data {
+        id
+        name
+        description
+        variants {
+          id
+          sku
+          barcodeList
+          variantValues { variantTypeName variantValueName }
+          stocks { stockCount }
+          prices { sellPrice }
+        }
+      }
+    }
+  }
+`;
+
+// Tamamlanmış bir varyant SKU'sunu (Marka-Tedarikçi-ÜrünTipi-TedarikçiKodu-Uzunluk-Renk-Beden)
+// kısaltmalar tablosuna bakarak geri çözer — parseHizliSkuPattern()'in aynı mantığı (kesin 7
+// parça şartı, findKisAd ile isim geri dönüşü), sadece Renk/Beden'i kullanmıyor (onlar İKAS'ın
+// variantValues'undan doğrudan, daha güvenilir şekilde geliyor). Kalıba uymuyorsa null döner —
+// çağıran taraf bu durumda tedarikci/urunTipi/uzunluk'u boş bırakır, kod olarak ham SKU'yu kullanır.
+function parseIkasSkuToKisaltma(sku){
+  const parts = String(sku||'').trim().split('-');
+  if(parts.length!==7) return null;
+  const [, tedKis, tipKis, tedKodu, uzunlukKis] = parts;
+  return {
+    tedarikci: findKisAd(kisaltmalar.tedarikci, tedKis) || '',
+    urunTipi: findKisAd(kisaltmalar.tip, tipKis) || '',
+    uzunluk: findKisAd(kisaltmalar.uzunluk, uzunlukKis) || '',
+    tedarikciKodu: tedKodu || '',
+    kod: parts.slice(0,5).join('-'),
+  };
+}
+
+window.showIkasImportModal = function(){
+  document.getElementById('ikas-import-result').innerHTML = '';
+  document.getElementById('ikas-import-modal').classList.remove('hidden');
+};
+window.closeIkasImportModal = ()=>document.getElementById('ikas-import-modal').classList.add('hidden');
+
+window.importNewIkasProducts = async function(){
+  const btn = document.getElementById('ikas-import-btn');
+  const resultEl = document.getElementById('ikas-import-result');
+  const eskiMetin = btn.textContent;
+  btn.disabled = true;
+  resultEl.innerHTML = '';
+
+  const mevcutGrupIdler = new Set(products.map(p=>p.ikasGrupId).filter(Boolean));
+  const mevcutSkular = new Set();
+  products.forEach(p=>(p.variants||[]).forEach(v=>{ if(v.sku) mevcutSkular.add(String(v.sku).trim()); }));
+
+  try{
+    const ikasUrunler = [];
+    const MAX_PAGES = 50;
+    let page = 1;
+    while(page <= MAX_PAGES){
+      btn.textContent = `Taranıyor... (sayfa ${page})`;
+      const data = await ikasApi(IKAS_IMPORT_QUERY, { pagination: { page, limit: 100 } });
+      const rows = (data && data.listProduct && data.listProduct.data) || [];
+      if(!rows.length) break;
+      ikasUrunler.push(...rows);
+      if(rows.length < 100) break;
+      page++;
+    }
+
+    let yeniOlusturulan = 0, zatenEsleşmis = 0, kismiEslesme = 0, tamamlanan = 0;
+    const yeniUrunler = ikasUrunler.filter(iu=>{
+      if(mevcutGrupIdler.has(String(iu.id))){ zatenEsleşmis++; return false; }
+      const skuCakismasi = (iu.variants||[]).some(v=>v.sku && mevcutSkular.has(String(v.sku).trim()));
+      if(skuCakismasi){ kismiEslesme++; return false; }
+      return true;
+    });
+
+    if(!yeniUrunler.length){
+      resultEl.innerHTML = `<div style="background:var(--success-bg);color:var(--success-text);border-radius:8px;padding:8px 10px">İçe aktarılacak yeni ürün yok (${zatenEsleşmis} zaten eşleşmiş, ${kismiEslesme} kısmi eşleşme).</div>`;
+      return;
+    }
+    if(!confirm(`${yeniUrunler.length} yeni ürün Firestore'a eklenecek. Emin misin?`)) return;
+
+    const toplam = yeniUrunler.length;
+    btn.textContent = `Oluşturuluyor... (0/${toplam})`;
+    await Promise.all(yeniUrunler.map(async iu=>{
+      const ilkVaryant = (iu.variants||[])[0] || {};
+      const cozum = parseIkasSkuToKisaltma(ilkVaryant.sku) || {};
+      const p = {
+        id: uid(),
+        kod: cozum.kod || ilkVaryant.sku || '',
+        ad: iu.name || '',
+        aciklama: iu.description || '',
+        tedarikci: cozum.tedarikci || '',
+        tedarikciKodu: cozum.tedarikciKodu || '',
+        urunTipi: cozum.urunTipi || '',
+        uzunluk: cozum.uzunluk || '',
+        durum: 'Yayında',
+        alis: 0, // İKAS'tan asla gelmez, hiçbir zaman set edilmez
+        satis: Number((ilkVaryant.prices && ilkVaryant.prices[0] && ilkVaryant.prices[0].sellPrice) || 0),
+        indirimli: 0,
+        kdvOrani: 0,
+        satisKanaliDurumu: '',
+        sira: Date.now(),
+        ikasGrupId: String(iu.id),
+        variants: (iu.variants||[]).map(v=>{
+          const renkDeger = ((v.variantValues||[]).find(vv=>vv.variantTypeName==='Renk')||{}).variantValueName || '';
+          const bedenDeger = ((v.variantValues||[]).find(vv=>vv.variantTypeName==='Beden')||{}).variantValueName || '';
+          const stokDeger = (v.stocks && v.stocks[0] && v.stocks[0].stockCount);
+          return {
+            id: uid(),
+            sku: v.sku || '',
+            renk: renkDeger,
+            beden: bedenDeger,
+            miktar: (stokDeger===undefined||stokDeger===null) ? 0 : Number(stokDeger),
+            barkod: (v.barcodeList && v.barcodeList[0]) || v.sku || '',
+            gogus: 0, bel: 0, basen: 0, boy: 0,
+            ikasVaryantId: String(v.id),
+          };
+        }),
+      };
+      await saveProduct(p);
+      yeniOlusturulan++;
+      tamamlanan++; btn.textContent = `Oluşturuluyor... (${tamamlanan}/${toplam})`;
+    }));
+
+    resultEl.innerHTML = `<div style="background:var(--success-bg);color:var(--success-text);border-radius:8px;padding:8px 10px">${yeniOlusturulan} yeni ürün oluşturuldu. ${zatenEsleşmis} zaten eşleşmişti, ${kismiEslesme} kısmi eşleşme bulundu (bunlar için "İKAS'tan Çek"i kullan).</div>`;
+    alert(`İçe aktarma tamamlandı: ${yeniOlusturulan} yeni ürün oluşturuldu.`);
+  }catch(err){
+    resultEl.innerHTML = `<div style="background:var(--danger-bg);color:var(--danger-text);border-radius:8px;padding:8px 10px">Hata: ${esc(err.message)}</div>`;
+    alert('İçe aktarma başarısız: ' + err.message);
   }finally{
     btn.disabled = false; btn.textContent = eskiMetin;
   }
