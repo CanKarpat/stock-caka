@@ -2370,10 +2370,11 @@ window.pullIkasProducts = async function(){
 // günceller — İKAS'ta olup burada hiç karşılığı olmayan bir ürünü yeni kayıt olarak
 // oluşturmaz. Bu bölüm o boşluğu dolduruyor.
 //
-// sku/barcodeList/variantValues/prices alan adları DOĞRULANDI — 2026-08-10'da gerçek bir
-// webhook teslimatındaki sipariş satırı içindeki varyant objesinden (bkz. api/ikas-webhook.js
-// üst yorumu) İKAS'ın Variant tipinin gerçek şeklini gördük. stocks/stockCount HÂLÂ TAHMİNİ —
-// ilk gerçek çalıştırmadan önce introspection ile teyit et (aynı uyarı IKAS_PULL_QUERY'de de var).
+// TÜMÜ 2026-08-11'de canlı introspection ile DOĞRULANDI (window.ikasIntrospect ile):
+// sku/barcodeList/stocks{stockCount}/prices{sellPrice} — Variant tipinde birebir doğrulandı.
+// Renk/Beden isimleri Variant üzerinde YOK — sadece variantValueIds{variantTypeId,
+// variantValueId} (ikisi de sadece ID) var. İsimler ayrı bir mağaza-geneli sorgudan
+// (listVariantType, aşağıda getIkasVariantTypeMaps()) çözülüyor — bkz. o fonksiyonun yorumu.
 const IKAS_IMPORT_QUERY = `
   query ListProductsForImport($pagination: PaginationInput) {
     listProduct(pagination: $pagination) {
@@ -2386,7 +2387,7 @@ const IKAS_IMPORT_QUERY = `
           id
           sku
           barcodeList
-          variantValues { variantTypeName variantValueName }
+          variantValueIds { variantTypeId variantValueId }
           stocks { stockCount }
           prices { sellPrice }
         }
@@ -2395,11 +2396,28 @@ const IKAS_IMPORT_QUERY = `
   }
 `;
 
+// Renk/Beden ID'lerini isme çevirmek için mağaza-geneli tanım listesi — introspection ile
+// DOĞRULANDI: listVariantType { id name values { id name } }. Sayfa ömrü boyunca bir kez
+// çekilip önbelleğe alınır (fiyat listesi/stok lokasyonu ID'leri gibi, bkz. getDefaultIkasPriceListId).
+let _ikasVariantTypeMaps = null; // { typeNameById: Map, valueNameById: Map }
+async function getIkasVariantTypeMaps(){
+  if(_ikasVariantTypeMaps) return _ikasVariantTypeMaps;
+  const data = await ikasApi('{ listVariantType { id name values { id name } } }');
+  const list = (data && data.listVariantType) || [];
+  const typeNameById = new Map(), valueNameById = new Map();
+  list.forEach(t=>{
+    typeNameById.set(t.id, t.name);
+    (t.values||[]).forEach(v=>valueNameById.set(v.id, v.name));
+  });
+  _ikasVariantTypeMaps = { typeNameById, valueNameById };
+  return _ikasVariantTypeMaps;
+}
+
 // Tamamlanmış bir varyant SKU'sunu (Marka-Tedarikçi-ÜrünTipi-TedarikçiKodu-Uzunluk-Renk-Beden)
 // kısaltmalar tablosuna bakarak geri çözer — parseHizliSkuPattern()'in aynı mantığı (kesin 7
-// parça şartı, findKisAd ile isim geri dönüşü), sadece Renk/Beden'i kullanmıyor (onlar İKAS'ın
-// variantValues'undan doğrudan, daha güvenilir şekilde geliyor). Kalıba uymuyorsa null döner —
-// çağıran taraf bu durumda tedarikci/urunTipi/uzunluk'u boş bırakır, kod olarak ham SKU'yu kullanır.
+// parça şartı, findKisAd ile isim geri dönüşü), sadece Renk/Beden'i kullanmıyor (onlar İKAS'tan
+// getIkasVariantTypeMaps() ile ID'den isme çözülüyor, daha güvenilir). Kalıba uymuyorsa null
+// döner — çağıran taraf bu durumda tedarikci/urunTipi/uzunluk'u boş bırakır, kod olarak ham SKU'yu kullanır.
 function parseIkasSkuToKisaltma(sku){
   const parts = String(sku||'').trim().split('-');
   if(parts.length!==7) return null;
@@ -2458,6 +2476,7 @@ window.importNewIkasProducts = async function(){
     }
     if(!confirm(`${yeniUrunler.length} yeni ürün Firestore'a eklenecek. Emin misin?`)) return;
 
+    const { typeNameById, valueNameById } = await getIkasVariantTypeMaps();
     const toplam = yeniUrunler.length;
     btn.textContent = `Oluşturuluyor... (0/${toplam})`;
     await Promise.all(yeniUrunler.map(async iu=>{
@@ -2481,8 +2500,15 @@ window.importNewIkasProducts = async function(){
         sira: Date.now(),
         ikasGrupId: String(iu.id),
         variants: (iu.variants||[]).map(v=>{
-          const renkDeger = ((v.variantValues||[]).find(vv=>vv.variantTypeName==='Renk')||{}).variantValueName || '';
-          const bedenDeger = ((v.variantValues||[]).find(vv=>vv.variantTypeName==='Beden')||{}).variantValueName || '';
+          // variantValueIds sadece ID taşıyor (variantTypeId, variantValueId) — isimleri
+          // yukarıda bir kere çekilen typeNameById/valueNameById map'leriyle çözüyoruz.
+          let renkDeger = '', bedenDeger = '';
+          (v.variantValueIds||[]).forEach(rel=>{
+            const tipAdi = typeNameById.get(rel.variantTypeId);
+            const degerAdi = valueNameById.get(rel.variantValueId) || '';
+            if(tipAdi==='Renk') renkDeger = degerAdi;
+            else if(tipAdi==='Beden') bedenDeger = degerAdi;
+          });
           const stokDeger = (v.stocks && v.stocks[0] && v.stocks[0].stockCount);
           return {
             id: uid(),
