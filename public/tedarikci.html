@@ -140,7 +140,7 @@ tr:hover td{background:var(--surface2)}
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, collection, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getFirestore, collection, doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 const app = initializeApp({
@@ -157,6 +157,7 @@ window.logout = () => signOut(auth);
 
 const TEDARIKCISIZ = '— Tedarikçisi belirtilmemiş —';
 let products = [];
+let kisaltmalar = { tedarikci: {} }; // config/kisaltmalar — ürünü olmasa bile Tedarikçi Kısaltmaları'ndaki her tedarikçi listede görünsün diye
 let activeTedarikci = null;
 let sidebarSearch = '';
 
@@ -169,6 +170,11 @@ const totalCiro = p => (p.variants||[]).reduce((s,v)=>s+Number(v.miktar||0)*Numb
 
 function groupByTedarikci(){
   const map = new Map();
+  // Kısaltmalar'daki her tedarikçi, hiç ürünü olmasa bile 0 ürünle listede görünsün.
+  Object.keys(kisaltmalar.tedarikci||{}).forEach(name=>{
+    const key = name.trim();
+    if(key && !map.has(key)) map.set(key, []);
+  });
   products.forEach(p=>{
     const key = (p.tedarikci||'').trim() || TEDARIKCISIZ;
     if(!map.has(key)) map.set(key, []);
@@ -194,6 +200,11 @@ onAuthStateChanged(auth, user => {
     render();
   }, () => {
     document.getElementById('main').innerHTML = '<div class="empty-state">Bağlantı kurulamadı.</div>';
+  });
+
+  onSnapshot(doc(db,'config','kisaltmalar'), snap => {
+    kisaltmalar = { tedarikci: (snap.exists() ? snap.data().tedarikci : {}) || {} };
+    render();
   });
 });
 
