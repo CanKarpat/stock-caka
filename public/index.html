@@ -337,6 +337,10 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/><circle cx="19" cy="6" r="3" fill="var(--surface)"/><line x1="19" y1="4.5" x2="19" y2="7.5"/><line x1="17.5" y1="6" x2="20.5" y2="6"/></svg>
       İKAS'tan Yeni Ürün İçe Aktar
     </button>
+    <button class="btn ghost" onclick="showGorselImportModal()" title="İKAS'ın kendi Excel dışa aktarımındaki 'Resim URL' sütununu SKU'ya göre eşleştirip içe aktarır">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+      Görsel URL İçe Aktar (Excel)
+    </button>
     <button class="btn ghost" onclick="showIkasSettingsModal()" title="İKAS bağlantı bilgilerini (mağaza adı, client id, client secret) düzenle">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
       İKAS Ayarları
@@ -842,6 +846,32 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
     <div class="modal-footer">
       <button class="btn ghost" onclick="closeIkasImportModal()">Kapat</button>
       <button class="btn primary" id="ikas-import-btn" onclick="importNewIkasProducts()">Tara ve İçe Aktar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     GÖRSEL URL İÇE AKTAR (EXCEL) MODAL
+═══════════════════════════════════════════ -->
+<div class="modal-bg hidden" id="gorsel-import-modal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <h2>Görsel URL İçe Aktar (Excel)</h2>
+      <button class="icon-btn" onclick="closeGorselImportModal()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" style="font-size:13px;line-height:1.7;color:var(--text-sec)">
+      <p>İKAS Admin → Ürünler → Dışa Aktar ile aldığın tam ürün Excel dosyasını yükle — <b style="color:var(--text)">SKU</b> ve <b style="color:var(--text)">Resim URL</b> sütunlarını okuyup SKU'ya göre eşleştirir. Birden fazla URL varsa (noktalı virgülle ayrılmış) ilkini kullanır. Bunu API üzerinden kurmadık çünkü İKAS'ın API'si görsel için kullanılabilir bir URL vermiyor — sadece Excel'de var.</p>
+      <div class="form-group" style="margin-top:10px">
+        <label>İKAS Ürün Excel Dosyası</label>
+        <input type="file" id="gorsel-import-file" accept=".csv,.xlsx,.xls">
+      </div>
+      <div id="gorsel-import-result" style="margin-top:10px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn ghost" onclick="closeGorselImportModal()">Kapat</button>
+      <button class="btn primary" id="gorsel-import-btn" onclick="processGorselImport()">İçe Aktar</button>
     </div>
   </div>
 </div>
@@ -2595,6 +2625,80 @@ window.importNewIkasProducts = async function(){
   }finally{
     btn.disabled = false; btn.textContent = eskiMetin;
   }
+};
+
+// ── Görsel URL İçe Aktar (Excel) ────────────────────────────────────
+// İKAS'ın Admin API'si bir görsel için kullanılabilir bir URL vermiyor (sadece imageId/
+// fileName — ikas.dev'de bulunamadı, denenen kombinasyonların hiçbiri çalışmadı, bkz.
+// 2026-08-13 notu). İKAS'ın kendi Excel dışa aktarımındaki "Resim URL" sütunu ise kesin
+// çalışan gerçek linkler veriyor — bu yüzden görsel URL'sini API yerine buradan alıyoruz.
+window.showGorselImportModal = function(){
+  document.getElementById('gorsel-import-file').value = '';
+  document.getElementById('gorsel-import-result').innerHTML = '';
+  document.getElementById('gorsel-import-modal').classList.remove('hidden');
+};
+window.closeGorselImportModal = ()=>document.getElementById('gorsel-import-modal').classList.add('hidden');
+
+window.processGorselImport = function(){
+  const file = document.getElementById('gorsel-import-file').files[0];
+  const resultEl = document.getElementById('gorsel-import-result');
+  if(!file){ resultEl.innerHTML = `<div style="background:var(--danger-bg);color:var(--danger-text);border-radius:8px;padding:8px 10px">Önce bir dosya seç.</div>`; return; }
+
+  const btn = document.getElementById('gorsel-import-btn');
+  const eskiMetin = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Okunuyor...';
+  resultEl.innerHTML = '';
+
+  const reader = new FileReader();
+  reader.onload = async (e)=>{
+    try{
+      const wb = XLSX.read(e.target.result, { type:'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header:1 });
+      if(!rows.length) throw new Error('Dosya boş.');
+      const headers = rows[0].map(normalizeHeader);
+      const iSku = headers.findIndex(h=>h==='sku');
+      const iResim = headers.findIndex(h=>h.includes('resim url')||h.includes('gorsel url')||h.includes('image url'));
+      if(iSku<0) throw new Error('"SKU" sütunu bulunamadı.');
+      if(iResim<0) throw new Error('"Resim URL" sütunu bulunamadı.');
+
+      const skuToUrl = new Map();
+      rows.slice(1).forEach(r=>{
+        const sku = String(r[iSku]||'').trim();
+        const resimRaw = String(r[iResim]||'').trim();
+        if(!sku || !resimRaw) return;
+        const ilkUrl = resimRaw.split(';')[0].trim();
+        if(ilkUrl) skuToUrl.set(sku, ilkUrl);
+      });
+      if(!skuToUrl.size) throw new Error('Dosyada eşleşecek SKU/Resim URL çifti bulunamadı.');
+
+      let guncellenenUrun = 0, guncellenenVaryant = 0, tamamlanan = 0;
+      const eslesenUrunler = products.filter(p=>(p.variants||[]).some(v=>skuToUrl.has((v.sku||'').trim())));
+      const toplam = eslesenUrunler.length;
+      btn.textContent = `Uygulanıyor... (0/${toplam})`;
+      await Promise.all(eslesenUrunler.map(async p=>{
+        let degisti = false;
+        (p.variants||[]).forEach(v=>{
+          const url = skuToUrl.get((v.sku||'').trim());
+          if(url && v.gorselUrl !== url){ v.gorselUrl = url; degisti = true; guncellenenVaryant++; }
+        });
+        if(degisti){ await saveProduct(p); guncellenenUrun++; }
+        tamamlanan++; btn.textContent = `Uygulanıyor... (${tamamlanan}/${toplam})`;
+      }));
+
+      resultEl.innerHTML = `<div style="background:var(--success-bg);color:var(--success-text);border-radius:8px;padding:8px 10px">${guncellenenUrun} ürün, ${guncellenenVaryant} varyantın görsel URL'si güncellendi.</div>`;
+      alert(`Görsel URL içe aktarma tamamlandı: ${guncellenenUrun} ürün güncellendi.`);
+    }catch(err){
+      resultEl.innerHTML = `<div style="background:var(--danger-bg);color:var(--danger-text);border-radius:8px;padding:8px 10px">Hata: ${esc(err.message)}</div>`;
+    }finally{
+      btn.disabled = false; btn.textContent = eskiMetin;
+    }
+  };
+  reader.onerror = ()=>{
+    resultEl.innerHTML = `<div style="background:var(--danger-bg);color:var(--danger-text);border-radius:8px;padding:8px 10px">Dosya okunamadı.</div>`;
+    btn.disabled = false; btn.textContent = eskiMetin;
+  };
+  reader.readAsArrayBuffer(file);
 };
 
 // ── İKAS'a Gönderme (Push) ──────────────────────────────────────────
