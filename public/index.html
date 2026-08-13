@@ -2314,10 +2314,11 @@ window.closeIkasPullModal = ()=>document.getElementById('ikas-pull-modal').class
 // gerekirse aşağıdaki sorguyu düzelt. Buradaki alan adları (sku, variants, listProduct,
 // pagination:{page,limit}) dokümantasyon özetlerinden, ham şemadan doğrulanmadı.
 // stocks/prices alt alanları TAHMİNİ — ilk canlı denemeden önce introspection ile teyit et.
-// categories{id,name,parentId} DOĞRULANDI (SimpleCategory, introspection). images{imageId,
-// fileName,isMain} DOĞRULANDI (ProductImage, introspection) — görsel URL'sinin bu ikisinden
-// nasıl kurulduğu ise bir dokümandan değil, kullanıcının paylaştığı gerçek bir örnekten
-// (2026-08-13) geri çözüldü, bkz. buildIkasImageUrl() yorumu.
+// categories{id,name,parentId} DOĞRULANDI (SimpleCategory, introspection).
+// DİKKAT (2026-08-13): görsel URL'si BİLEREK burada YOK — ProductImage.imageId/fileName'den
+// URL kurmaya çalışıldı (buildIkasImageUrl, artık silindi), canlıda YANLIŞ çıktı: API'nin
+// döndürdüğü fileName gerçek CDN yolunda hiç işe yaramıyor. Görsel URL'si artık "Görsel URL
+// İçe Aktar (Excel)" ile İKAS'ın kendi Excel dışa aktarımından okunuyor (processGorselImport).
 const IKAS_PULL_QUERY = `
   query ListProductsForSync($pagination: PaginationInput) {
     listProduct(pagination: $pagination) {
@@ -2330,36 +2331,11 @@ const IKAS_PULL_QUERY = `
           sku
           stocks { stockCount }
           prices { sellPrice }
-          images { imageId fileName isMain }
         }
       }
     }
   }
 `;
-
-// Mağaza (merchant) ID'si — sayfa ömrü boyunca bir kez çekilip önbelleğe alınır, görsel
-// URL'si kurarken gerekiyor (bkz. buildIkasImageUrl).
-let _ikasMerchantId = null;
-async function getIkasMerchantId(){
-  if(_ikasMerchantId) return _ikasMerchantId;
-  const data = await ikasApi('{ getMerchant { id } }');
-  const id = data && data.getMerchant && data.getMerchant.id;
-  if(!id) throw new Error('İKAS mağaza (merchant) ID\'si alınamadı.');
-  _ikasMerchantId = id;
-  return _ikasMerchantId;
-}
-
-// Görsel URL kalıbı RESMİ DOKÜMANDAN DEĞİL — kullanıcının İKAS'ın kendi Excel dışa
-// aktarımından paylaştığı gerçek bir "Resim URL" örneğiyle (2026-08-13), o ürünün bilinen
-// merchantId/imageId'siyle birebir karşılaştırılarak geri çözüldü:
-//   https://cdn.myikas.com/images/{merchantId}/{imageId}/{fileName}
-// isMain işaretli görsel yoksa ilk görsel kullanılır. Hiç görsel yoksa boş string döner.
-function buildIkasImageUrl(merchantId, images){
-  if(!merchantId || !images || !images.length) return '';
-  const img = images.find(i=>i.isMain) || images[0];
-  if(!img || !img.imageId || !img.fileName) return '';
-  return `https://cdn.myikas.com/images/${merchantId}/${img.imageId}/${img.fileName}`;
-}
 
 window.pullIkasProducts = async function(){
   const btn = document.getElementById('ikas-pull-btn');
@@ -2373,7 +2349,6 @@ window.pullIkasProducts = async function(){
   const grupKategoriMap = new Map(); // grupId -> [{id,name,parentId}]
   const MAX_PAGES = 50; // güvenlik kapağı — sayfalama şeklini yanlış varsaymışsak sonsuz döngüye girmeyelim
   try{
-    const merchantId = await getIkasMerchantId();
     let page = 1;
     while(page <= MAX_PAGES){
       btn.textContent = `Çekiliyor... (sayfa ${page})`;
@@ -2390,7 +2365,6 @@ window.pullIkasProducts = async function(){
             grupId: String(prod.id), varyantId: String(v.id),
             stok: (stok===undefined||stok===null) ? null : Number(stok),
             fiyat: (fiyat===undefined||fiyat===null) ? null : Number(fiyat),
-            gorselUrl: buildIkasImageUrl(merchantId, v.images),
           });
         });
       });
@@ -2417,7 +2391,6 @@ window.pullIkasProducts = async function(){
         if(eslesme.stok!==null && v.miktar !== eslesme.stok){ v.miktar = eslesme.stok; degisti = true; }
         // Fiyat İKAS'ta varyant bazlı, yerelde ürün bazlı — ürüne son eşleşen varyantın fiyatı yazılır (bilinen basitleştirme).
         if(eslesme.fiyat!==null && p.satis !== eslesme.fiyat){ p.satis = eslesme.fiyat; degisti = true; guncellenenFiyat++; }
-        if(eslesme.gorselUrl && v.gorselUrl !== eslesme.gorselUrl){ v.gorselUrl = eslesme.gorselUrl; degisti = true; }
       });
       if(p.ikasGrupId && grupKategoriMap.has(p.ikasGrupId)){
         const kategoriler = grupKategoriMap.get(p.ikasGrupId);
@@ -2467,7 +2440,6 @@ const IKAS_IMPORT_QUERY = `
           variantValueIds { variantTypeId variantValueId }
           stocks { stockCount }
           prices { sellPrice }
-          images { imageId fileName isMain }
         }
       }
     }
@@ -2564,7 +2536,6 @@ window.importNewIkasProducts = async function(){
     if(!confirm(`${yeniUrunler.length} yeni ürün Firestore'a eklenecek. Emin misin?`)) return;
 
     const { typeNameById, valueNameById } = await getIkasVariantTypeMaps();
-    const merchantId = await getIkasMerchantId();
     const toplam = yeniUrunler.length;
     btn.textContent = `Oluşturuluyor... (0/${toplam})`;
     await Promise.all(yeniUrunler.map(async iu=>{
@@ -2608,7 +2579,6 @@ window.importNewIkasProducts = async function(){
             barkod: (v.barcodeList && v.barcodeList[0]) || v.sku || '',
             gogus: 0, bel: 0, basen: 0, boy: 0,
             ikasVaryantId: String(v.id),
-            gorselUrl: buildIkasImageUrl(merchantId, v.images),
           };
         }),
       };
