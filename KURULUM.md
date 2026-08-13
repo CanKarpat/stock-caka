@@ -92,9 +92,15 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow write: if false;  // sadece sunucu tarafı (api/ikas-webhook.js) yazar
     }
+    match /magaza_urunler/{document} {
+      allow read: if true;    // ayrı, girişsiz bir sitenin (randevu/ürün seçme) okuyabilmesi için bilerek herkese açık
+      allow write: if request.auth != null;
+    }
   }
 }
 ```
+
+`magaza_urunler` koleksiyonu, ayrı bir siteye (randevu/ürün seçme, farklı proje) müşteriye güvenle gösterilecek ürün bilgisini (ad, kod, fiyat, varyant/görsel — maliyet ve iç bilgiler HARİÇ) açmak için var; `saveProduct()` her ürün kaydında otomatik senkronize ediyor.
 
 **Dikkat**: `config/{document}` gibi genel bir joker yol KULLANMA — Firestore kuralları toplamalı (additive) çalışır, genel bir kural varsa `ikasAyarlariGizli`'yi "okunamaz" yapan özel kural yine de etkisiz kalır. Her doküman yolu ayrı ayrı yazılmalı, yukarıdaki gibi.
 
