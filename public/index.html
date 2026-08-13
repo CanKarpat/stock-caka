@@ -1107,8 +1107,38 @@ async function saveProduct(p){
   setSyncStatus('syncing');
   const {id,...data}=p;
   await setDoc(doc(db,'stok',String(id)),{...data,ts:serverTimestamp()});
+  await syncMagazaUrunu(p);
 }
-async function deleteProduct(id){ setSyncStatus('syncing'); await deleteDoc(doc(db,'stok',String(id))); }
+async function deleteProduct(id){
+  setSyncStatus('syncing');
+  await deleteDoc(doc(db,'stok',String(id)));
+  await deleteDoc(doc(db,'magaza_urunler',String(id))).catch(()=>{});
+}
+
+// Müşteriye açık, AYRI bir koleksiyon — ayrı randevu/ürün seçme sitesi (farklı proje) bunu
+// girişsiz okuyacak. `stok`'un aksine burada SADECE müşteriye güvenle gösterilecek alanlar
+// var — alış fiyatı, tedarikçi, KDV oranı gibi iç bilgiler KASITLI olarak hiç yazılmıyor.
+// Yayında olmayan (Beklemede/Pasif) ürünler için doküman silinir, müşteri hiç görmesin.
+async function syncMagazaUrunu(p){
+  const ref = doc(db,'magaza_urunler',String(p.id));
+  if((p.durum||'Yayında') !== 'Yayında'){
+    await deleteDoc(ref).catch(()=>{});
+    return;
+  }
+  await setDoc(ref, {
+    ad: p.ad || '',
+    kod: p.kod || '',
+    satisFiyati: Number(p.satis || 0),
+    indirimliFiyat: Number(p.indirimli || 0),
+    varyantlar: (p.variants||[]).map(v => ({
+      sku: v.sku || '',
+      renk: v.renk || '',
+      beden: v.beden || '',
+      gorselUrl: v.gorselUrl || '',
+    })),
+    guncellendi: serverTimestamp(),
+  });
+}
 
 // ── Helpers ───────────────────────────────────────────────────────
 const fmt=(n)=>Number(n||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});
