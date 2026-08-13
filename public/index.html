@@ -1135,6 +1135,7 @@ async function syncMagazaUrunu(p){
       renk: v.renk || '',
       beden: v.beden || '',
       gorselUrl: v.gorselUrl || '',
+      bd: !!v.bd,
     })),
     guncellendi: serverTimestamp(),
   });
@@ -1906,7 +1907,7 @@ function renderVarTable(){
   if(activeVarTab==='genel'){
     thead=`<tr>
       <th>Renk</th><th>Beden</th><th>SKU Varyant</th><th>Barkod</th>
-      <th class="r">Miktar</th><th></th>
+      <th class="r">Miktar</th><th>BD</th><th></th>
     </tr>`;
     tbody=vars.map(v=>`<tr>
       <td>
@@ -1925,6 +1926,7 @@ function renderVarTable(){
       <td><input data-field="sku" data-vid="${v.id}" value="${esc(v.sku||'')}" placeholder="${esc(p.kod)}-V1" onchange="updVar('${p.id}','${v.id}','sku',this.value)" style="font-family:monospace;font-size:12px;min-width:120px"></td>
       <td><input data-field="barkod" data-vid="${v.id}" value="${esc(v.barkod||'')}" placeholder="SKU ile aynı" onchange="updVar('${p.id}','${v.id}','barkod',this.value)" style="font-family:monospace;font-size:12px;min-width:110px"></td>
       <td class="r"><input class="r" type="number" data-field="miktar" data-vid="${v.id}" value="${v.miktar||0}" min="0" onchange="updVar('${p.id}','${v.id}','miktar',this.value)" style="width:70px"></td>
+      <td style="text-align:center"><input type="checkbox" data-field="bd" data-vid="${v.id}" ${v.bd?'checked':''} onchange="updVar('${p.id}','${v.id}','bd',this.checked)" title="Bursa Depo — bu varyant Bursa depodan getirtiliyor, müşteri randevu sayfasında randevu tarihi en az 3 gün sonra olarak kısıtlanır"></td>
       <td>
         <button class="icon-btn del" onclick="delVar('${p.id}','${v.id}')">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
@@ -1970,7 +1972,7 @@ function renderVarTable(){
   }
 
   if(!vars.length){
-    tbody=`<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted)">Henüz varyant yok — aşağıdan ekle</td></tr>`;
+    tbody=`<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted)">Henüz varyant yok — aşağıdan ekle</td></tr>`;
   }
 
   document.getElementById('var-table').innerHTML=`<thead>${thead}</thead><tbody>${tbody}</tbody>`;

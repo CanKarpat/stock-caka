@@ -96,11 +96,53 @@ service cloud.firestore {
       allow read: if true;    // ayrı, girişsiz bir sitenin (randevu/ürün seçme) okuyabilmesi için bilerek herkese açık
       allow write: if request.auth != null;
     }
+    match /randevular/{randevuId} {
+      // "appointment-showroom-gracecode" (ayrı repo/proje) randevu sitesi için — personel
+      // (aynı paylaşılan Auth havuzu) her şeyi okuyup güncelleyebilir/silebilir; müşteri
+      // kendi randevusunu bile geri okuyamaz (list dahil) — mahremiyet.
+      allow read, update, delete, list: if request.auth != null;
+
+      // Müşteri, girişsiz, sadece YENİ bir randevu oluşturabilir; mevcut hiçbir
+      // dokümanı okuyamaz/değiştiremez/silemez. Alan bazlı yapısal doğrulama var —
+      // dizi elemanlarının (urunler[]) içini tek tek doğrulamak Firestore kurallarında
+      // pratik değil, bu kabul edilen bir sınırlama.
+      allow create: if
+        request.resource.data.keys().hasOnly([
+          'musteriAdi','musteriTelefon','musteriEposta',
+          'urunler','bdVarMi','randevuTarihi','randevuSaati',
+          'durum','olusturulmaTarihi','guncellemeTarihi'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'musteriAdi','musteriTelefon','musteriEposta','urunler','bdVarMi',
+          'randevuTarihi','randevuSaati','olusturulmaTarihi','guncellemeTarihi'
+        ]) &&
+        request.resource.data.musteriAdi is string &&
+        request.resource.data.musteriAdi.size() > 0 && request.resource.data.musteriAdi.size() < 120 &&
+        request.resource.data.musteriTelefon is string &&
+        request.resource.data.musteriTelefon.size() > 0 && request.resource.data.musteriTelefon.size() < 40 &&
+        request.resource.data.musteriEposta is string &&
+        request.resource.data.musteriEposta.size() > 0 && request.resource.data.musteriEposta.size() < 150 &&
+        request.resource.data.urunler is list &&
+        request.resource.data.urunler.size() > 0 && request.resource.data.urunler.size() <= 20 &&
+        request.resource.data.bdVarMi is bool &&
+        request.resource.data.randevuTarihi is string &&
+        request.resource.data.randevuTarihi.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+        request.resource.data.randevuSaati == null &&
+        request.resource.data.durum == 'yeni' &&
+        request.resource.data.olusturulmaTarihi == request.time &&
+        request.resource.data.guncellemeTarihi == request.time;
+    }
+    match /config/randevuAyarlari {
+      allow read: if true;   // randevu sitesindeki müşteri sayfası depozito linkini okuyabilsin diye kasıtlı herkese açık
+      allow write: if request.auth != null;
+    }
   }
 }
 ```
 
-`magaza_urunler` koleksiyonu, ayrı bir siteye (randevu/ürün seçme, farklı proje) müşteriye güvenle gösterilecek ürün bilgisini (ad, kod, fiyat, varyant/görsel — maliyet ve iç bilgiler HARİÇ) açmak için var; `saveProduct()` her ürün kaydında otomatik senkronize ediyor.
+`magaza_urunler` koleksiyonu, ayrı bir siteye (randevu/ürün seçme, farklı proje) müşteriye güvenle gösterilecek ürün bilgisini (ad, kod, fiyat, varyant/görsel — maliyet ve iç bilgiler HARİÇ) açmak için var; `saveProduct()` her ürün kaydında otomatik senkronize ediyor. Varyantlardaki `bd` (Bursa Depo) alanı da bu senkronizasyona dahil — Varyant modalinde "BD" kutucuğu işaretlenerek yönetiliyor.
+
+`randevular` ve `config/randevuAyarlari`, bu projeden ayrı olan `appointment-showroom-gracecode` reposundaki randevu/ürün seçme sitesi tarafından kullanılıyor — aynı Firebase projesini (`stok-19117`) ve aynı Auth kullanıcı havuzunu paylaşıyorlar.
 
 **Dikkat**: `config/{document}` gibi genel bir joker yol KULLANMA — Firestore kuralları toplamalı (additive) çalışır, genel bir kural varsa `ikasAyarlariGizli`'yi "okunamaz" yapan özel kural yine de etkisiz kalır. Her doküman yolu ayrı ayrı yazılmalı, yukarıdaki gibi.
 
