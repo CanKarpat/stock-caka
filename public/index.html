@@ -345,6 +345,10 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
       İKAS Ayarları
     </button>
+    <button class="btn ghost" id="resync-magaza-btn" onclick="resyncMagazaListesi()" title="Mağaza sitesine (magaza_urunler) açık olan tüm ürünleri güncel stok durumuna göre yeniden senkronla — stoğu tükenen varyantları/ürünleri anında listeden düşürür">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+      Mağaza Listesini Senkronla
+    </button>
     <button class="btn ghost" id="scan-btn" onclick="openScanner()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
       Kamera
@@ -1119,9 +1123,21 @@ async function deleteProduct(id){
 // girişsiz okuyacak. `stok`'un aksine burada SADECE müşteriye güvenle gösterilecek alanlar
 // var — alış fiyatı, tedarikçi, KDV oranı gibi iç bilgiler KASITLI olarak hiç yazılmıyor.
 // Yayında olmayan (Beklemede/Pasif) ürünler için doküman silinir, müşteri hiç görmesin.
+// Stoğu (miktar) 1'in altına düşen varyantlar da listeye hiç dahil edilmez — müşteri
+// elde olmayan bir varyantı seçip randevu alamasın. Bu ürünün TÜM varyantları tükenmişse
+// (satılabilir hiçbir varyant kalmadıysa) ürünün kendisi de mağaza listesinden kaldırılır.
 async function syncMagazaUrunu(p){
   const ref = doc(db,'magaza_urunler',String(p.id));
-  if((p.durum||'Yayında') !== 'Yayında'){
+  const varyantlar = ((p.durum||'Yayında') === 'Yayında' ? (p.variants||[]) : [])
+    .filter(v => Number(v.miktar||0) >= 1)
+    .map(v => ({
+      sku: v.sku || '',
+      renk: v.renk || '',
+      beden: v.beden || '',
+      gorselUrl: v.gorselUrl || '',
+      bd: !!v.bd,
+    }));
+  if(!varyantlar.length){
     await deleteDoc(ref).catch(()=>{});
     return;
   }
@@ -1130,16 +1146,28 @@ async function syncMagazaUrunu(p){
     kod: p.kod || '',
     satisFiyati: Number(p.satis || 0),
     indirimliFiyat: Number(p.indirimli || 0),
-    varyantlar: (p.variants||[]).map(v => ({
-      sku: v.sku || '',
-      renk: v.renk || '',
-      beden: v.beden || '',
-      gorselUrl: v.gorselUrl || '',
-      bd: !!v.bd,
-    })),
+    varyantlar,
     guncellendi: serverTimestamp(),
   });
 }
+
+// Stok filtresi mantığı (miktar>=1) sadece bir ürün kaydedildiğinde veya o ürünün
+// bir SKU'sundan satış geldiğinde otomatik tetikleniyor — hiç dokunulmamış ürünlerin
+// magaza_urunler'deki eski (tükenmiş varyant içerebilen) kaydı elle bu butonla toptan
+// yenilenebilir.
+window.resyncMagazaListesi = async function(){
+  const btn = document.getElementById('resync-magaza-btn');
+  const eskiMetin = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = 'Senkronize ediliyor...';
+  try{
+    for(const p of products){ await syncMagazaUrunu(p); }
+    alert(`Tamamlandı: ${products.length} ürün kontrol edildi, mağaza listesi güncel stok durumuna göre yenilendi.`);
+  }catch(err){
+    alert('Senkronize edilemedi: ' + err.message);
+  }finally{
+    btn.disabled = false; btn.innerHTML = eskiMetin;
+  }
+};
 
 // ── Helpers ───────────────────────────────────────────────────────
 const fmt=(n)=>Number(n||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});

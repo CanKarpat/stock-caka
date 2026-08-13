@@ -46,6 +46,36 @@ async function getWebhookSecret(app) {
   return value;
 }
 
+// public/index.html'deki syncMagazaUrunu()'nun sunucu tarafı (Admin SDK) eşleniği — satış
+// sonrası stok düştüğünde müşteriye açık magaza_urunler koleksiyonunun da anında (admin
+// panele girip elle kaydetmeyi beklemeden) güncel kalması için. Aynı filtre kuralı: sadece
+// miktar>=1 olan varyantlar listelenir, satılabilir hiçbir varyant kalmadıysa ürün dokümanı
+// tamamen silinir.
+async function syncMagazaUrunuAdmin(db, productId, p) {
+  const ref = db.collection('magaza_urunler').doc(String(productId));
+  const varyantlar = ((p.durum || 'Yayında') === 'Yayında' ? (p.variants || []) : [])
+    .filter(v => Number(v.miktar || 0) >= 1)
+    .map(v => ({
+      sku: v.sku || '',
+      renk: v.renk || '',
+      beden: v.beden || '',
+      gorselUrl: v.gorselUrl || '',
+      bd: !!v.bd,
+    }));
+  if (!varyantlar.length) {
+    await ref.delete().catch(() => {});
+    return;
+  }
+  await ref.set({
+    ad: p.ad || '',
+    kod: p.kod || '',
+    satisFiyati: Number(p.satis || 0),
+    indirimliFiyat: Number(p.indirimli || 0),
+    varyantlar,
+    guncellendi: FieldValue.serverTimestamp(),
+  });
+}
+
 function pickLineSku(item) {
   return (item.variant && item.variant.sku) || item.sku || null;
 }
@@ -159,10 +189,10 @@ module.exports = async (req, res) => {
     // varyant satılmışsa (ör. 2 farklı beden) hepsini tek okuma/yazmada uygula, eş zamanlı
     // gelen başka bir webhook teslimatıyla yarış durumuna (race condition) düşmesin.
     for (const [productId, items] of stokDusurmeGrup) {
-      await db.runTransaction(async (tx) => {
+      const guncelUrun = await db.runTransaction(async (tx) => {
         const ref = db.collection('stok').doc(productId);
         const snap = await tx.get(ref);
-        if (!snap.exists) return;
+        if (!snap.exists) return null;
         const data = snap.data();
         const variants = data.variants || [];
         items.forEach(({ sku, adet }) => {
@@ -170,7 +200,17 @@ module.exports = async (req, res) => {
           if (v) v.miktar = Number(v.miktar || 0) - adet;
         });
         tx.update(ref, { variants });
+        return { ...data, variants };
       });
+      // Stok düşüşü sonrası magaza_urunler'i de anında güncelle (bkz. syncMagazaUrunuAdmin) —
+      // ayrı bir hata olsa bile ana webhook akışını (satış kaydı) bozmasın diye kendi try/catch'i var.
+      if (guncelUrun) {
+        try {
+          await syncMagazaUrunuAdmin(db, productId, guncelUrun);
+        } catch (err) {
+          console.error('magaza_urunler senkron hatası (productId=' + productId + '):', err);
+        }
+      }
     }
 
     await Promise.all(yazilacaklar.map(({ docId, data }) =>
