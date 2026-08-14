@@ -71,6 +71,7 @@ async function syncMagazaUrunuAdmin(db, productId, p) {
     kod: p.kod || '',
     satisFiyati: Number(p.satis || 0),
     indirimliFiyat: Number(p.indirimli || 0),
+    kategoriler: (p.ikasKategoriler || []).map(k => k.name).filter(Boolean),
     varyantlar,
     guncellendi: FieldValue.serverTimestamp(),
   });

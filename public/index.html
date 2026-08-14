@@ -1188,6 +1188,9 @@ async function syncMagazaUrunu(p){
     kod: p.kod || '',
     satisFiyati: Number(p.satis || 0),
     indirimliFiyat: Number(p.indirimli || 0),
+    // İKAS'tan "İKAS'tan Çek (API)" ile çekilen kategori adları — sadece isim, id/parentId
+    // müşteri tarafında gerekmiyor. p.ikasKategoriler admin o butona basmadıkça güncellenmez.
+    kategoriler: (p.ikasKategoriler||[]).map(k=>k.name).filter(Boolean),
     varyantlar,
     guncellendi: serverTimestamp(),
   });
