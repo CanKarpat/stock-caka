@@ -83,6 +83,12 @@ header h1{font-size:15px;font-weight:600;flex:1 1 auto;min-width:140px}
 .btn.danger-btn{color:var(--danger-text);border-color:var(--border)}
 .btn.danger-btn:hover{background:var(--danger-bg)}
 
+.dd{position:relative}
+.dd-menu{display:none;position:absolute;top:calc(100% + 6px);left:0;min-width:230px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 8px 24px rgba(0,0,0,.18);padding:5px;z-index:60;flex-direction:column;gap:1px}
+.dd-menu.open{display:flex}
+.dd-menu button{width:100%;height:32px;padding:0 8px;border:none;border-radius:8px;background:transparent;color:var(--text-sec);font-size:12px;font-weight:500;display:flex;align-items:center;gap:7px;white-space:nowrap;cursor:pointer;text-align:left}
+.dd-menu button:hover{background:var(--surface2);color:var(--text)}
+
 /* ── COLUMN TOGGLE ── */
 .col-toggle-wrap{display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px}
 .col-toggle-label{font-size:11px;font-weight:600;color:var(--text-sec);margin-right:2px}
@@ -256,6 +262,24 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
   document.addEventListener('DOMContentLoaded', updateThemeIcon);
 })();
 </script>
+<script>
+(function(){
+  window.toggleDropdown = function(id, ev){
+    if (ev) ev.stopPropagation();
+    document.querySelectorAll('.dd-menu.open').forEach(function(m){ if (m.id !== id) m.classList.remove('open'); });
+    document.getElementById(id).classList.toggle('open');
+  };
+  window.closeDropdowns = function(){
+    document.querySelectorAll('.dd-menu.open').forEach(function(m){ m.classList.remove('open'); });
+  };
+  document.addEventListener('click', function(e){
+    if (!e.target.closest('.dd')) window.closeDropdowns();
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') window.closeDropdowns();
+  });
+})();
+</script>
 </head>
 <body>
 
@@ -309,46 +333,64 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 11 14 9 22 21 10 13 10 13 2"/></svg>
       SKU ile Hızlı Oluştur
     </button>
-    <button class="btn ghost" onclick="showImportModal()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      İçe Aktar
-    </button>
-    <button class="btn ghost" onclick="showExportModal()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Dışa Aktar
-    </button>
-    <button class="btn ghost" onclick="showIkasExportModal()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 3v18M3 9h18"/></svg>
-      İKAS Excel
-    </button>
-    <button class="btn ghost" onclick="showIkasSyncModal()" title="İKAS'ta oluşan Ürün Grup ID / Varyant ID'leri SKU'ya göre eşleştirip kaydet">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-      İKAS ID Eşitle
-    </button>
-    <button class="btn ghost" onclick="showIkasTestModal()" title="İKAS API bağlantısını test et">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-      İKAS Bağlantı Testi
-    </button>
-    <button class="btn ghost" onclick="showIkasPullModal()" title="İKAS'tan ürün eşleştirmesini API ile çek (salt okunur)">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      İKAS'tan Çek (API)
-    </button>
-    <button class="btn ghost" onclick="showIkasImportModal()" title="İKAS'ta olup burada hiç olmayan ürünleri yeni kayıt olarak içe aktar">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/><circle cx="19" cy="6" r="3" fill="var(--surface)"/><line x1="19" y1="4.5" x2="19" y2="7.5"/><line x1="17.5" y1="6" x2="20.5" y2="6"/></svg>
-      İKAS'tan Yeni Ürün İçe Aktar
-    </button>
-    <button class="btn ghost" onclick="showGorselImportModal()" title="İKAS'ın kendi Excel dışa aktarımındaki 'Resim URL' sütununu SKU'ya göre eşleştirip içe aktarır">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-      Görsel URL İçe Aktar (Excel)
-    </button>
-    <button class="btn ghost" onclick="showIkasSettingsModal()" title="İKAS bağlantı bilgilerini (mağaza adı, client id, client secret) düzenle">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-      İKAS Ayarları
-    </button>
-    <button class="btn ghost" id="resync-magaza-btn" onclick="resyncMagazaListesi()" title="Mağaza sitesine (magaza_urunler) açık olan tüm ürünleri güncel stok durumuna göre yeniden senkronla — stoğu tükenen varyantları/ürünleri anında listeden düşürür">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-      Mağaza Listesini Senkronla
-    </button>
+    <div class="dd">
+      <button class="btn ghost" onclick="toggleDropdown('dd-aktar',event)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        İçe/Dışa Aktar
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="dd-menu" id="dd-aktar">
+        <button onclick="closeDropdowns();showImportModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          İçe Aktar
+        </button>
+        <button onclick="closeDropdowns();showExportModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Dışa Aktar
+        </button>
+        <button onclick="closeDropdowns();showIkasExportModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 3v18M3 9h18"/></svg>
+          İKAS Excel
+        </button>
+        <button onclick="closeDropdowns();showGorselImportModal()" title="İKAS'ın kendi Excel dışa aktarımındaki 'Resim URL' sütununu SKU'ya göre eşleştirip içe aktarır">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          Görsel URL İçe Aktar (Excel)
+        </button>
+      </div>
+    </div>
+    <div class="dd">
+      <button class="btn ghost" onclick="toggleDropdown('dd-ikas',event)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 3v18M3 9h18"/></svg>
+        İKAS İşlemleri
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="dd-menu" id="dd-ikas">
+        <button onclick="closeDropdowns();showIkasTestModal()" title="İKAS API bağlantısını test et">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          İKAS Bağlantı Testi
+        </button>
+        <button onclick="closeDropdowns();showIkasPullModal()" title="İKAS'tan ürün eşleştirmesini API ile çek (salt okunur)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          İKAS'tan Çek (API)
+        </button>
+        <button onclick="closeDropdowns();showIkasImportModal()" title="İKAS'ta olup burada hiç olmayan ürünleri yeni kayıt olarak içe aktar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/><circle cx="19" cy="6" r="3" fill="var(--surface)"/><line x1="19" y1="4.5" x2="19" y2="7.5"/><line x1="17.5" y1="6" x2="20.5" y2="6"/></svg>
+          İKAS'tan Yeni Ürün İçe Aktar
+        </button>
+        <button onclick="closeDropdowns();showIkasSyncModal()" title="İKAS'ta oluşan Ürün Grup ID / Varyant ID'leri SKU'ya göre eşleştirip kaydet">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+          İKAS ID Eşitle
+        </button>
+        <button id="resync-magaza-btn" onclick="closeDropdowns();resyncMagazaListesi()" title="Mağaza sitesine (magaza_urunler) açık olan tüm ürünleri güncel stok durumuna göre yeniden senkronla — stoğu tükenen varyantları/ürünleri anında listeden düşürür">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+          Mağaza Listesini Senkronla
+        </button>
+        <button onclick="closeDropdowns();showIkasSettingsModal()" title="İKAS bağlantı bilgilerini (mağaza adı, client id, client secret) düzenle">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          İKAS Ayarları
+        </button>
+      </div>
+    </div>
     <button class="btn ghost" id="scan-btn" onclick="openScanner()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
       Kamera
