@@ -373,6 +373,10 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           İKAS'tan Çek (API)
         </button>
+        <button id="kategori-agaci-btn" onclick="closeDropdowns();pullKategoriAgaci()" title="İKAS'taki tüm kategori ağacını (listCategory) çekip kaydeder — mağaza sitesindeki kategori filtresi bunu kullanır, salt okunur">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 17V9M12 17V5M17 17v-7"/></svg>
+          Kategori Ağacını Çek (API)
+        </button>
         <button onclick="closeDropdowns();showIkasImportModal()" title="İKAS'ta olup burada hiç olmayan ürünleri yeni kayıt olarak içe aktar">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/><circle cx="19" cy="6" r="3" fill="var(--surface)"/><line x1="19" y1="4.5" x2="19" y2="7.5"/><line x1="17.5" y1="6" x2="20.5" y2="6"/></svg>
           İKAS'tan Yeni Ürün İçe Aktar
@@ -1128,6 +1132,7 @@ function setSyncStatus(s){ const b=document.getElementById('sync-badge'); b.clas
 
 // ── Kısaltmalar (SKU üretimi için tedarikçi/tip/uzunluk/renk kod tabloları) ──
 let kisaltmalar = {marka:'GC', tedarikci:{}, tip:{}, uzunluk:{}, renk:{}};
+let kategoriYolMap = {}; // İKAS kategori id -> "Üst>Alt>Yaprak" tam yolu (config/kategoriAgaci'den)
 
 // Giriş yapılmadan Firestore'a hiç istek atılmaz — onSnapshot çağrıları kasıtlı olarak
 // auth durumu netleşene kadar başlamıyor (bkz. giris.html + Firestore kuralları).
@@ -1146,6 +1151,12 @@ onAuthStateChanged(auth, user => {
   onSnapshot(doc(db,'config','kisaltmalar'), snap => {
     const d = snap.exists() ? snap.data() : {};
     kisaltmalar = {marka:d.marka||'GC', tedarikci:d.tedarikci||{}, tip:d.tip||{}, uzunluk:d.uzunluk||{}, renk:d.renk||{}};
+  });
+
+  onSnapshot(doc(db,'config','kategoriAgaci'), snap => {
+    const liste = snap.exists() ? (snap.data().liste||[]) : [];
+    kategoriYolMap = {};
+    liste.forEach(k => { kategoriYolMap[k.id] = k.yol; });
   });
 });
 
@@ -1188,9 +1199,11 @@ async function syncMagazaUrunu(p){
     kod: p.kod || '',
     satisFiyati: Number(p.satis || 0),
     indirimliFiyat: Number(p.indirimli || 0),
-    // İKAS'tan "İKAS'tan Çek (API)" ile çekilen kategori adları — sadece isim, id/parentId
-    // müşteri tarafında gerekmiyor. p.ikasKategoriler admin o butona basmadıkça güncellenmez.
-    kategoriler: (p.ikasKategoriler||[]).map(k=>k.name).filter(Boolean),
+    // İKAS'tan "İKAS'tan Çek (API)" ile çekilen kategoriler — her biri "Üst>Alt>Yaprak"
+    // tam yolu olarak yazılır (config/kategoriAgaci'deki kategoriYolMap üzerinden
+    // çözümlenir; ağaç henüz çekilmemişse veya id eşleşmezse düz isme düşülür).
+    // p.ikasKategoriler admin "İKAS'tan Çek (API)" butonuna basmadıkça güncellenmez.
+    kategoriler: (p.ikasKategoriler||[]).map(k=>kategoriYolMap[k.id]||k.name).filter(Boolean),
     varyantlar,
     guncellendi: serverTimestamp(),
   });
@@ -2365,6 +2378,32 @@ async function ikasApi(query, variables){
   if(!res.ok) throw new Error((json && json.error) || `İKAS API isteği başarısız (HTTP ${res.status})`);
   return json.data;
 }
+
+// İKAS'taki TÜM kategori ağacını çeker (listCategory) — ürün eşleştirmesinden bağımsız,
+// mağazadaki her kategoriyi tek seferde getirir. categoryPath alanının kendi adını (name)
+// içerip içermediği dokümantasyonda netleşmediği için — API'den gerçek yanıt görülmeden
+// emin olunamayan bir nokta — kendi adı sonda değilse elle ekleniyor (bkz. aşağıdaki
+// segments kontrolü), böylece hangi davranışta olursa olsun doğru tam yol elde ediliyor.
+window.pullKategoriAgaci = async function(){
+  const btn = document.getElementById('kategori-agaci-btn');
+  const eskiMetin = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Çekiliyor...';
+  try{
+    const data = await ikasApi(`{ listCategory { id name parentId categoryPath } }`);
+    const kategoriler = data.listCategory || [];
+    const liste = kategoriler.map(c=>{
+      const segments = Array.isArray(c.categoryPath) ? c.categoryPath.slice() : [];
+      if(!segments.length || segments[segments.length-1] !== c.name) segments.push(c.name);
+      return { id: c.id, name: c.name, parentId: c.parentId||null, yol: segments.join('>') };
+    });
+    await setDoc(doc(db,'config','kategoriAgaci'), { liste, guncellendi: serverTimestamp() });
+    alert(`Tamamlandı: ${liste.length} kategori çekildi ve kaydedildi.\n\nŞimdi "Mağaza Listesini Senkronla"ya basarsan ürünlerin kategori yolları güncellenir.`);
+  }catch(err){
+    alert('Kategori ağacı çekilemedi: ' + err.message);
+  }finally{
+    btn.disabled = false; btn.textContent = eskiMetin;
+  }
+};
 
 // Geçici hata ayıklama aracı — İKAS'ın GraphQL şemasında bir alan adını tahmin etmek yerine
 // gerçeğini görmek için: tarayıcı konsolunda (F12) `ikasIntrospect('Variant')` gibi çalıştır,

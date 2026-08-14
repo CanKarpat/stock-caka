@@ -88,6 +88,9 @@ service cloud.firestore {
       allow read: if false;   // client secret ve webhook secret hiçbir zaman geri okunmaz
       allow write: if request.auth != null;
     }
+    match /config/kategoriAgaci {
+      allow read, write: if request.auth != null;   // İKAS'tan çekilen tüm kategori listesi (id/name/parentId/yol)
+    }
     match /satislar/{document} {
       allow read: if request.auth != null;
       allow write: if false;  // sadece sunucu tarafı (api/ikas-webhook.js) yazar

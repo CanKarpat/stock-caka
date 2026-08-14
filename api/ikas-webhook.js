@@ -46,12 +46,24 @@ async function getWebhookSecret(app) {
   return value;
 }
 
+let cachedKategoriYolMap = null; // { map, fetchedAt } — public/index.html'deki kategoriYolMap'in sunucu eşleniği
+async function getKategoriYolMap(db) {
+  const now = Date.now();
+  if (cachedKategoriYolMap && now - cachedKategoriYolMap.fetchedAt < 5 * 60 * 1000) return cachedKategoriYolMap.map;
+  const snap = await db.doc('config/kategoriAgaci').get();
+  const liste = snap.exists ? (snap.data().liste || []) : [];
+  const map = {};
+  liste.forEach(k => { map[k.id] = k.yol; });
+  cachedKategoriYolMap = { map, fetchedAt: now };
+  return map;
+}
+
 // public/index.html'deki syncMagazaUrunu()'nun sunucu tarafı (Admin SDK) eşleniği — satış
 // sonrası stok düştüğünde müşteriye açık magaza_urunler koleksiyonunun da anında (admin
 // panele girip elle kaydetmeyi beklemeden) güncel kalması için. Aynı filtre kuralı: sadece
 // miktar>=1 olan varyantlar listelenir, satılabilir hiçbir varyant kalmadıysa ürün dokümanı
 // tamamen silinir.
-async function syncMagazaUrunuAdmin(db, productId, p) {
+async function syncMagazaUrunuAdmin(db, productId, p, kategoriYolMap) {
   const ref = db.collection('magaza_urunler').doc(String(productId));
   const varyantlar = ((p.durum || 'Yayında') === 'Yayında' ? (p.variants || []) : [])
     .filter(v => Number(v.miktar || 0) >= 1)
@@ -71,7 +83,7 @@ async function syncMagazaUrunuAdmin(db, productId, p) {
     kod: p.kod || '',
     satisFiyati: Number(p.satis || 0),
     indirimliFiyat: Number(p.indirimli || 0),
-    kategoriler: (p.ikasKategoriler || []).map(k => k.name).filter(Boolean),
+    kategoriler: (p.ikasKategoriler || []).map(k => (kategoriYolMap && kategoriYolMap[k.id]) || k.name).filter(Boolean),
     varyantlar,
     guncellendi: FieldValue.serverTimestamp(),
   });
@@ -207,7 +219,8 @@ module.exports = async (req, res) => {
       // ayrı bir hata olsa bile ana webhook akışını (satış kaydı) bozmasın diye kendi try/catch'i var.
       if (guncelUrun) {
         try {
-          await syncMagazaUrunuAdmin(db, productId, guncelUrun);
+          const kategoriYolMap = await getKategoriYolMap(db);
+          await syncMagazaUrunuAdmin(db, productId, guncelUrun, kategoriYolMap);
         } catch (err) {
           console.error('magaza_urunler senkron hatası (productId=' + productId + '):', err);
         }
