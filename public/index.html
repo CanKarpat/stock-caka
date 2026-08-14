@@ -2380,10 +2380,11 @@ async function ikasApi(query, variables){
 }
 
 // İKAS'taki TÜM kategori ağacını çeker (listCategory) — ürün eşleştirmesinden bağımsız,
-// mağazadaki her kategoriyi tek seferde getirir. categoryPath alanının kendi adını (name)
-// içerip içermediği dokümantasyonda netleşmediği için — API'den gerçek yanıt görülmeden
-// emin olunamayan bir nokta — kendi adı sonda değilse elle ekleniyor (bkz. aşağıdaki
-// segments kontrolü), böylece hangi davranışta olursa olsun doğru tam yol elde ediliyor.
+// mağazadaki her kategoriyi tek seferde getirir.
+// 2026-08-14 CANLI YANITTA DOĞRULANDI: categoryPath, üst kategorilerin İSİM değil ID'lerini
+// döndürüyor (sadece kategorinin kendi `name` alanı gerçek isim) — ilk yazımda yanlış
+// varsayılmıştı. Aynı tek listCategory yanıtı zaten TÜM kategorilerin id->name eşlemesini
+// içerdiği için, categoryPath'teki her ID önce bu eşlemeden geçirilip isme çevriliyor.
 window.pullKategoriAgaci = async function(){
   const btn = document.getElementById('kategori-agaci-btn');
   const eskiMetin = btn.textContent;
@@ -2391,8 +2392,11 @@ window.pullKategoriAgaci = async function(){
   try{
     const data = await ikasApi(`{ listCategory { id name parentId categoryPath } }`);
     const kategoriler = data.listCategory || [];
+    const idToName = {};
+    kategoriler.forEach(c=>{ idToName[c.id] = c.name; });
     const liste = kategoriler.map(c=>{
-      const segments = Array.isArray(c.categoryPath) ? c.categoryPath.slice() : [];
+      const segments = (Array.isArray(c.categoryPath) ? c.categoryPath : [])
+        .map(seg => idToName[seg] || seg); // id ise gerçek isme çevir; eşleşmezse (beklenmedik durum) olduğu gibi bırak
       if(!segments.length || segments[segments.length-1] !== c.name) segments.push(c.name);
       return { id: c.id, name: c.name, parentId: c.parentId||null, yol: segments.join('>') };
     });
