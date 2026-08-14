@@ -89,7 +89,12 @@ service cloud.firestore {
       allow write: if request.auth != null;
     }
     match /config/kategoriAgaci {
-      allow read, write: if request.auth != null;   // İKAS'tan çekilen tüm kategori listesi (id/name/parentId/yol)
+      // İKAS'tan çekilen tüm kategori listesi (id/name/parentId/yol) — randevu sitesindeki
+      // kategori filtresinin TÜM kategorileri (sadece o an yüklü ürünlerin taşıdıklarını
+      // değil) gösterebilmesi için bilerek herkese açık; hassas veri içermiyor (kategori
+      // adları zaten müşterinin kendi canlı mağaza sitesinde de herkese görünür).
+      allow read: if true;
+      allow write: if request.auth != null;
     }
     match /satislar/{document} {
       allow read: if request.auth != null;
