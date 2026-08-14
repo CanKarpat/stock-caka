@@ -1188,6 +1188,7 @@ async function syncMagazaUrunu(p){
       renk: v.renk || '',
       beden: v.beden || '',
       gorselUrl: v.gorselUrl || '',
+      gorselUrlArka: v.gorselUrlArka || '',
       bd: !!v.bd,
     }));
   if(!varyantlar.length){
@@ -2780,25 +2781,29 @@ window.processGorselImport = function(){
       if(iSku<0) throw new Error('"SKU" sütunu bulunamadı.');
       if(iResim<0) throw new Error('"Resim URL" sütunu bulunamadı.');
 
-      const skuToUrl = new Map();
+      // İKAS'ın "Resim URL" hücresi ";" ile ayrılmış bir liste — ürün başına genelde 2'den
+      // fazla görsel olsa da bu sistemde sadece ilk ikisi kullanılıyor: 1. = ön, 2. = arka.
+      const skuToUrls = new Map();
       rows.slice(1).forEach(r=>{
         const sku = String(r[iSku]||'').trim();
         const resimRaw = String(r[iResim]||'').trim();
         if(!sku || !resimRaw) return;
-        const ilkUrl = resimRaw.split(';')[0].trim();
-        if(ilkUrl) skuToUrl.set(sku, ilkUrl);
+        const urls = resimRaw.split(';').map(u=>u.trim()).filter(Boolean);
+        if(urls[0]) skuToUrls.set(sku, { on: urls[0], arka: urls[1]||'' });
       });
-      if(!skuToUrl.size) throw new Error('Dosyada eşleşecek SKU/Resim URL çifti bulunamadı.');
+      if(!skuToUrls.size) throw new Error('Dosyada eşleşecek SKU/Resim URL çifti bulunamadı.');
 
       let guncellenenUrun = 0, guncellenenVaryant = 0, tamamlanan = 0;
-      const eslesenUrunler = products.filter(p=>(p.variants||[]).some(v=>skuToUrl.has((v.sku||'').trim())));
+      const eslesenUrunler = products.filter(p=>(p.variants||[]).some(v=>skuToUrls.has((v.sku||'').trim())));
       const toplam = eslesenUrunler.length;
       btn.textContent = `Uygulanıyor... (0/${toplam})`;
       await Promise.all(eslesenUrunler.map(async p=>{
         let degisti = false;
         (p.variants||[]).forEach(v=>{
-          const url = skuToUrl.get((v.sku||'').trim());
-          if(url && v.gorselUrl !== url){ v.gorselUrl = url; degisti = true; guncellenenVaryant++; }
+          const eslesme = skuToUrls.get((v.sku||'').trim());
+          if(!eslesme) return;
+          if(v.gorselUrl !== eslesme.on){ v.gorselUrl = eslesme.on; degisti = true; guncellenenVaryant++; }
+          if((v.gorselUrlArka||'') !== eslesme.arka){ v.gorselUrlArka = eslesme.arka; degisti = true; }
         });
         if(degisti){ await saveProduct(p); guncellenenUrun++; }
         tamamlanan++; btn.textContent = `Uygulanıyor... (${tamamlanan}/${toplam})`;

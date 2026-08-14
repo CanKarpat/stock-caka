@@ -72,6 +72,7 @@ async function syncMagazaUrunuAdmin(db, productId, p, kategoriYolMap) {
       renk: v.renk || '',
       beden: v.beden || '',
       gorselUrl: v.gorselUrl || '',
+      gorselUrlArka: v.gorselUrlArka || '',
       bd: !!v.bd,
     }));
   if (!varyantlar.length) {
