@@ -135,7 +135,8 @@ service cloud.firestore {
         request.resource.data.bdVarMi is bool &&
         request.resource.data.randevuTarihi is string &&
         request.resource.data.randevuTarihi.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
-        request.resource.data.randevuSaati == null &&
+        request.resource.data.randevuSaati is string &&
+        request.resource.data.randevuSaati.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$') &&
         request.resource.data.durum == 'yeni' &&
         request.resource.data.olusturulmaTarihi == request.time &&
         request.resource.data.guncellemeTarihi == request.time;
@@ -143,6 +144,27 @@ service cloud.firestore {
     match /config/randevuAyarlari {
       allow read: if true;   // randevu sitesindeki müşteri sayfası depozito linkini okuyabilsin diye kasıtlı herkese açık
       allow write: if request.auth != null;
+    }
+    match /dolu_saatler/{slotId} {
+      // Bir tarih+saatin dolu olup olmadığını (kişisel bilgi İÇERMEDEN) herkese açık gösterir —
+      // müşteri sayfasının hangi saatlerin müsait olduğunu hesaplayabilmesi için gerekli.
+      allow read: if true;
+
+      // Müşteri, girişsiz, sadece YENİ bir slot oluşturabilir — var olan bir slotu (id zaten
+      // mevcutsa Firestore bunu "create" değil "update" sayar) DEĞİŞTİREMEZ/SİLEMEZ. Bu, aynı
+      // saati iki müşterinin aynı anda alması durumunda ikincinin sunucu tarafından otomatik
+      // reddedilmesini sağlıyor — ekstra bir transaction/sunucu koduna gerek kalmadan.
+      allow create: if
+        request.resource.data.keys().hasOnly(['tarih','saat','olusturulmaTarihi']) &&
+        request.resource.data.tarih is string &&
+        request.resource.data.tarih.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+        request.resource.data.saat is string &&
+        request.resource.data.saat.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$') &&
+        slotId == (request.resource.data.tarih + '_' + request.resource.data.saat) &&
+        request.resource.data.olusturulmaTarihi == request.time;
+
+      // Sadece admin: randevu iptal/saat değişikliğinde slotu elle serbest bırakabilsin diye.
+      allow update, delete: if request.auth != null;
     }
   }
 }
