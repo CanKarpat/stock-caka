@@ -2871,6 +2871,21 @@ const IKAS_UPDATE_STOCK_MUTATION = `
   }
 `;
 
+// saveProduct'ın ProductInput'u name/description'ı ZORUNLU kılıyor (introspection ile
+// doğrulandı) — yani zaten eşleşmiş bir ürüne sadece yeni beden eklerken bile bu iki alan
+// yeniden gönderilmek zorunda. Yerelde eski/boş kalmış olabilecek ad/açıklamayı göndermek
+// yerine, pushToIkas() bu sorguyla İKAS'taki GÜNCEL halini bir kere çekip onu korur — aksi
+// halde biri ürün adını doğrudan İKAS panelinden değiştirmişse "yeni beden ekle" işlemi
+// bunu sessizce eski haline döndürürdü. Alan adları (id/name/description) zaten
+// IKAS_IMPORT_QUERY'de kullanılan, doğrulanmış alanlarla aynı.
+const IKAS_NAME_DESC_QUERY = `
+  query ListProductNameDesc($pagination: PaginationInput) {
+    listProduct(pagination: $pagination) {
+      data { id name description }
+    }
+  }
+`;
+
 let _ikasPriceListId = null, _ikasStockLocationId = null; // sunucudaki cachedToken gibi, sayfa ömrü boyunca önbellek
 async function getDefaultIkasPriceListId(){
   if(_ikasPriceListId) return _ikasPriceListId;
@@ -2916,6 +2931,26 @@ window.pushToIkas = async function(){
     const stockLocationId = await getDefaultIkasStockLocationId();
     const { typeIdByName, valueIdByName } = await getIkasVariantTypeMaps();
 
+    // Sadece yeni beden/renk eklenen (zaten eşleşmiş) ürünler için İKAS'taki güncel ad/
+    // açıklamayı önceden çek — bkz. IKAS_NAME_DESC_QUERY yorumu. Brand-new ürünlerde
+    // (henüz ikasGrupId yok) buna gerek yok, o zaman zaten yerel p.ad/p.aciklama gönderilir.
+    const korunacakGrupIdler = new Set(
+      secilenler.filter(p=>p.ikasGrupId && (p.variants||[]).some(v=>!v.ikasVaryantId)).map(p=>p.ikasGrupId)
+    );
+    const canliAdAciklama = new Map(); // ikasGrupId -> {name, description}
+    if(korunacakGrupIdler.size){
+      let page = 1;
+      const MAX_PAGES = 50;
+      while(page <= MAX_PAGES && canliAdAciklama.size < korunacakGrupIdler.size){
+        const data = await ikasApi(IKAS_NAME_DESC_QUERY, { pagination: { page, limit: 100 } });
+        const rows = (data && data.listProduct && data.listProduct.data) || [];
+        if(!rows.length) break;
+        rows.forEach(r=>{ if(korunacakGrupIdler.has(String(r.id))) canliAdAciklama.set(String(r.id), { name: r.name||'', description: r.description||'' }); });
+        if(rows.length < 100) break;
+        page++;
+      }
+    }
+
     await Promise.all(secilenler.map(async p=>{
       try{
         const yeniVaryantlar = (p.variants||[]).filter(v=>!v.ikasVaryantId);
@@ -2942,10 +2977,15 @@ window.pushToIkas = async function(){
               variantValueIds,
             };
           });
+          // Zaten eşleşmiş ürüne yeni beden ekleniyorsa, önceden çekilmiş İKAS'taki güncel
+          // ad/açıklamayı kullan (yukarıdaki canliAdAciklama) — İKAS panelinden yapılmış
+          // manuel bir isim/açıklama düzenlemesini sessizce eski haline döndürmemek için.
+          // Bulunamazsa (ör. sorgu 50 sayfada bulamadıysa) yerel değere düşülür.
+          const canli = p.ikasGrupId ? canliAdAciklama.get(p.ikasGrupId) : null;
           const input = {
             id: p.ikasGrupId || undefined,
-            name: p.ad || '',
-            description: p.aciklama || '',
+            name: canli ? canli.name : (p.ad || ''),
+            description: canli ? canli.description : (p.aciklama || ''),
             brandName: IKAS_MARKA_SABIT,
             type: 'PHYSICAL',
             variants: inputVariants,
