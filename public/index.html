@@ -551,6 +551,13 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
             <option value="PASSIVE">PASSIVE (kapalı)</option>
           </select>
         </div>
+        <div class="form-group">
+          <label>Depo</label>
+          <label style="display:flex;align-items:center;gap:6px;height:34px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none" title="Bursa Depo — bu ürünün tüm varyantları Bursa depodan getirtiliyor, müşteri randevu sayfasında randevu tarihi en az 3 gün sonra olarak kısıtlanır. Kaydet'e basınca tüm varyantlara uygulanır; belirli varyantları farklı işaretlemek istersen Varyantlar ekranından tek tek değiştirebilirsin.">
+            <input type="checkbox" id="pm-bd" style="width:auto">
+            BD (Bursa Depo)
+          </label>
+        </div>
       </div>
 
       <div class="form-section-title">Varyant Bilgileri <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(bu ürünün ana varyantı — renk, beden, stok)</span></div>
@@ -1805,6 +1812,8 @@ window.openProductModal = function(id=null, presetP=null){
   document.getElementById('pm-indirim-val').value = '';
   document.getElementById('pm-kdv').value = p?(p.kdvOrani!=null?p.kdvOrani:''):'';
   document.getElementById('pm-ikas-kanal-durumu').value = p?(p.satisKanaliDurumu||''):'';
+  const pVars = p ? (p.variants||[]) : [];
+  document.getElementById('pm-bd').checked = pVars.length>0 && pVars.every(x=>x.bd);
   document.getElementById('pm-renk').innerHTML = renkOptions(v.renk||'Siyah').map(r=>`<option>${esc(r)}</option>`).join('');
   document.getElementById('pm-renk').value = v.renk||'Siyah';
   document.getElementById('pm-beden').value = v.beden||'36';
@@ -1846,9 +1855,11 @@ window.saveProduct = async function(){
     miktar: Number(document.getElementById('pm-miktar').value)||0,
   };
 
-  const newVars = existingVars.length
+  const pmBd = document.getElementById('pm-bd').checked;
+  const newVars = (existingVars.length
     ? existingVars.map((v,i)=>i===0?{...v,...firstVar,id:firstVarId}:v)
-    : [{...firstVar, gogus:0, bel:0, basen:0, boy:0}];
+    : [{...firstVar, gogus:0, bel:0, basen:0, boy:0}]
+  ).map(v=>({...v, bd: pmBd}));
 
   const p = {
     id,
