@@ -2620,19 +2620,27 @@ const IKAS_IMPORT_QUERY = `
 // (isim→ID, pushToIkas — VariantInput.variantValueIds ID istiyor, isim değil; DOĞRULANDI
 // introspection'la, VariantInput.attributes ise ayrı bir kavram: ProductAttributeValueInput,
 // productAttributeId istiyor, Renk/Beden için KULLANILMAZ).
+// Renk/Beden eşleştirmesi yerel serbest metinle (p.variants[].renk/beden — "Lacivert", "38")
+// İKAS'ın kendi kayıtlı değer adını karşılaştırıyor. Hangi tarafın hangi harf büyüklüğünü/
+// boşluğu kullandığını garanti edemeyiz (biri "Lacivert" yazar, İKAS'ta "LACİVERT" veya
+// "lacivert " kayıtlı olabilir) — bu yüzden HER İKİ tarafta da aynı normalize fonksiyonu
+// kullanılıyor (valueIdByName anahtarı burada, arama tarafı pushToIkas'ta). Böylece eşleşme
+// harf büyüklüğünden bağımsız garanti altına alınıyor.
+function normIkasDeger(s){ return String(s||'').trim().toLocaleUpperCase('tr-TR'); }
+
 let _ikasVariantTypeMaps = null; // { typeNameById, valueNameById, typeIdByName, valueIdByName }
 async function getIkasVariantTypeMaps(){
   if(_ikasVariantTypeMaps) return _ikasVariantTypeMaps;
   const data = await ikasApi('{ listVariantType { id name values { id name } } }');
   const list = (data && data.listVariantType) || [];
   const typeNameById = new Map(), valueNameById = new Map();
-  const typeIdByName = new Map(), valueIdByName = new Map(); // valueIdByName anahtarı: "TipAdı|DeğerAdı" (aynı değer adı farklı tiplerde tekrar edebilir)
+  const typeIdByName = new Map(), valueIdByName = new Map(); // valueIdByName anahtarı: "TipAdı|normalize(DeğerAdı)" (aynı değer adı farklı tiplerde tekrar edebilir)
   list.forEach(t=>{
     typeNameById.set(t.id, t.name);
     typeIdByName.set(t.name, t.id);
     (t.values||[]).forEach(v=>{
       valueNameById.set(v.id, v.name);
-      valueIdByName.set(t.name+'|'+v.name, v.id);
+      valueIdByName.set(t.name+'|'+normIkasDeger(v.name), v.id);
     });
   });
   _ikasVariantTypeMaps = { typeNameById, valueNameById, typeIdByName, valueIdByName };
@@ -2996,14 +3004,24 @@ window.pushToIkas = async function(){
           // variantValueIds ile, İKAS'ın mağaza genelinde tanımlı ID'leriyle gönderiliyor.
           // isActive ve prices (en az sellPrice) da zorunlu — introspection ile doğrulandı.
           // buyPrice OPSİYONEL, hiç gönderilmiyor (p.alis buraya KASITLI olarak hiç girmiyor).
+          // Eşleşme bulunamazsa artık SESSİZCE atlamıyoruz (2026-08-14 düzeltmesi) — eskiden
+          // eşleşmeyen bir renk/beden variantValueIds'ten sessizce düşüyordu, bu da İKAS'tan
+          // anlaşılmaz, alakasız hatalar almamıza yol açıyordu (ör. "basit ürün" hatası aslında
+          // hiç eşleşmeyen bir renk/beden yüzündendi). Artık hangi değerin eşleşmediği net
+          // biçimde hata olarak fırlatılıyor, üst try/catch bunu ürün bazlı hata listesine ekliyor.
+          const renkTipId = typeIdByName.get('Renk');
+          const bedenTipId = typeIdByName.get('Beden');
+          if(!renkTipId) throw new Error('İKAS\'ta "Renk" adında bir varyant tipi bulunamadı.');
+          if(!bedenTipId) throw new Error('İKAS\'ta "Beden" adında bir varyant tipi bulunamadı.');
           const inputVariants = (p.variants||[]).map(v=>{
-            const renkDeger = (v.renk||'').trim().toLocaleUpperCase('tr-TR');
-            const bedenDeger = (v.beden||'').trim();
-            const variantValueIds = [];
-            const renkValId = valueIdByName.get('Renk|'+renkDeger);
-            const bedenValId = valueIdByName.get('Beden|'+bedenDeger);
-            if(renkValId) variantValueIds.push({ variantTypeId: typeIdByName.get('Renk'), variantValueId: renkValId });
-            if(bedenValId) variantValueIds.push({ variantTypeId: typeIdByName.get('Beden'), variantValueId: bedenValId });
+            const renkValId = valueIdByName.get('Renk|'+normIkasDeger(v.renk));
+            const bedenValId = valueIdByName.get('Beden|'+normIkasDeger(v.beden));
+            if(!renkValId) throw new Error(`"${v.renk||''}" rengi İKAS'ta tanımlı değil (SKU: ${v.sku||p.kod||'?'}).`);
+            if(!bedenValId) throw new Error(`"${v.beden||''}" bedeni İKAS'ta tanımlı değil (SKU: ${v.sku||p.kod||'?'}).`);
+            const variantValueIds = [
+              { variantTypeId: renkTipId, variantValueId: renkValId },
+              { variantTypeId: bedenTipId, variantValueId: bedenValId },
+            ];
             return {
               id: v.ikasVaryantId || undefined,
               sku: v.sku || p.kod || '',
