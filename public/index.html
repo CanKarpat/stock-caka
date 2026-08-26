@@ -958,6 +958,13 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
         <label>Client Secret <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(boş bırakırsan mevcut değer korunur)</span></label>
         <input type="password" id="ikas-set-secret" placeholder="••••••••" autocomplete="new-password">
       </div>
+      <div class="form-group">
+        <label>Fiyat Listesi <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">("İKAS'a Gönder" fiyat/stok gönderirken bu listeyi kullanır — birden fazla fiyat listen varsa seç</span></label>
+        <div style="display:flex;gap:6px">
+          <select id="ikas-set-pricelist" style="flex:1"><option value="">— (Kaydet'e bas, sonra listelenir)</option></select>
+          <button type="button" class="btn ghost" style="height:34px;padding:0 10px;font-size:11px" onclick="loadIkasPriceListOptions()">Yenile</button>
+        </div>
+      </div>
       <div id="ikas-settings-result" style="margin-top:10px"></div>
       <div style="border-top:1px solid var(--border);margin:16px 0 12px;padding-top:12px">
         <p style="margin-bottom:8px">Satış oldukça anlık haber almak için İKAS'a bir kere "webhook" kaydı yapılması gerekiyor — mağaza adı/client bilgileri kayıtlı olmalı (yukarıdan önce Kaydet'e bas).</p>
@@ -2887,13 +2894,22 @@ const IKAS_NAME_DESC_QUERY = `
 `;
 
 let _ikasPriceListId = null, _ikasStockLocationId = null; // sunucudaki cachedToken gibi, sayfa ömrü boyunca önbellek
+// PriceList tipinde "isDefault"/"isMain" gibi bir alan YOK (2026-08-14 canlı hatayla
+// keşfedildi, introspection ile doğrulandı) — birden fazla fiyat listesi olan mağazalarda
+// (farklı ülke/mağaza kanalları) hangisinin kullanılacağı API'den tahmin edilemiyor, o yüzden
+// "İKAS Ayarları" modalindeki seçim (config/ikasAyarlari.fiyatListesiId) esas alınıyor.
 async function getDefaultIkasPriceListId(){
   if(_ikasPriceListId) return _ikasPriceListId;
-  const data = await ikasApi('{ listPriceList { id isDefault } }');
+  const ayarSnap = await getDoc(doc(db,'config','ikasAyarlari'));
+  const kayitliId = ayarSnap.exists() ? (ayarSnap.data().fiyatListesiId || '') : '';
+  const data = await ikasApi('{ listPriceList { id name } }');
   const listeler = (data && data.listPriceList) || [];
-  const secilen = listeler.find(l=>l.isDefault) || listeler[0];
-  if(!secilen) throw new Error('İKAS\'ta hiç fiyat listesi bulunamadı.');
-  if(listeler.length>1) console.warn('Birden fazla İKAS fiyat listesi var, ilki kullanılıyor (seçim arayüzü henüz yok):', secilen.id);
+  if(!listeler.length) throw new Error('İKAS\'ta hiç fiyat listesi bulunamadı.');
+  let secilen = kayitliId ? listeler.find(l=>String(l.id)===String(kayitliId)) : null;
+  if(!secilen){
+    if(listeler.length===1) secilen = listeler[0];
+    else throw new Error('Birden fazla fiyat listen var — "İKAS Ayarları" içinden hangisinin kullanılacağını seçmen gerekiyor.');
+  }
   _ikasPriceListId = secilen.id;
   return _ikasPriceListId;
 }
@@ -2973,7 +2989,9 @@ window.pushToIkas = async function(){
               sku: v.sku || p.kod || '',
               barcodeList: [v.barkod || v.sku || ''],
               isActive: true,
-              prices: [{ sellPrice: Number(p.indirimli || p.satis || 0) }],
+              // priceListId de gönderiliyor (2026-08-14 düzeltmesi) — birden fazla fiyat
+              // listesi olan mağazalarda bu olmadan İKAS hangi listeye yazacağını bilemiyordu.
+              prices: [{ sellPrice: Number(p.indirimli || p.satis || 0), priceListId }],
               variantValueIds,
             };
           });
@@ -3039,19 +3057,49 @@ window.showIkasSettingsModal = async function(){
   document.getElementById('ikas-set-store').value = '';
   document.getElementById('ikas-set-clientid').value = '';
   document.getElementById('ikas-set-secret').value = '';
+  document.getElementById('ikas-set-pricelist').innerHTML = '<option value="">— (Kaydet\'e bas, sonra listelenir)</option>';
   document.getElementById('ikas-settings-modal').classList.remove('hidden');
+  let kayitliFiyatListesiId = '';
   try{
     const snap = await getDoc(doc(db,'config','ikasAyarlari'));
     if(snap.exists()){
       const d = snap.data();
       document.getElementById('ikas-set-store').value = d.storeName || '';
       document.getElementById('ikas-set-clientid').value = d.clientId || '';
+      kayitliFiyatListesiId = d.fiyatListesiId || '';
     }
   }catch(err){
     resultEl.innerHTML = `<div style="background:var(--danger-bg);color:var(--danger-text);border-radius:8px;padding:8px 10px">Mevcut ayarlar okunamadı: ${esc(err.message)}</div>`;
+    return;
+  }
+  // Bağlantı bilgileri kayıtlıysa (mağaza adı/client id) fiyat listelerini hemen çekmeyi dene —
+  // henüz kayıt yoksa (ilk kurulum) sessizce atla, "Yenile" butonuyla Kaydet sonrası çekilebilir.
+  if(document.getElementById('ikas-set-store').value && document.getElementById('ikas-set-clientid').value){
+    await loadIkasPriceListOptions(kayitliFiyatListesiId);
   }
 };
 window.closeIkasSettingsModal = ()=>document.getElementById('ikas-settings-modal').classList.add('hidden');
+
+// isDefault/isMain gibi bir alan PriceList tipinde YOK (2026-08-14, "Cannot query field
+// "isDefault" on type "PriceList"" canlı hatasıyla keşfedildi, introspection ile doğrulandı) —
+// birden fazla fiyat listesi olan mağazalarda (farklı ülke/mağaza kanalları) hangisinin
+// "ana" olduğu API'den tahmin edilemiyor. Bu yüzden otomatik seçim yerine kullanıcı burada
+// isimden (name — doğrulanmış alan) seçiyor, seçim config/ikasAyarlari.fiyatListesiId'de tutulur.
+async function loadIkasPriceListOptions(preselectId){
+  const sel = document.getElementById('ikas-set-pricelist');
+  sel.innerHTML = '<option value="">Yükleniyor...</option>';
+  try{
+    const data = await ikasApi('{ listPriceList { id name currencyCode } }');
+    const listeler = (data && data.listPriceList) || [];
+    if(!listeler.length){ sel.innerHTML = '<option value="">Hiç fiyat listesi bulunamadı</option>'; return; }
+    sel.innerHTML = listeler.map(l=>`<option value="${esc(l.id)}">${esc(l.name)}${l.currencyCode?` (${esc(l.currencyCode)})`:''}</option>`).join('');
+    if(preselectId) sel.value = preselectId;
+    else if(listeler.length===1) sel.value = listeler[0].id;
+  }catch(err){
+    sel.innerHTML = `<option value="">Listelenemedi: ${esc(err.message)}</option>`;
+  }
+}
+window.loadIkasPriceListOptions = loadIkasPriceListOptions;
 
 window.saveIkasSettings = async function(){
   const btn = document.getElementById('ikas-settings-btn');
@@ -3059,16 +3107,19 @@ window.saveIkasSettings = async function(){
   const storeName = document.getElementById('ikas-set-store').value.trim();
   const clientId = document.getElementById('ikas-set-clientid').value.trim();
   const clientSecret = document.getElementById('ikas-set-secret').value;
+  const fiyatListesiId = document.getElementById('ikas-set-pricelist').value;
   const eskiMetin = btn.textContent;
   btn.disabled = true; btn.textContent = 'Kaydediliyor...';
   resultEl.innerHTML = '';
   try{
-    await setDoc(doc(db,'config','ikasAyarlari'), { storeName, clientId }, { merge:true });
+    await setDoc(doc(db,'config','ikasAyarlari'), { storeName, clientId, fiyatListesiId }, { merge:true });
     if(clientSecret){
       await setDoc(doc(db,'config','ikasAyarlariGizli'), { clientSecret }, { merge:true });
     }
     document.getElementById('ikas-set-secret').value = '';
+    _ikasPriceListId = null; // önbelleği temizle — yeni seçim bir sonraki gönderimde kullanılsın
     resultEl.innerHTML = `<div style="background:var(--success-bg);color:var(--success-text);border-radius:8px;padding:8px 10px">Kaydedildi.</div>`;
+    if(!fiyatListesiId) await loadIkasPriceListOptions();
   }catch(err){
     resultEl.innerHTML = `<div style="background:var(--danger-bg);color:var(--danger-text);border-radius:8px;padding:8px 10px">Kaydedilemedi: ${esc(err.message)}</div>`;
   }finally{
