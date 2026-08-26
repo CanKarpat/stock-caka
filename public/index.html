@@ -3015,6 +3015,24 @@ window.pushToIkas = async function(){
               variantValueIds,
             };
           });
+          // VariantInput.variantValueIds her varyantın KENDİ Renk/Beden'ini taşıyor ama İKAS
+          // ürünün GENELİNDE hangi varyant tiplerini/değerlerini kullandığını da (ProductInput.
+          // productVariantTypes) ayrıca istiyor — yoksa "Bu bir basit üründür, tek varyant
+          // olmak zorunda" hatası veriyor (2026-08-14 canlı hatayla keşfedildi, ProductVariantTypeInput
+          // {order:Float!, variantTypeId:String!, variantValueIds:[String!]!} introspection ile
+          // doğrulandı). Varyantlarda fiilen kullanılan Renk/Beden değer ID'lerini topluyoruz.
+          const kullanilanTipDegerleri = new Map(); // variantTypeId -> Set<variantValueId>
+          inputVariants.forEach(iv=>{
+            (iv.variantValueIds||[]).forEach(rel=>{
+              if(!kullanilanTipDegerleri.has(rel.variantTypeId)) kullanilanTipDegerleri.set(rel.variantTypeId, new Set());
+              kullanilanTipDegerleri.get(rel.variantTypeId).add(rel.variantValueId);
+            });
+          });
+          const productVariantTypes = [...kullanilanTipDegerleri.entries()].map(([variantTypeId, degerSet], i)=>({
+            order: i,
+            variantTypeId,
+            variantValueIds: [...degerSet],
+          }));
           // Zaten eşleşmiş ürüne yeni beden ekleniyorsa, önceden çekilmiş İKAS'taki güncel
           // ad/açıklamayı kullan (yukarıdaki canliAdAciklama) — İKAS panelinden yapılmış
           // manuel bir isim/açıklama düzenlemesini sessizce eski haline döndürmemek için.
@@ -3026,6 +3044,7 @@ window.pushToIkas = async function(){
             description: canli ? canli.description : (p.aciklama || ''),
             brandId: brandId || undefined,
             type: 'PHYSICAL',
+            productVariantTypes,
             variants: inputVariants,
             // DİKKAT: p.alis (maliyet fiyatı) buraya KASITLI olarak hiç girmiyor.
           };
