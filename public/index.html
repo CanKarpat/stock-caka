@@ -2440,9 +2440,23 @@ window.ikasIntrospect = async function(typeName){
     const data = await ikasApi(`{ __type(name:"${typeName}"){ name kind
       fields { name type { name kind ofType { name kind ofType { name kind } } } }
       inputFields { name type { name kind ofType { name kind ofType { name kind } } } }
+      enumValues { name }
     } }`);
     console.log(JSON.stringify(data, null, 2));
     alert('Sonuç konsola yazdırıldı (F12 > Console sekmesi). Oradan kopyala.');
+  }catch(e){
+    alert('Hata: ' + e.message);
+  }
+};
+
+// ikasIntrospect ŞEMA/tip bilgisi verir (__type) — GERÇEK VERİYE (ör. listSalesChannel'ın
+// döndürdüğü kayıtlar) bakmak için bu genel amaçlı yardımcı: tarayıcı konsolunda
+// `ikasQuery('{ listSalesChannel { id name type } }')` gibi çalıştır.
+window.ikasQuery = async function(query, variables){
+  try{
+    const data = await ikasApi(query, variables);
+    console.log(JSON.stringify(data, null, 2));
+    return data;
   }catch(e){
     alert('Hata: ' + e.message);
   }
