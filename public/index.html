@@ -2923,6 +2923,25 @@ async function getDefaultIkasStockLocationId(){
   return _ikasStockLocationId;
 }
 
+// ProductInput'ta "brandName" diye bir alan YOK (2026-08-14 canlı hatayla keşfedildi:
+// "Field \"brandName\" is not defined by type \"ProductInput\". Did you mean \"brandId\"?")
+// — marka isimle değil, İKAS'ın kendi marka kaydının ID'siyle veriliyor. listProductBrand
+// sorgusuyla IKAS_MARKA_SABIT ismine göre eşleşen kaydı buluyoruz. Marka bulunamazsa push'u
+// tamamen durdurmuyoruz — brandId'siz de ürün oluşturulabilir, sadece uyarı basıyoruz.
+let _ikasBrandId = null;
+async function getIkasBrandId(){
+  if(_ikasBrandId) return _ikasBrandId;
+  const data = await ikasApi('{ listProductBrand { id name } }');
+  const markalar = (data && data.listProductBrand) || [];
+  const bulunan = markalar.find(m=>(m.name||'').trim().toLocaleUpperCase('tr-TR') === IKAS_MARKA_SABIT.toLocaleUpperCase('tr-TR'));
+  if(!bulunan){
+    console.warn(`İKAS'ta "${IKAS_MARKA_SABIT}" adında bir marka bulunamadı, ürünler markasız gönderilecek.`);
+    return null;
+  }
+  _ikasBrandId = bulunan.id;
+  return _ikasBrandId;
+}
+
 // Seçili ürünleri İKAS'a gönderir — ürün başına 3 durumdan biri:
 //  1) ikasGrupId yok            → saveProduct ile YENİ ürün oluştur, dönen ID'leri geri yaz.
 //  2) ikasGrupId var, yeni beden eklenmiş (bazı varyantlarda ikasVaryantId yok) → saveProduct'ı
@@ -2945,6 +2964,7 @@ window.pushToIkas = async function(){
   try{
     const priceListId = await getDefaultIkasPriceListId();
     const stockLocationId = await getDefaultIkasStockLocationId();
+    const brandId = await getIkasBrandId();
     const { typeIdByName, valueIdByName } = await getIkasVariantTypeMaps();
 
     // Sadece yeni beden/renk eklenen (zaten eşleşmiş) ürünler için İKAS'taki güncel ad/
@@ -3004,7 +3024,7 @@ window.pushToIkas = async function(){
             id: p.ikasGrupId || undefined,
             name: canli ? canli.name : (p.ad || ''),
             description: canli ? canli.description : (p.aciklama || ''),
-            brandName: IKAS_MARKA_SABIT,
+            brandId: brandId || undefined,
             type: 'PHYSICAL',
             variants: inputVariants,
             // DİKKAT: p.alis (maliyet fiyatı) buraya KASITLI olarak hiç girmiyor.
