@@ -3076,9 +3076,17 @@ window.pushToIkas = async function(){
               sku: v.sku || p.kod || '',
               barcodeList: [v.barkod || v.sku || ''],
               isActive: true,
-              // priceListId de gönderiliyor (2026-08-14 düzeltmesi) — birden fazla fiyat
-              // listesi olan mağazalarda bu olmadan İKAS hangi listeye yazacağını bilemiyordu.
-              prices: [{ sellPrice: Number(p.indirimli || p.satis || 0), priceListId }],
+              // "Varyant içinde varsayılan fiyat listesi bulunamadı" hatası (2026-08-14 canlı
+              // hatayla keşfedildi) — seçtiğimiz priceListId'yi gönderdiğimiz halde çıktı.
+              // ProductPriceInput.priceListId opsiyonel (introspection'da doğrulandı, sellPrice
+              // dışında hiçbir alan zorunlu değil) — muhtemelen priceListId HİÇ verilmeyen bir
+              // fiyat girişi "varsayılan/temel" fiyatı temsil ediyor, seçtiğimiz özel liste ise
+              // ayrı bir ek. Bu yüzden ikisini birden gönderiyoruz: biri priceListId'siz
+              // (varsayılan), biri seçili listeyle.
+              prices: [
+                { sellPrice: Number(p.indirimli || p.satis || 0) },
+                { sellPrice: Number(p.indirimli || p.satis || 0), priceListId },
+              ],
               variantValueIds,
             };
           });
