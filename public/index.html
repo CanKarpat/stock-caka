@@ -1028,7 +1028,11 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
       <div id="kis-list-uzunluk"></div>
       <button class="btn ghost" style="height:28px;font-size:11px;margin-top:6px" onclick="addKisRow('uzunluk')">+ Uzunluk Ekle</button>
 
-      <div class="form-section-title">Renk Kısaltmaları</div>
+      <div class="form-section-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <span>Renk Kısaltmaları</span>
+        <button class="btn ghost" id="kis-renk-cek-btn" style="height:24px;font-size:10px;text-transform:none;font-weight:500" onclick="pullIkasRenkleri()" title="İKAS'ta kayıtlı Renk varyant değerlerini çeker, burada eksik olanları (kısaltmasız) ekler — İKAS'a ürün gönderirken yeni bir varyant değeri oluşmasını önlemek için isimlerin birebir eşleşmesi gerekiyor">İKAS'tan Çek</button>
+      </div>
+      <p style="font-size:11px;color:var(--text-muted);margin:-4px 0 6px">Buradaki <b>ad</b> (kısaltma değil) İKAS'taki Renk değeriyle birebir aynı olmalı — aksi halde "İKAS'a Gönder" o rengi eşleştiremez.</p>
       <div id="kis-list-renk"></div>
       <button class="btn ghost" style="height:28px;font-size:11px;margin-top:6px" onclick="addKisRow('renk')">+ Renk Ekle</button>
     </div>
@@ -1055,6 +1059,11 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
         <button class="active" id="hstab-varyant" onclick="switchHizliSkuTab('varyant')">Varyantlı Ürün</button>
         <button id="hstab-toplu" onclick="switchHizliSkuTab('toplu')">Toplu Tekli Ürün</button>
       </div>
+
+      <details style="margin:10px 0 4px">
+        <summary style="cursor:pointer;font-size:11px;color:var(--text-sec);user-select:none">Kısaltmaları göster (ipucu)</summary>
+        <div id="hizli-sku-kisaltma-ipucu" style="margin-top:6px;padding:8px 10px;background:var(--surface2);border-radius:8px;font-size:11px;line-height:1.9"></div>
+      </details>
 
       <div id="hizli-varyant-section">
         <p style="font-size:12px;color:var(--text-sec);margin-bottom:10px;line-height:1.7">Format: <b style="color:var(--text)">Marka-Tedarikçi-ÜrünTipi-TedarikçiKodu-Uzunluk-Renk(ler)-Beden(ler)</b><br>
@@ -1769,9 +1778,29 @@ window.showHizliSkuModal = function(){
   document.getElementById('hizli-toplu-miktar').value='';
   document.getElementById('hizli-toplu-preview').innerHTML='';
   switchHizliSkuTab('varyant');
+  renderHizliSkuKisaltmaIpucu();
   document.getElementById('hizli-sku-modal').classList.remove('hidden');
   setTimeout(()=>document.getElementById('hizli-sku-input').focus(),100);
 };
+
+// SKU deseninde her rengin/tedarikçinin kısaltmasını ezbere bilmek gerekmesin diye — Kısaltmalar
+// tablosundaki güncel içerik burada salt-okunur ipucu olarak gösteriliyor (düzenleme yok, o hâlâ
+// "Kısaltmalar" modalinden yapılıyor).
+function renderHizliSkuKisaltmaIpucu(){
+  const el = document.getElementById('hizli-sku-kisaltma-ipucu');
+  const grup = (baslik, map) => {
+    const girdiler = Object.entries(map||{});
+    if(!girdiler.length) return '';
+    return `<div><b>${esc(baslik)}:</b> ${girdiler.map(([ad,kis])=>`${esc(ad)} (<span style="font-family:monospace">${esc(kis)}</span>)`).join(', ')}</div>`;
+  };
+  const html = [
+    grup('Tedarikçi', kisaltmalar.tedarikci),
+    grup('Ürün Tipi', kisaltmalar.tip),
+    grup('Uzunluk', kisaltmalar.uzunluk),
+    grup('Renk', kisaltmalar.renk),
+  ].filter(Boolean).join('');
+  el.innerHTML = html || '<span style="color:var(--text-muted)">Henüz kısaltma tanımlanmamış — üst menüdeki "Kısaltmalar" butonundan ekleyebilirsin.</span>';
+}
 window.closeHizliSkuModal = ()=>document.getElementById('hizli-sku-modal').classList.add('hidden');
 
 let hizliSkuTab = 'varyant';
@@ -1963,6 +1992,41 @@ function renderKisList(category){
 window.updKisDraft = function(category, i, field, val){ if(kisaltmaDraft[category][i]) kisaltmaDraft[category][i][field]=val; };
 window.addKisRow = function(category){ kisaltmaDraft[category].push({ad:'',kis:''}); renderKisList(category); };
 window.removeKisRow = function(category, i){ kisaltmaDraft[category].splice(i,1); renderKisList(category); };
+
+// Renk kısaltmalarındaki "ad" alanı İKAS'ın kendi Renk varyant değerleriyle birebir aynı
+// olmak ZORUNDA — pushToIkas() eşleştirmeyi isimden yapıyor (bkz. normIkasDeger), isim
+// uyuşmazsa "İKAS'ta tanımlı değil" hatası veriyor (Excel içe aktarımında ise İKAS'ın kendi
+// panelinin sessizce yeni bir varyant değeri/tipi oluşturmasına yol açabilir — asıl risk bu).
+// Bu buton, İKAS'ta kayıtlı ama burada henüz olmayan renkleri (kısaltmasız, doldurman için
+// boş bırakılmış) otomatik ekler — var olan satırlara dokunmaz, sadece eksikleri tamamlar.
+window.pullIkasRenkleri = async function(){
+  const btn = document.getElementById('kis-renk-cek-btn');
+  const eskiMetin = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Çekiliyor...';
+  try{
+    const data = await ikasApi('{ listVariantType { name values { name } } }');
+    const list = (data && data.listVariantType) || [];
+    const renkTipi = list.find(t=>t.name==='Renk');
+    if(!renkTipi){ alert('İKAS\'ta "Renk" adında bir varyant tipi bulunamadı.'); return; }
+    const mevcutAdlar = new Set(kisaltmaDraft.renk.map(r=>(r.ad||'').trim().toLocaleUpperCase('tr-TR')));
+    let eklenen = 0;
+    (renkTipi.values||[]).forEach(v=>{
+      const ad = (v.name||'').trim();
+      if(!ad || mevcutAdlar.has(ad.toLocaleUpperCase('tr-TR'))) return;
+      kisaltmaDraft.renk.push({ad, kis:''});
+      mevcutAdlar.add(ad.toLocaleUpperCase('tr-TR'));
+      eklenen++;
+    });
+    renderKisList('renk');
+    alert(eklenen
+      ? `${eklenen} yeni renk İKAS'tan eklendi — kısaltmalarını doldurup "Kaydet"e basmayı unutma.`
+      : 'Yeni bir renk bulunamadı, listeler zaten eşleşiyor.');
+  }catch(err){
+    alert('Çekilemedi: ' + err.message);
+  }finally{
+    btn.disabled = false; btn.textContent = eskiMetin;
+  }
+};
 
 window.saveKisaltmalar = async function(){
   const data = {
