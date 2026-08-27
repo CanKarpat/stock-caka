@@ -61,7 +61,8 @@ async function verifyCaller(req, app) {
 const ALLOWED_MUTATIONS = new Set([
   'saveProduct',             // yeni ürün gönderme / var olan ürüne varyant ekleme
   'saveVariantPrices',       // fiyat push — DOĞRULANDI (ikas.dev)
-  'bulkUpdateProductStock',  // stok push — AD TAHMİNİ, kullanmadan önce introspection ile doğrula
+  'bulkUpdateProducts',      // stok push — DOĞRULANDI (2026-08-27 canlı hatayla: "bulkUpdateProductStock"
+                             // diye bir mutation yok, doğrusu bu — eski, hiç var olmayan ad kaldırıldı)
   'saveWebhook',             // webhook kurulum — DOĞRULANDI
   'deleteWebhook',           // webhook kaldırma — DOĞRULANDI
 ]);
@@ -154,7 +155,14 @@ module.exports = async (req, res) => {
   }
 
   // Faz 2 mutation beyaz listesi — dosya başındaki açıklamaya bakın.
-  if (/\bmutation\b/i.test(query)) {
+  // DİKKAT (2026-08-14'te bulundu, 2026-08-27'de düzeltildi): eskiden /\bmutation\b/i sorgu
+  // METNİNİN HERHANGİ BİR YERİNDE "mutation" kelimesi geçip geçmediğine bakıyordu — bu da
+  // ör. `{ __type(name:"Mutation"){...} }` gibi zararsız bir introspection sorgusunu (tip adı
+  // olarak "Mutation" string'i geçtiği için) yanlışlıkla engelliyordu. Gerçek bir mutation
+  // operasyonu GraphQL'de sadece sorgunun EN BAŞINDA "mutation" anahtar kelimesiyle başlar —
+  // bu uygulamanın gönderdiği tüm mutation'lar da hep `mutation($input: ...` şeklinde, hiç
+  // isimsiz/başka türlü değil. Bu yüzden kontrol artık sadece BAŞLANGIÇTA arıyor.
+  if (/^\s*mutation\b/i.test(query)) {
     // Sorgudaki TÜM "isim(" çağrılarını çıkar — sadece ilk eşleşmeye bakmak, izinli
     // bir mutation'ın yanına gizlice ikinci, izinsiz bir mutation eklemeyi (query
     // smuggling) mümkün kılar. 'mutation'/'query' kendisi de bu desenle eşleşebilir
