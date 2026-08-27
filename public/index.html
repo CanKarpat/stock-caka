@@ -1050,7 +1050,7 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
      SKU İLE HIZLI ÜRÜN OLUŞTUR MODAL
 ═══════════════════════════════════════════ -->
 <div class="modal-bg hidden" id="hizli-sku-modal">
-  <div class="modal" style="max-width:560px">
+  <div class="modal" id="hizli-sku-main-modal" style="max-width:560px">
     <div class="modal-header">
       <h2>SKU ile Hızlı Oluştur</h2>
       <button class="icon-btn" onclick="closeHizliSkuModal()">
@@ -1801,12 +1801,26 @@ window.closeHizliSkuModal = ()=>document.getElementById('hizli-sku-modal').class
 // Kısaltmalar ipucu paneli: ana modalin YANINDA ikinci bir .modal olarak açılır/kapanır
 // (bkz. HTML'deki #hizli-sku-kisaltma-panel yorumu) — SKU deseninde her rengin/tedarikçinin
 // kısaltmasını ezbere bilmek gerekmesin diye. Salt okunur; düzenleme "Kısaltmalar" modalinden.
+// Yüksekliği ana modalin GERÇEK yüksekliğiyle birebir eşleşiyor (içeriği kendi kendine
+// büyürse dengesiz görünüyordu) — ResizeObserver ile ana modal her boy değiştirdiğinde
+// (sekme değişimi, önizleme büyümesi vb.) panel otomatik yeniden ölçüleniyor.
+let hizliSkuKisaltmaResizeObserver = null;
 window.toggleHizliSkuKisaltmaPanel = function(force){
   const panel = document.getElementById('hizli-sku-kisaltma-panel');
+  const anaModal = document.getElementById('hizli-sku-main-modal');
   const acik = force!==undefined ? force : panel.style.display==='none';
   panel.style.display = acik ? 'flex' : 'none';
   document.getElementById('hizli-sku-kisaltma-toggle-btn').textContent = acik ? 'Kısaltmaları Gizle' : 'Kısaltmaları Göster';
-  if(acik) renderHizliSkuKisaltmaPanel();
+  if(acik){
+    renderHizliSkuKisaltmaPanel();
+    panel.style.height = anaModal.offsetHeight + 'px';
+    if(!hizliSkuKisaltmaResizeObserver){
+      hizliSkuKisaltmaResizeObserver = new ResizeObserver(()=>{ panel.style.height = anaModal.offsetHeight + 'px'; });
+    }
+    hizliSkuKisaltmaResizeObserver.observe(anaModal);
+  } else if(hizliSkuKisaltmaResizeObserver){
+    hizliSkuKisaltmaResizeObserver.disconnect();
+  }
 };
 function renderHizliSkuKisaltmaPanel(){
   const el = document.getElementById('hizli-sku-kisaltma-panel-body');
