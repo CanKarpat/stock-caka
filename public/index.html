@@ -1463,7 +1463,7 @@ function render(){
     }).join('');
 
     rows += `<tr class="ana-row ${stokTukendi?'stok-tukendi':''}">
-      <td class="chk"><input type="checkbox" ${selectedIds.has(p.id)?'checked':''} onclick="event.stopPropagation()" onchange="toggleRowSelect('${p.id}')"></td>
+      <td class="chk"><input type="checkbox" data-pid="${p.id}" ${selectedIds.has(p.id)?'checked':''} onclick="event.stopPropagation();toggleRowSelect('${p.id}', event)"></td>
       <td>
         <button class="expand-btn ${isOpen?'open':''}" onclick="toggleExpand('${p.id}')" title="Varyantları göster">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
@@ -1542,11 +1542,30 @@ window.toggleSelectAll = function(checked){
   list.forEach(p=> checked ? selectedIds.add(p.id) : selectedIds.delete(p.id));
   render();
 };
-window.toggleRowSelect = function(id){
-  selectedIds.has(id) ? selectedIds.delete(id) : selectedIds.add(id);
+// Shift+tık ile aralık seçimi: en son tıklanan satırla şimdi tıklanan satır arasındaki
+// (o an ekranda görünen sırayla) tüm satırlar, şimdi tıklananın YENİ durumuna (seçili/
+// seçili değil) getirilir — dosya gezginlerindeki standart davranışla aynı.
+let lastClickedRowId = null;
+window.toggleRowSelect = function(id, event){
+  const willBeSelected = !selectedIds.has(id);
+  if(event && event.shiftKey && lastClickedRowId && lastClickedRowId!==id){
+    const ids = [...document.querySelectorAll('#tbody .chk input[type=checkbox]')].map(cb=>cb.dataset.pid);
+    const i1 = ids.indexOf(lastClickedRowId), i2 = ids.indexOf(id);
+    if(i1>=0 && i2>=0){
+      const [start,end] = i1<i2 ? [i1,i2] : [i2,i1];
+      for(let i=start;i<=end;i++){
+        willBeSelected ? selectedIds.add(ids[i]) : selectedIds.delete(ids[i]);
+      }
+      lastClickedRowId = id;
+      render();
+      return;
+    }
+  }
+  willBeSelected ? selectedIds.add(id) : selectedIds.delete(id);
+  lastClickedRowId = id;
   render();
 };
-window.clearSelection = function(){ selectedIds.clear(); render(); };
+window.clearSelection = function(){ selectedIds.clear(); lastClickedRowId=null; render(); };
 function renderBulkBar(){
   const bar = document.getElementById('bulk-bar');
   document.getElementById('bulk-count').textContent = selectedIds.size;
