@@ -3139,6 +3139,14 @@ window.pushToIkas = async function(){
             const yerelV = (p.variants||[]).find(v=>v.sku===dv.sku);
             if(yerelV) yerelV.ikasVaryantId = String(dv.id);
           });
+          // ProductInput/VariantInput'ta stok ile ilgili bir alan YOK (introspection'da hiç
+          // bulunamadı) — saveProduct'la oluşturulan/eklenen varyantların stoğu bu yüzden 0
+          // kalıyordu (2026-08-27 canlı denemeyle keşfedildi). Zaten eşleşmiş ürünler için
+          // aşağıdaki else dalında kullanılan aynı bulkUpdateProductStock mutation'ını burada
+          // da (yeni/eklenen tüm varyantlar için) ayrıca çağırmamız gerekiyor.
+          await Promise.all((p.variants||[]).filter(v=>v.ikasVaryantId).map(v=>
+            ikasApi(IKAS_UPDATE_STOCK_MUTATION, { input: [{ variantId: v.ikasVaryantId, stockLocationId, stockCount: Number(v.miktar||0) }] })
+          ));
           await saveProduct(p);
           if(yeniMi) yeniOlusturulan++; else varyantEklenen++;
         } else {
