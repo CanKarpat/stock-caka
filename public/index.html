@@ -1060,11 +1060,11 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
       </div>
 
       <div id="hizli-toplu-section" style="display:none">
-        <p style="font-size:12px;color:var(--text-sec);margin-bottom:10px;line-height:1.7">Format: <b style="color:var(--text)">Marka-Tedarikçi-ÜrünTipi-ÜrünKodu(Aralık)-Ek</b><br>
+        <p style="font-size:12px;color:var(--text-sec);margin-bottom:10px;line-height:1.7">Format: <b style="color:var(--text)">Marka-Tedarikçi-ÜrünTipi-ÜrünKodu(Aralık)</b><br>
         Renk/beden içermez — <b>çanta gibi tek varyantlı ürünler</b> için. Her kod ayrı bir ürün olur (varyantlı üründeki gibi tek ürünün varyantları DEĞİL). Ürün kodu bölümünde <b>","</b> ile aralık verilir, örn. <b>200,400</b> → 200'den 400'e kadar (dahil) ayrı ürün.</p>
         <div class="form-group">
           <label>SKU Deseni</label>
-          <input id="hizli-toplu-input" placeholder="GC-GP-CNT-200,400-AC" style="font-family:monospace" oninput="renderHizliTopluPreview()">
+          <input id="hizli-toplu-input" placeholder="GC-GP-CNT-200,400" style="font-family:monospace" oninput="renderHizliTopluPreview()">
         </div>
         <div class="form-group" style="max-width:200px;margin-top:8px">
           <label>Ürün Başına Miktar <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(opsiyonel)</span></label>
@@ -1815,28 +1815,23 @@ function expandKodAraligi(seg){
   return sonuc;
 }
 
-// Marka-Tedarikçi-ÜrünTipi-ÜrünKodu(Aralık)-Ek (5 parça) — çanta gibi renk/beden ayrımı
-// olmayan ürün tipleri için. "Ek" kısmı (ör. AC), varyantlı desendeki "Uzunluk" kısaltma
-// kategorisiyle AYNI tabloyu (kisaltmalar.uzunluk) kullanıyor — pozisyonel olarak aynı yerde,
-// kavramsal olarak farklı bir anlam taşısa da ayrı bir kısaltma kategorisi açmaya gerek yok.
+// Marka-Tedarikçi-ÜrünTipi-ÜrünKodu(Aralık) (4 parça) — çanta gibi renk/beden ayrımı
+// olmayan ürün tipleri için.
 function parseHizliTopluSkuPattern(raw){
   const parts = (raw||'').trim().split('-');
-  if(parts.length!==5) return {error:'Format 5 parçalı olmalı: Marka-Tedarikçi-ÜrünTipi-ÜrünKodu(Aralık)-Ek'};
-  const [marka, tedKis, tipKis, kodSeg, ekKis] = parts.map(s=>s.trim());
+  if(parts.length!==4) return {error:'Format 4 parçalı olmalı: Marka-Tedarikçi-ÜrünTipi-ÜrünKodu(Aralık)'};
+  const [marka, tedKis, tipKis, kodSeg] = parts.map(s=>s.trim());
   const tedAd = findKisAd(kisaltmalar.tedarikci, tedKis);
   const tipAd = findKisAd(kisaltmalar.tip, tipKis);
-  const ekAd = findKisAd(kisaltmalar.uzunluk, ekKis);
   const kodListesi = expandKodAraligi(kodSeg);
   const eksik=[];
   if(!tedKis) eksik.push('tedarikçi kısaltması eksik');
   else if(!tedAd) eksik.push(`"${tedKis}" tedarikçi kısaltması tanımlı değil`);
   if(!tipKis) eksik.push('ürün tipi kısaltması eksik');
   else if(!tipAd) eksik.push(`"${tipKis}" ürün tipi kısaltması tanımlı değil`);
-  if(!ekKis) eksik.push('son ek kısaltması eksik');
-  else if(!ekAd) eksik.push(`"${ekKis}" kısaltması tanımlı değil`);
   if(!kodListesi.length) eksik.push('ürün kodu/aralığı eksik ya da hatalı (ör. 200,400)');
   if(eksik.length) return {error: eksik.join('; ')};
-  return {marka, tedKis, tipKis, ekKis, tedAd, tipAd, ekAd, kodListesi};
+  return {marka, tedKis, tipKis, tedAd, tipAd, kodListesi};
 }
 
 window.renderHizliTopluPreview = function(){
@@ -1846,10 +1841,10 @@ window.renderHizliTopluPreview = function(){
   const parsed = parseHizliTopluSkuPattern(raw);
   if(parsed.error){ el.innerHTML = `<span style="color:var(--danger-text)">⚠ ${esc(parsed.error)}</span>`; return; }
   const miktar = parseInt(document.getElementById('hizli-toplu-miktar').value)||0;
-  const skus = parsed.kodListesi.map(k=>[parsed.marka,parsed.tedKis,parsed.tipKis,k,parsed.ekKis].join('-'));
+  const skus = parsed.kodListesi.map(k=>[parsed.marka,parsed.tedKis,parsed.tipKis,k].join('-'));
   el.innerHTML = `
     <div style="background:var(--surface2);border-radius:8px;padding:10px 12px">
-      <div>Tedarikçi: <b>${esc(parsed.tedAd)}</b> · Ürün Tipi: <b>${esc(parsed.tipAd)}</b> · Ek: <b>${esc(parsed.ekAd)}</b></div>
+      <div>Tedarikçi: <b>${esc(parsed.tedAd)}</b> · Ürün Tipi: <b>${esc(parsed.tipAd)}</b></div>
       <div style="margin-top:6px;color:var(--success-text)">${skus.length} ayrı ürün oluşacak, her biri ${miktar} adet stokla</div>
     </div>
     <div style="max-height:150px;overflow-y:auto;margin-top:8px;font-family:monospace;font-size:11px;color:var(--text-sec)">${skus.map(esc).join('<br>')}</div>`;
@@ -1868,11 +1863,11 @@ window.createFromHizliTopluSku = async function(){
   let tamamlanan = 0;
   try{
     for(const kod of parsed.kodListesi){
-      const sku = [parsed.marka, parsed.tedKis, parsed.tipKis, kod, parsed.ekKis].join('-');
+      const sku = [parsed.marka, parsed.tedKis, parsed.tipKis, kod].join('-');
       const id = uid();
       const p = {
         id, kod: sku, ad:'',
-        aciklama:'', tedarikci:parsed.tedAd, urunTipi:parsed.tipAd, uzunluk:parsed.ekAd,
+        aciklama:'', tedarikci:parsed.tedAd, urunTipi:parsed.tipAd, uzunluk:'',
         tedarikciKodu:kod, durum:'Beklemede', alis:0, satis:0, indirimli:0,
         // renk/beden bilerek boş — pushToIkas() bunu tespit edip "basit ürün" (varyant tipi
         // olmayan, tek varyantlı) olarak İKAS'a gönderiyor.
