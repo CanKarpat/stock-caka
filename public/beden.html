@@ -276,6 +276,12 @@ let search='';
 let productTab='eslesmis'; // 'eslesmis' = İKAS'ta aktif/eşleşmiş, 'yeni' = henüz eşleşmemiş
 let selected=new Set(); // dışa aktarım için elle seçilen ürün id'leri
 
+// Çanta gibi renk/beden ayrımı olmayan ("varyantsız") ürünlerin bu sayfada hiç işi yok —
+// eskiden bedenMap'te v.beden||'36' düşüşü yüzünden sahte bir "36" satırı gösteriyordu
+// (2026-08-27'de bulundu). Bir ürün, TÜM varyantlarında hem renk hem beden boşsa varyantsızdır.
+function bedenTablosuUygunMu(p){
+  return (p.variants||[]).some(v=>v.renk || v.beden);
+}
 const setSyncStatus=s=>{const b=document.getElementById('sync-badge');b.className='sync-badge '+s;b.textContent=s==='online'?'● Canlı':'○ Çevrimdışı';};
 const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
 
@@ -462,7 +468,8 @@ window.exportBedenExcel = function(){
 function render(){
   const focusSnap=captureFocus();
   const q=search.toLowerCase();
-  const filtered=q?products.filter(p=>(p.kod||'').toLowerCase().includes(q)||(p.ad||'').toLowerCase().includes(q)):products;
+  const filtered=(q?products.filter(p=>(p.kod||'').toLowerCase().includes(q)||(p.ad||'').toLowerCase().includes(q)):products)
+    .filter(bedenTablosuUygunMu);
 
   const eslesmisUrunler = filtered.filter(p=>p.ikasGrupId);
   const yeniUrunler = filtered.filter(p=>!p.ikasGrupId);
@@ -553,7 +560,8 @@ window.toggleProductSelect = function(id){
 };
 window.selectAllVisible = function(){
   const q=search.toLowerCase();
-  const filtered=q?products.filter(p=>(p.kod||'').toLowerCase().includes(q)||(p.ad||'').toLowerCase().includes(q)):products;
+  const filtered=(q?products.filter(p=>(p.kod||'').toLowerCase().includes(q)||(p.ad||'').toLowerCase().includes(q)):products)
+    .filter(bedenTablosuUygunMu);
   filtered.filter(p=>productTab==='eslesmis'?p.ikasGrupId:!p.ikasGrupId).forEach(p=>selected.add(p.id));
   render();
 };

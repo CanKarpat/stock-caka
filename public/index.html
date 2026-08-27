@@ -561,12 +561,18 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
       </div>
 
       <div class="form-section-title">Varyant Bilgileri <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(bu ürünün ana varyantı — renk, beden, stok)</span></div>
+      <div class="form-group" style="margin-bottom:8px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:400;text-transform:none" title="Çanta gibi renk/beden ayrımı olmayan ürünler için işaretle — Renk/Beden alanları gizlenir, kaydederken bu alanlara dokunulmaz.">
+          <input type="checkbox" id="pm-varyantsiz" style="width:auto" onchange="toggleVaryantsizUI()">
+          Bu ürün varyantsız (renk/beden yok — ör. çanta)
+        </label>
+      </div>
       <div class="form-grid">
-        <div class="form-group">
+        <div class="form-group" id="pm-renk-group">
           <label>Renk</label>
           <select id="pm-renk"></select>
         </div>
-        <div class="form-group">
+        <div class="form-group" id="pm-beden-group">
           <label>Beden</label>
           <select id="pm-beden">
             <option>32</option><option>34</option><option selected>36</option><option>38</option>
@@ -1963,6 +1969,13 @@ window.openProductModal = function(id=null, presetP=null){
   document.getElementById('pm-renk').value = v.renk||'Siyah';
   document.getElementById('pm-beden').value = v.beden||'36';
   document.getElementById('pm-miktar').value = v.miktar||'';
+  // Çanta gibi "Toplu Tekli Ürün" ile oluşturulmuş, renk/beden'i bilerek boş bırakılmış
+  // ürünler açıldığında otomatik işaretlenir — aksi halde Kaydet'e basınca Renk/Beden
+  // select'lerinin varsayılan değerleri ("Siyah"/"36") sessizce geri yazılırdı (bkz.
+  // window.saveProduct, 2026-08-27'de bulundu). Yeni ürün oluştururken (p=null) varsayılan
+  // olarak işaretsiz kalır — mevcut varyantlı akış hiç etkilenmez.
+  document.getElementById('pm-varyantsiz').checked = pVars.length>0 && pVars.every(x=>!x.renk && !x.beden);
+  toggleVaryantsizUI();
   const allVars = p ? (p.variants||[]) : [];
   document.getElementById('pm-variant-tbody').innerHTML = allVars.length
     ? allVars.map(av=>`<tr id="pm-vrow-${av.id}"><td><span class="color-dot" style="background:${CMAP[av.renk]||'#aaa'}"></span>${esc(av.renk||'')}</td><td>${esc(av.beden||'')}</td><td class="r">${fmtN(av.miktar||0)}</td></tr>`).join('')
@@ -1972,6 +1985,12 @@ window.openProductModal = function(id=null, presetP=null){
   setTimeout(()=>document.getElementById('pm-kod').focus(),100);
 };
 window.closeProductModal = ()=>document.getElementById('product-modal').classList.add('hidden');
+
+window.toggleVaryantsizUI = function(){
+  const varyantsiz = document.getElementById('pm-varyantsiz').checked;
+  document.getElementById('pm-renk-group').style.display = varyantsiz ? 'none' : '';
+  document.getElementById('pm-beden-group').style.display = varyantsiz ? 'none' : '';
+};
 
 window.applyPmIndirim = function(){
   const satis = Number(document.getElementById('pm-satis').value)||0;
@@ -1992,11 +2011,16 @@ window.saveProduct = async function(){
   const firstVarId = existingVars.length ? existingVars[0].id : uid();
   // gogus/bel/basen/boy burada kasıtlı olarak yok — beden ölçüleri Beden Tablosu'ndan
   // yönetiliyor, bu formdan kaydetmek var olan ölçüleri sıfırlamamalı.
+  // "Varyantsız" işaretliyse (çanta vb.) Renk/Beden select'lerine HİÇ dokunmuyoruz — aksi
+  // halde select'lerin varsayılan değeri ("Siyah"/"36") sessizce geri yazılırdı, ürün İKAS'a
+  // gönderilirken yanlışlıkla "varyantlı" (Renk/Beden'i olan) bir ürün gibi işlem görürdü
+  // (2026-08-27'de bulundu).
+  const varyantsiz = document.getElementById('pm-varyantsiz').checked;
   const firstVar = {
     id: firstVarId,
     sku: document.getElementById('pm-kod').value + (existingVars.length===0?'-V1': (existingVars[0].sku||'')).replace(document.getElementById('pm-kod').value,''),
-    renk: document.getElementById('pm-renk').value,
-    beden: document.getElementById('pm-beden').value,
+    renk: varyantsiz ? '' : document.getElementById('pm-renk').value,
+    beden: varyantsiz ? '' : document.getElementById('pm-beden').value,
     miktar: Number(document.getElementById('pm-miktar').value)||0,
   };
 
@@ -2044,6 +2068,10 @@ window.openVariantModal = function(pid){
   activeVarTab = 'genel';
   document.getElementById('vtab-genel').className='active';
   document.getElementById('vtab-beden').className='';
+  // Çanta gibi renk/beden'i olmayan (varyantsız) ürünlerde Beden Tablosu sekmesinin hiçbir
+  // anlamı yok (beden.html'de de aynı mantıkla listeden çıkarıldı, 2026-08-27) — sekme gizlenir.
+  const varyantsizMi = (p.variants||[]).length>0 && (p.variants||[]).every(v=>!v.renk && !v.beden);
+  document.getElementById('vtab-beden').style.display = varyantsizMi ? 'none' : '';
   document.getElementById('beden-tools').style.display='none';
   document.getElementById('genel-tools').style.display='flex';
   renderVarTable();
