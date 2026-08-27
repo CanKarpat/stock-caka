@@ -2372,7 +2372,7 @@ const IKAS_BEDEN_DEGERLERI = new Set(['36','38','40','42','44','46','48','50']);
 const IKAS_RENK_DEGERLERI = new Set(['AÇIK MAVİ','BAKIR','BEBE MAVİSİ','BEJ','BEYAZ','BORDO','BURGONYA','BUZ MAVİSİ','ÇAĞLA YEŞİLİ','CAPPUCINO','EKRU','ELMA YEŞİLİ','FUŞYA','GECE MAVİSİ','GÖK MAVİSİ','GRİ','HAKİ YEŞİLİ','İNDİGO','KAHVERENGİ','KAHVERENGİ / GOLD','KAYISI','KEMİK / SİYAH','KEMİK RENGİ','KIRMIZI','KOYU İNDİGO','KOYU MOR','KOYU YEŞİL','KREM RENGİ','KÜF','KUM BEJİ','LACİVERT','LACİVERT / GÜMÜŞ','LACİVERT / GOLD','LAVANTA','LEOPAR','LİLA','MAVİ','MİNT','MOCCA','MOR','MÜRDÜM','PEMBE','PETROL YEŞİLİ','PUDRA','SAKS MAVİSİ','SAKS / GÜMÜŞ','SARI','ŞEKER PEMBE','SİYAH','SİYAH / BEYAZ','SİYAH / GOLD','SU YEŞİLİ','TAŞ RENGİ','TEREYAĞI','TOZ PEMBE','VİZON','YEŞİL','PARLEMENT MAVİSİ','KİREMİT','YAĞ YEŞİLİ','BAKIR RENGİ','MACENTA','TURUNCU','AÇIK İNDİGO','HARDAL','INDIGO','GÜMÜŞ','AÇIK MÜRDÜM','PETROL RENGİ','LACİVERT/GOLD','SAKS/GÜMÜŞ','SİYAH / BRONZ']);
 const IKAS_MARKA_SABIT = 'Grace Code'; // Marka ve Tedarikçi İKAS'ta her zaman bu — iç tedarikçi takibimizle (Kenzel, Saygın...) karıştırılmamalı
 
-window.exportIkasNative = function(){
+window.exportIkasNative = async function(){
   const kanalAdi = (document.getElementById('ikas-satis-kanali-adi').value||'gracecode').trim();
   const ikinciKanalDahil = document.getElementById('ikas-ikinci-kanal-dahil').checked;
   const ikinciKanalAdi = (document.getElementById('ikas-ikinci-kanal-adi').value||'').trim();
@@ -2389,6 +2389,15 @@ window.exportIkasNative = function(){
     return true;
   });
   if(!exportEdilecekUrunler.length){ alert('Seçilen kapsamda ürün yok.'); return; }
+
+  // İKAS ürün adını (name/İsim) zorunlu tutuyor — Toplu Tekli Ürün gibi akışlarla ad hiç
+  // girilmeden oluşturulmuş ürünler olabilir. Dosyayı oluşturmadan önce sorup onaylanırsa
+  // SKU'yu ad olarak kaydediyoruz (kalıcı — bir daha sorulmasın diye); reddedilirse boş
+  // olarak devam ediyoruz, aşağıdaki mevcut uyarı listesi zaten bunu ayrıca bildiriyor.
+  const adsizUrunler = exportEdilecekUrunler.filter(p=>!String(p.ad||'').trim());
+  if(adsizUrunler.length && confirm(`${adsizUrunler.length} ürünün adı boş (İKAS bu alanı zorunlu tutuyor). Ürün adı olarak SKU (stok kodu) kullanılsın mı?\n\nÖrnek: ${adsizUrunler[0].kod}`)){
+    await Promise.all(adsizUrunler.map(p=>{ p.ad = p.kod; return saveProduct(p); }));
+  }
 
   // Tam İKAS ürün şablonu — tüm sütunlar aynı isim ve sırayla (excel-sablon'daki gerçek dosyayla birebir).
   // İkinci Satış Kanalı sütunu sadece dahil edilmek istendiğinde eklenir — istenmiyorsa sütun hiç oluşmaz.
@@ -3184,6 +3193,16 @@ window.pushToIkas = async function(){
   if(!selectedIds.size) return;
   const secilenler = [...selectedIds].map(id=>products.find(p=>p.id===id)).filter(Boolean);
   if(!secilenler.length) return;
+
+  // İKAS ürün adını (name) zorunlu tutuyor — Toplu Tekli Ürün gibi akışlarla ad hiç
+  // girilmeden oluşturulmuş ürünler olabilir. Göndermeden önce sorup onaylanırsa SKU'yu
+  // ad olarak kaydediyoruz (kalıcı — bir daha sorulmasın diye); reddedilirse boş olarak
+  // devam ediyoruz, İKAS muhtemelen kendi hatasını verecektir.
+  const adsizUrunler = secilenler.filter(p=>!String(p.ad||'').trim());
+  if(adsizUrunler.length && confirm(`${adsizUrunler.length} ürünün adı boş (İKAS bu alanı zorunlu tutuyor). Ürün adı olarak SKU (stok kodu) kullanılsın mı?\n\nÖrnek: ${adsizUrunler[0].kod}`)){
+    await Promise.all(adsizUrunler.map(p=>{ p.ad = p.kod; return saveProduct(p); }));
+  }
+
   if(!confirm(`${secilenler.length} ürün İKAS'a (canlı mağaza) gönderilecek. Emin misin?`)) return;
 
   const btn = document.getElementById('bulk-ikas-push-btn');
