@@ -965,6 +965,13 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
           <button type="button" class="btn ghost" style="height:34px;padding:0 10px;font-size:11px" onclick="loadIkasPriceListOptions()">Yenile</button>
         </div>
       </div>
+      <div class="form-group">
+        <label>Satış Kanalı <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(yeni ürün oluştururken bu kanala atanır — birden fazla storefront kanalın varsa seç)</span></label>
+        <div style="display:flex;gap:6px">
+          <select id="ikas-set-saleschannel" style="flex:1"><option value="">— (Kaydet'e bas, sonra listelenir)</option></select>
+          <button type="button" class="btn ghost" style="height:34px;padding:0 10px;font-size:11px" onclick="loadIkasSalesChannelOptions()">Yenile</button>
+        </div>
+      </div>
       <div id="ikas-settings-result" style="margin-top:10px"></div>
       <div style="border-top:1px solid var(--border);margin:16px 0 12px;padding-top:12px">
         <p style="margin-bottom:8px">Satış oldukça anlık haber almak için İKAS'a bir kere "webhook" kaydı yapılması gerekiyor — mağaza adı/client bilgileri kayıtlı olmalı (yukarıdan önce Kaydet'e bas).</p>
@@ -2945,6 +2952,29 @@ async function getDefaultIkasStockLocationId(){
   return _ikasStockLocationId;
 }
 
+// Yeni ürün oluştururken ProductInput.salesChannelIds/salesChannels zorunlu (2026-08-14 canlı
+// hatayla keşfedildi: "salesChannels and salesChannelIds must be provided for new products").
+// listSalesChannel her zaman en az bir "ADMIN" tipli sahte kanal döndürüyor (id literalde
+// "ADMIN" — gerçek bir mağaza/storefront değil, ürünlere asla atanmamalı) — bu yüzden sadece
+// type==='STOREFRONT' olanlar aday. Fiyat listesiyle aynı desen: tek storefront varsa otomatik,
+// birden fazlaysa "İKAS Ayarları" içindeki seçim (config/ikasAyarlari.satisKanaliId) esas alınır.
+let _ikasSalesChannelId = null;
+async function getIkasSalesChannelId(){
+  if(_ikasSalesChannelId) return _ikasSalesChannelId;
+  const ayarSnap = await getDoc(doc(db,'config','ikasAyarlari'));
+  const kayitliId = ayarSnap.exists() ? (ayarSnap.data().satisKanaliId || '') : '';
+  const data = await ikasApi('{ listSalesChannel { id name type } }');
+  const kanallar = ((data && data.listSalesChannel) || []).filter(k=>k.type==='STOREFRONT');
+  if(!kanallar.length) throw new Error('İKAS\'ta hiç storefront satış kanalı bulunamadı.');
+  let secilen = kayitliId ? kanallar.find(k=>String(k.id)===String(kayitliId)) : null;
+  if(!secilen){
+    if(kanallar.length===1) secilen = kanallar[0];
+    else throw new Error('Birden fazla satış kanalın var — "İKAS Ayarları" içinden hangisinin kullanılacağını seçmen gerekiyor.');
+  }
+  _ikasSalesChannelId = secilen.id;
+  return _ikasSalesChannelId;
+}
+
 // ProductInput'ta "brandName" diye bir alan YOK (2026-08-14 canlı hatayla keşfedildi:
 // "Field \"brandName\" is not defined by type \"ProductInput\". Did you mean \"brandId\"?")
 // — marka isimle değil, İKAS'ın kendi marka kaydının ID'siyle veriliyor. listProductBrand
@@ -2987,6 +3017,7 @@ window.pushToIkas = async function(){
     const priceListId = await getDefaultIkasPriceListId();
     const stockLocationId = await getDefaultIkasStockLocationId();
     const brandId = await getIkasBrandId();
+    const salesChannelId = await getIkasSalesChannelId();
     const { typeIdByName, valueIdByName } = await getIkasVariantTypeMaps();
 
     // Sadece yeni beden/renk eklenen (zaten eşleşmiş) ürünler için İKAS'taki güncel ad/
@@ -3070,6 +3101,11 @@ window.pushToIkas = async function(){
           // manuel bir isim/açıklama düzenlemesini sessizce eski haline döndürmemek için.
           // Bulunamazsa (ör. sorgu 50 sayfada bulamadıysa) yerel değere düşülür.
           const canli = p.ikasGrupId ? canliAdAciklama.get(p.ikasGrupId) : null;
+          // Yeni ürünlerde salesChannels/salesChannelIds zorunlu (2026-08-14 canlı hatayla
+          // keşfedildi). status için zaten var olan p.satisKanaliDurumu alanını kullanıyoruz —
+          // ürün formundaki "İKAS Satış Kanalı Durumu" seçimiyle aynı enum (VISIBLE/HIDDEN/
+          // PASSIVE, introspection ile doğrulandı), boşsa VISIBLE'a düşülür.
+          const kanalDurumu = p.satisKanaliDurumu || 'VISIBLE';
           const input = {
             id: p.ikasGrupId || undefined,
             name: canli ? canli.name : (p.ad || ''),
@@ -3077,6 +3113,8 @@ window.pushToIkas = async function(){
             brandId: brandId || undefined,
             type: 'PHYSICAL',
             productVariantTypes,
+            salesChannelIds: [salesChannelId],
+            salesChannels: [{ id: salesChannelId, status: kanalDurumu }],
             variants: inputVariants,
             // DİKKAT: p.alis (maliyet fiyatı) buraya KASITLI olarak hiç girmiyor.
           };
@@ -3129,8 +3167,9 @@ window.showIkasSettingsModal = async function(){
   document.getElementById('ikas-set-clientid').value = '';
   document.getElementById('ikas-set-secret').value = '';
   document.getElementById('ikas-set-pricelist').innerHTML = '<option value="">— (Kaydet\'e bas, sonra listelenir)</option>';
+  document.getElementById('ikas-set-saleschannel').innerHTML = '<option value="">— (Kaydet\'e bas, sonra listelenir)</option>';
   document.getElementById('ikas-settings-modal').classList.remove('hidden');
-  let kayitliFiyatListesiId = '';
+  let kayitliFiyatListesiId = '', kayitliSatisKanaliId = '';
   try{
     const snap = await getDoc(doc(db,'config','ikasAyarlari'));
     if(snap.exists()){
@@ -3138,15 +3177,18 @@ window.showIkasSettingsModal = async function(){
       document.getElementById('ikas-set-store').value = d.storeName || '';
       document.getElementById('ikas-set-clientid').value = d.clientId || '';
       kayitliFiyatListesiId = d.fiyatListesiId || '';
+      kayitliSatisKanaliId = d.satisKanaliId || '';
     }
   }catch(err){
     resultEl.innerHTML = `<div style="background:var(--danger-bg);color:var(--danger-text);border-radius:8px;padding:8px 10px">Mevcut ayarlar okunamadı: ${esc(err.message)}</div>`;
     return;
   }
-  // Bağlantı bilgileri kayıtlıysa (mağaza adı/client id) fiyat listelerini hemen çekmeyi dene —
-  // henüz kayıt yoksa (ilk kurulum) sessizce atla, "Yenile" butonuyla Kaydet sonrası çekilebilir.
+  // Bağlantı bilgileri kayıtlıysa (mağaza adı/client id) fiyat listelerini/satış kanallarını
+  // hemen çekmeyi dene — henüz kayıt yoksa (ilk kurulum) sessizce atla, "Yenile" butonuyla
+  // Kaydet sonrası çekilebilir.
   if(document.getElementById('ikas-set-store').value && document.getElementById('ikas-set-clientid').value){
     await loadIkasPriceListOptions(kayitliFiyatListesiId);
+    await loadIkasSalesChannelOptions(kayitliSatisKanaliId);
   }
 };
 window.closeIkasSettingsModal = ()=>document.getElementById('ikas-settings-modal').classList.add('hidden');
@@ -3172,6 +3214,25 @@ async function loadIkasPriceListOptions(preselectId){
 }
 window.loadIkasPriceListOptions = loadIkasPriceListOptions;
 
+// listSalesChannel her zaman "ADMIN" tipli sahte bir kanal döndürüyor (id literalde "ADMIN",
+// gerçek bir storefront değil) — sadece type==='STOREFRONT' olanlar burada seçilebilir olmalı,
+// yoksa yanlışlıkla ADMIN kanalı seçilip ürünler hiçbir müşteri kanalına atanmaz.
+async function loadIkasSalesChannelOptions(preselectId){
+  const sel = document.getElementById('ikas-set-saleschannel');
+  sel.innerHTML = '<option value="">Yükleniyor...</option>';
+  try{
+    const data = await ikasApi('{ listSalesChannel { id name type } }');
+    const kanallar = ((data && data.listSalesChannel) || []).filter(k=>k.type==='STOREFRONT');
+    if(!kanallar.length){ sel.innerHTML = '<option value="">Hiç storefront kanalı bulunamadı</option>'; return; }
+    sel.innerHTML = kanallar.map(k=>`<option value="${esc(k.id)}">${esc(k.name)}</option>`).join('');
+    if(preselectId) sel.value = preselectId;
+    else if(kanallar.length===1) sel.value = kanallar[0].id;
+  }catch(err){
+    sel.innerHTML = `<option value="">Listelenemedi: ${esc(err.message)}</option>`;
+  }
+}
+window.loadIkasSalesChannelOptions = loadIkasSalesChannelOptions;
+
 window.saveIkasSettings = async function(){
   const btn = document.getElementById('ikas-settings-btn');
   const resultEl = document.getElementById('ikas-settings-result');
@@ -3179,18 +3240,20 @@ window.saveIkasSettings = async function(){
   const clientId = document.getElementById('ikas-set-clientid').value.trim();
   const clientSecret = document.getElementById('ikas-set-secret').value;
   const fiyatListesiId = document.getElementById('ikas-set-pricelist').value;
+  const satisKanaliId = document.getElementById('ikas-set-saleschannel').value;
   const eskiMetin = btn.textContent;
   btn.disabled = true; btn.textContent = 'Kaydediliyor...';
   resultEl.innerHTML = '';
   try{
-    await setDoc(doc(db,'config','ikasAyarlari'), { storeName, clientId, fiyatListesiId }, { merge:true });
+    await setDoc(doc(db,'config','ikasAyarlari'), { storeName, clientId, fiyatListesiId, satisKanaliId }, { merge:true });
     if(clientSecret){
       await setDoc(doc(db,'config','ikasAyarlariGizli'), { clientSecret }, { merge:true });
     }
     document.getElementById('ikas-set-secret').value = '';
-    _ikasPriceListId = null; // önbelleği temizle — yeni seçim bir sonraki gönderimde kullanılsın
+    _ikasPriceListId = null; _ikasSalesChannelId = null; // önbelleği temizle — yeni seçim bir sonraki gönderimde kullanılsın
     resultEl.innerHTML = `<div style="background:var(--success-bg);color:var(--success-text);border-radius:8px;padding:8px 10px">Kaydedildi.</div>`;
     if(!fiyatListesiId) await loadIkasPriceListOptions();
+    if(!satisKanaliId) await loadIkasSalesChannelOptions();
   }catch(err){
     resultEl.innerHTML = `<div style="background:var(--danger-bg);color:var(--danger-text);border-radius:8px;padding:8px 10px">Kaydedilemedi: ${esc(err.message)}</div>`;
   }finally{
