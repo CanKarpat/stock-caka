@@ -2417,7 +2417,10 @@ window.exportIkasNative = function(){
         v?(v.barkod||v.sku||''):'', v?(v.sku||p.kod||''):(p.kod||''),
         false, IKAS_MARKA_SABIT,
         '', '', '', '', '', '', // Kategoriler, Etiketler, Resim URL, Metadata Başlık, Metadata Açıklama, Slug
-        v?(v.miktar||0):0, 'PHYSICAL', 'Renk', renkDeger, 'Beden', bedenDeger,
+        // Çanta gibi renk/beden'i olmayan (varyantsız) ürünlerde Varyant Tip sütunları da boş
+        // kalır — "Renk"/"Beden" yazıp değerini boş bırakmak İKAS'ın içe aktarımını karıştırabilir
+        // (API push'ta "basit ürün" olarak ele alınmasıyla aynı mantık, 2026-08-27).
+        v?(v.miktar||0):0, 'PHYSICAL', renkDeger?'Renk':'', renkDeger, bedenDeger?'Beden':'', bedenDeger,
         '', '', '', '', '', '', '', // Desi, HS Kod, Birim Ürün Miktarı, Ürün Birimi, Satılan Ürün Miktarı, Satılan Ürün Birimi, Google Ürün Kategorisi
         IKAS_MARKA_SABIT, '', // Tedarikçi, Stoğu Tükenince Satmaya Devam Et
         kanalDurumuEfektif, // Satış Kanalı 1
