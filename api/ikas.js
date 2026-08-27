@@ -61,8 +61,9 @@ async function verifyCaller(req, app) {
 const ALLOWED_MUTATIONS = new Set([
   'saveProduct',             // yeni ürün gönderme / var olan ürüne varyant ekleme
   'saveVariantPrices',       // fiyat push — DOĞRULANDI (ikas.dev)
-  'bulkUpdateProducts',      // stok push — DOĞRULANDI (2026-08-27 canlı hatayla: "bulkUpdateProductStock"
-                             // diye bir mutation yok, doğrusu bu — eski, hiç var olmayan ad kaldırıldı)
+  'saveProductStockLocations', // stok push — DOĞRULANDI (2026-08-27, introspection'la: "bulkUpdateProductStock"
+                                // hiç yoktu, "bulkUpdateProducts" da yanlış adaydı (tüm ürünü ister) — gerçek,
+                                // hafif karşılığı bu; SaveStockLocationsInput{productStockLocationInputs:[...]})
   'saveWebhook',             // webhook kurulum — DOĞRULANDI
   'deleteWebhook',           // webhook kaldırma — DOĞRULANDI
 ]);

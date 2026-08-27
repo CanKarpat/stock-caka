@@ -2898,12 +2898,16 @@ const IKAS_SAVE_PRICE_MUTATION = `
   }
 `;
 
-// DİKKAT: mutation adı ("bulkUpdateProductStock") TAHMİNİ — sadece girdi tipi
-// (BulkUpdateProductStockInput: {stockCount, stockLocationId}) ikas.dev'de doğrulandı.
-// İlk gerçek göndermeden önce introspection ile mutation adını teyit et.
+// "bulkUpdateProductStock" diye bir mutation hiç yokmuş (2026-08-27 canlı hatayla keşfedildi).
+// İKAS'ın "Did you mean bulkUpdateProducts?" önerisi sadece yazım benzerliğine bakıyordu —
+// bulkUpdateProducts aslında TÜM ürünü (name/categories/productVariantTypes/type hepsi zorunlu)
+// yeniden göndermeyi isteyen ağır bir toplu mutation, sadece stok için yanlış araç. Gerçek,
+// hafif karşılığı saveProductStockLocations — introspection ile doğrulandı:
+// SaveStockLocationsInput{ productStockLocationInputs: [ProductStockLocationInput!] },
+// ProductStockLocationInput{ productId!, variantId!, stockLocationId!, stockCount! }.
 const IKAS_UPDATE_STOCK_MUTATION = `
-  mutation($input: [BulkUpdateProductStockInput!]!) {
-    bulkUpdateProductStock(input: $input)
+  mutation($input: SaveStockLocationsInput!) {
+    saveProductStockLocations(input: $input)
   }
 `;
 
@@ -3142,11 +3146,14 @@ window.pushToIkas = async function(){
           // ProductInput/VariantInput'ta stok ile ilgili bir alan YOK (introspection'da hiç
           // bulunamadı) — saveProduct'la oluşturulan/eklenen varyantların stoğu bu yüzden 0
           // kalıyordu (2026-08-27 canlı denemeyle keşfedildi). Zaten eşleşmiş ürünler için
-          // aşağıdaki else dalında kullanılan aynı bulkUpdateProductStock mutation'ını burada
-          // da (yeni/eklenen tüm varyantlar için) ayrıca çağırmamız gerekiyor.
-          await Promise.all((p.variants||[]).filter(v=>v.ikasVaryantId).map(v=>
-            ikasApi(IKAS_UPDATE_STOCK_MUTATION, { input: [{ variantId: v.ikasVaryantId, stockLocationId, stockCount: Number(v.miktar||0) }] })
-          ));
+          // aşağıdaki else dalında kullanılan aynı saveProductStockLocations mutation'ını
+          // burada da (yeni/eklenen tüm varyantlar için) ayrıca çağırmamız gerekiyor.
+          const stokVaryantlari = (p.variants||[]).filter(v=>v.ikasVaryantId);
+          if(stokVaryantlari.length){
+            await ikasApi(IKAS_UPDATE_STOCK_MUTATION, { input: { productStockLocationInputs: stokVaryantlari.map(v=>({
+              productId: p.ikasGrupId, variantId: v.ikasVaryantId, stockLocationId, stockCount: Number(v.miktar||0),
+            })) } });
+          }
           await saveProduct(p);
           if(yeniMi) yeniOlusturulan++; else varyantEklenen++;
         } else {
@@ -3156,7 +3163,9 @@ window.pushToIkas = async function(){
               priceListId,
               variantPriceInputs: [{ productId: p.ikasGrupId, variantId: v.ikasVaryantId, price: { sellPrice: Number(p.indirimli||p.satis||0) } }],
             }});
-            await ikasApi(IKAS_UPDATE_STOCK_MUTATION, { input: [{ variantId: v.ikasVaryantId, stockLocationId, stockCount: Number(v.miktar||0) }] });
+            await ikasApi(IKAS_UPDATE_STOCK_MUTATION, { input: { productStockLocationInputs: [{
+              productId: p.ikasGrupId, variantId: v.ikasVaryantId, stockLocationId, stockCount: Number(v.miktar||0),
+            }] } });
           }));
           sadeceGuncellenen++;
         }
