@@ -423,6 +423,10 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
     <select id="bulk-tedarikci"></select>
     <button class="btn ghost" id="bulk-tedarikci-btn" onclick="bulkSetTedarikci()">Uygula</button>
     <div class="sep2"></div>
+    <label>Satış Fiyatı (₺):</label>
+    <input type="number" id="bulk-satis" min="0" placeholder="1500" style="width:90px" title="Seçili tüm ürünlerin satış fiyatını doğrudan bu değere ayarlar">
+    <button class="btn ghost" onclick="bulkSetSatis()">Uygula</button>
+    <div class="sep2"></div>
     <label>Satış fiyatı %:</label>
     <input type="number" id="bulk-pct" placeholder="10 veya -10" style="width:90px">
     <button class="btn ghost" onclick="bulkAdjustPrice()">Uygula</button>
@@ -1607,6 +1611,16 @@ window.bulkSetTedarikci = async function(){
     btn.disabled = false;
     btn.textContent = eskiMetin;
   }
+};
+window.bulkSetSatis = async function(){
+  if(!selectedIds.size) return;
+  const val = parseFloat(document.getElementById('bulk-satis').value);
+  if(isNaN(val) || val<0){ alert('Geçerli bir fiyat gir (örn. 1500).'); return; }
+  await Promise.all([...selectedIds].map(id=>{
+    const p = products.find(x=>x.id===id); if(!p) return;
+    p.satis = val; return saveProduct(p);
+  }));
+  document.getElementById('bulk-satis').value='';
 };
 window.bulkAdjustPrice = async function(){
   if(!selectedIds.size) return;
