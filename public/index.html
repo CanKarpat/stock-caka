@@ -772,6 +772,7 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
           <option value="hepsi">Tümü</option>
           <option value="eslesmis">Sadece Aktif — İKAS'ta Eşleşmiş</option>
           <option value="yeni" selected>Sadece Yeni Girilenler — Henüz Eşleşmemiş</option>
+          <option value="secili" id="ikas-export-secili-opt">Sadece Seçili Ürünler</option>
         </select>
       </div>
       <div class="form-group" style="margin-top:10px">
@@ -2353,7 +2354,15 @@ window.doExportCSV = function(){
 };
 
 // ── İKAS native formatında dışa aktar (kendi Excel şablonlarının sütun düzeni) ──
-window.showIkasExportModal = ()=>document.getElementById('ikas-export-modal').classList.remove('hidden');
+window.showIkasExportModal = function(){
+  const seciliOpt = document.getElementById('ikas-export-secili-opt');
+  seciliOpt.textContent = selectedIds.size ? `Sadece Seçili Ürünler (${selectedIds.size})` : 'Sadece Seçili Ürünler';
+  seciliOpt.disabled = !selectedIds.size;
+  // Ana listede bir seçim varsa (checkbox'lar), muhtemelen kullanıcı tam da onları dışa
+  // aktarmak istiyordur — kapsamı otomatik "Seçili Ürünler"e getiriyoruz, istemezse değiştirebilir.
+  document.getElementById('ikas-export-kapsam').value = selectedIds.size ? 'secili' : 'yeni';
+  document.getElementById('ikas-export-modal').classList.remove('hidden');
+};
 window.closeIkasExportModal = ()=>document.getElementById('ikas-export-modal').classList.add('hidden');
 
 // İKAS'ta kayıtlı Varyant Tipi/Değerleri — excel-sablon/ikas-varyant-tipleri.xlsx kaynaklı (2026-07-08).
@@ -2372,10 +2381,11 @@ window.exportIkasNative = function(){
   if(ikinciKanalDahil && !ikinciKanalAdi){ alert('İkinci satış kanalının adını gir, ya da "İkinci bir satış kanalı da dahil et" kutusunu kaldır.'); return; }
 
   // Kapsam: her seferinde İKAS'ta zaten aktif/eşleşmiş ürünleri tekrar dosyaya koymak gereksiz olabilir —
-  // kullanıcı sadece yeni girilenleri, sadece eşleşmişleri ya da tümünü seçebilir.
+  // kullanıcı sadece yeni girilenleri, sadece eşleşmişleri, ana listede işaretlediklerini ya da tümünü seçebilir.
   const exportEdilecekUrunler = products.filter(p=>{
     if(exportKapsam==='eslesmis') return !!p.ikasGrupId;
     if(exportKapsam==='yeni') return !p.ikasGrupId;
+    if(exportKapsam==='secili') return selectedIds.has(p.id);
     return true;
   });
   if(!exportEdilecekUrunler.length){ alert('Seçilen kapsamda ürün yok.'); return; }
