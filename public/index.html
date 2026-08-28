@@ -3495,14 +3495,19 @@ window.pushToIkas = async function(){
         } else {
           await Promise.all((p.variants||[]).map(async v=>{
             if(!v.ikasVaryantId) return;
-            // VariantPriceInput.price da bir ProductPriceInput — o da KENDİ İÇİNDE priceListId
-            // istiyor (2026-08-28'de bulundu: fiyat sessizce güncellenmiyordu, hata da yoktu).
-            // Dış seviyedeki priceListId'yi koymak yetmiyor, saveProduct'taki "varsayılan fiyat
-            // listesi" düzeltmesiyle aynı mantık. saveVariantPrices Boolean! döndürüyor ama hiç
-            // kontrol edilmiyordu — artık false dönerse net bir hata fırlatılıyor.
+            // VariantPriceInput.price da bir ProductPriceInput. saveVariantPrices true dönse
+            // (yani "başarılı" dese) bile İKAS panelinde fiyat değişmiyordu (2026-08-28 canlı
+            // denemeyle keşfedildi) — yeni ürün oluştururken karşılaşılan "varsayılan fiyat
+            // listesi" sorununun ikizi olabilir: orada çözüm, priceListId'siz (varsayılan) VE
+            // priceListId'li iki ayrı fiyat girişini BİRLİKTE göndermekti. variantPriceInputs
+            // bir dizi olduğu için burada da aynı ikili girişi deniyoruz.
+            const sellPrice = Number(p.indirimli||p.satis||0);
             const priceData = await ikasApi(IKAS_SAVE_PRICE_MUTATION, { input: {
               priceListId,
-              variantPriceInputs: [{ productId: p.ikasGrupId, variantId: v.ikasVaryantId, price: { sellPrice: Number(p.indirimli||p.satis||0), priceListId } }],
+              variantPriceInputs: [
+                { productId: p.ikasGrupId, variantId: v.ikasVaryantId, price: { sellPrice } },
+                { productId: p.ikasGrupId, variantId: v.ikasVaryantId, price: { sellPrice, priceListId } },
+              ],
             }});
             if(!priceData || priceData.saveVariantPrices !== true){
               throw new Error(`Fiyat güncellenemedi, İKAS "başarısız" döndürdü (SKU: ${v.sku||p.kod||'?'}).`);
