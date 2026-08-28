@@ -3516,25 +3516,27 @@ window.pushToIkas = async function(){
         } else {
           await Promise.all((p.variants||[]).map(async v=>{
             if(!v.ikasVaryantId) return;
-            // VariantPriceInput.price da bir ProductPriceInput. saveVariantPrices true dönse
-            // (yani "başarılı" dese) bile İKAS panelinde fiyat değişmiyor gibi görünüyordu —
-            // asıl sebep (2026-08-28'de bulundu): sellPrice "p.indirimli || p.satis" ile
-            // hesaplanıyordu, yani indirimli fiyat doluyken satış fiyatındaki değişiklik hiç
-            // gönderilmiyordu. İndirimli fiyat artık kendi alanı olan discountPrice'a gidiyor.
-            // priceListId'siz + priceListId'li ikili giriş de (varsayılan fiyat listesi
-            // sorununa karşı, saveProduct'takiyle aynı mantık) korunuyor.
+            // saveVariantPrices, DIZI İÇİNDEKİ price.priceListId'yi değil, SaveVariantPricesInput'un
+            // EN DIŞ seviyesindeki priceListId'yi kullanarak TEK bir fiyat listesini hedefliyor
+            // (2026-08-28 canlı denemeyle kesinleşti — aynı çağrıda priceListId'li/priceListId'siz
+            // iki dizi girişi göndermek, sadece dış priceListId'nin hedeflediği listeyi güncelledi,
+            // "Temel Bilgi"deki taban fiyat hiç değişmedi). Bu yüzden TABAN fiyat (İKAS panelindeki
+            // "Temel Bilgi" alanı, panelde ayrı bir yerde) ve SEÇİLİ fiyat listesi için AYRI AYRI
+            // İKİ çağrı yapmak gerekiyor — sellPrice "p.indirimli || p.satis" karışıklığı da
+            // düzeltildi, indirimli artık kendi alanı olan discountPrice'a gidiyor.
             const sellPrice = Number(p.satis || 0);
             const discountPrice = Number(p.indirimli || 0) > 0 ? Number(p.indirimli) : undefined;
-            const priceData = await ikasApi(IKAS_SAVE_PRICE_MUTATION, { input: {
-              priceListId,
-              variantPriceInputs: [
-                { productId: p.ikasGrupId, variantId: v.ikasVaryantId, price: { sellPrice, discountPrice } },
-                { productId: p.ikasGrupId, variantId: v.ikasVaryantId, price: { sellPrice, discountPrice, priceListId } },
-              ],
-            }});
-            if(!priceData || priceData.saveVariantPrices !== true){
-              throw new Error(`Fiyat güncellenemedi, İKAS "başarısız" döndürdü (SKU: ${v.sku||p.kod||'?'}).`);
-            }
+            const fiyatGuncelle = async (hedefPriceListId) => {
+              const priceData = await ikasApi(IKAS_SAVE_PRICE_MUTATION, { input: {
+                priceListId: hedefPriceListId,
+                variantPriceInputs: [{ productId: p.ikasGrupId, variantId: v.ikasVaryantId, price: { sellPrice, discountPrice } }],
+              }});
+              if(!priceData || priceData.saveVariantPrices !== true){
+                throw new Error(`Fiyat güncellenemedi, İKAS "başarısız" döndürdü (SKU: ${v.sku||p.kod||'?'}).`);
+              }
+            };
+            await fiyatGuncelle(undefined); // Temel Bilgi'deki taban fiyat
+            await fiyatGuncelle(priceListId); // seçili fiyat listesi
             await ikasApi(IKAS_UPDATE_STOCK_MUTATION, { input: { productStockLocationInputs: [{
               productId: p.ikasGrupId, variantId: v.ikasVaryantId, stockLocationId, stockCount: Number(v.miktar||0),
             }] } });
