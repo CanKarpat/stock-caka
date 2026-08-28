@@ -2784,6 +2784,20 @@ window.ikasQuery = async function(query, variables){
   }
 };
 
+// Hata ayıklama: `products` modül içinde, konsoldan erişilemiyor (ikasApi gibi) — yerelde
+// saklanan ikasGrupId/ikasVaryantId'lerin İKAS'taki gerçek ID'lerle eşleşip eşleşmediğini
+// karşılaştırabilmek için (2026-08-28, fiyat güncelleme sorunu araştırması).
+window.dumpLocalIkasIds = function(){
+  const rows = [];
+  products.forEach(p=>{
+    (p.variants||[]).forEach(v=>{
+      rows.push({ kod: p.kod, sku: v.sku, ikasGrupId: p.ikasGrupId||null, ikasVaryantId: v.ikasVaryantId||null });
+    });
+  });
+  console.log(JSON.stringify(rows, null, 2));
+  return rows;
+};
+
 window.showIkasTestModal = function(){
   document.getElementById('ikas-test-result').innerHTML='';
   document.getElementById('ikas-test-modal').classList.remove('hidden');
