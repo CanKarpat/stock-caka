@@ -3495,10 +3495,18 @@ window.pushToIkas = async function(){
         } else {
           await Promise.all((p.variants||[]).map(async v=>{
             if(!v.ikasVaryantId) return;
-            await ikasApi(IKAS_SAVE_PRICE_MUTATION, { input: {
+            // VariantPriceInput.price da bir ProductPriceInput — o da KENDİ İÇİNDE priceListId
+            // istiyor (2026-08-28'de bulundu: fiyat sessizce güncellenmiyordu, hata da yoktu).
+            // Dış seviyedeki priceListId'yi koymak yetmiyor, saveProduct'taki "varsayılan fiyat
+            // listesi" düzeltmesiyle aynı mantık. saveVariantPrices Boolean! döndürüyor ama hiç
+            // kontrol edilmiyordu — artık false dönerse net bir hata fırlatılıyor.
+            const priceData = await ikasApi(IKAS_SAVE_PRICE_MUTATION, { input: {
               priceListId,
-              variantPriceInputs: [{ productId: p.ikasGrupId, variantId: v.ikasVaryantId, price: { sellPrice: Number(p.indirimli||p.satis||0) } }],
+              variantPriceInputs: [{ productId: p.ikasGrupId, variantId: v.ikasVaryantId, price: { sellPrice: Number(p.indirimli||p.satis||0), priceListId } }],
             }});
+            if(!priceData || priceData.saveVariantPrices !== true){
+              throw new Error(`Fiyat güncellenemedi, İKAS "başarısız" döndürdü (SKU: ${v.sku||p.kod||'?'}).`);
+            }
             await ikasApi(IKAS_UPDATE_STOCK_MUTATION, { input: { productStockLocationInputs: [{
               productId: p.ikasGrupId, variantId: v.ikasVaryantId, stockLocationId, stockCount: Number(v.miktar||0),
             }] } });
