@@ -973,7 +973,7 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
         <input type="password" id="ikas-set-secret" placeholder="••••••••" autocomplete="new-password">
       </div>
       <div class="form-group">
-        <label>Fiyat Listesi <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">("İKAS'a Gönder" fiyat/stok gönderirken bu listeyi kullanır — birden fazla fiyat listen varsa seç</span></label>
+        <label>Fiyat Listesi <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(opsiyonel — "İKAS'a Gönder" her zaman "Temel Bilgi" taban fiyatını günceller; burada AYRICA bir liste seçersen ona da aynı fiyat gönderilir. Döviz kuruna göre otomatik güncellenen ya da elle marj eklenen listeler için "Hiçbiri" bırak)</span></label>
         <div style="display:flex;gap:6px">
           <select id="ikas-set-pricelist" style="flex:1"><option value="">— (Kaydet'e bas, sonra listelenir)</option></select>
           <button type="button" class="btn ghost" style="height:34px;padding:0 10px;font-size:11px" onclick="loadIkasPriceListOptions()">Yenile</button>
@@ -3270,24 +3270,21 @@ const IKAS_NAME_DESC_QUERY = `
   }
 `;
 
-let _ikasPriceListId = null, _ikasStockLocationId = null; // sunucudaki cachedToken gibi, sayfa ömrü boyunca önbellek
+let _ikasPriceListId = undefined, _ikasStockLocationId = null; // sunucudaki cachedToken gibi, sayfa ömrü boyunca önbellek — _ikasPriceListId: undefined=henüz çözülmedi, ''=bilerek hiçbir liste seçilmemiş
 // PriceList tipinde "isDefault"/"isMain" gibi bir alan YOK (2026-08-14 canlı hatayla
 // keşfedildi, introspection ile doğrulandı) — birden fazla fiyat listesi olan mağazalarda
-// (farklı ülke/mağaza kanalları) hangisinin kullanılacağı API'den tahmin edilemiyor, o yüzden
-// "İKAS Ayarları" modalindeki seçim (config/ikasAyarlari.fiyatListesiId) esas alınıyor.
+// (farklı ülke/mağaza kanalları) hangisinin "ana" olduğu API'den tahmin edilemiyor.
+// DAHA ÖNEMLİSİ (2026-09'da canlı mağazaya geçişte keşfedildi): birden fazla liste genelde
+// birbirinden BAĞIMSIZ, ÖZEL AMAÇLI listelerdir — ör. döviz kuruna göre otomatik güncellenen
+// bir "Yurt Dışı" listesi, ya da elle marj eklenen bir "Trendyol" listesi. Bunlara stock-caka'nın
+// TL taban fiyatını yazmak otomatik kur hesabını/marjı BOZAR. Bu yüzden artık "hiçbir liste
+// seçilmemiş" (fiyatListesiId boş) TAMAMEN GEÇERLİ ve varsayılan bir durum — sadece "İKAS
+// Ayarları"ndan kullanıcı BİLEREK bir liste seçerse o listeye de aynı fiyat gönderilir, aksi
+// halde sadece İKAS panelindeki "Temel Bilgi" taban fiyatı güncellenir (bkz. pushToIkas).
 async function getDefaultIkasPriceListId(){
-  if(_ikasPriceListId) return _ikasPriceListId;
+  if(_ikasPriceListId !== undefined) return _ikasPriceListId;
   const ayarSnap = await getDoc(doc(db,'config','ikasAyarlari'));
-  const kayitliId = ayarSnap.exists() ? (ayarSnap.data().fiyatListesiId || '') : '';
-  const data = await ikasApi('{ listPriceList { id name } }');
-  const listeler = (data && data.listPriceList) || [];
-  if(!listeler.length) throw new Error('İKAS\'ta hiç fiyat listesi bulunamadı.');
-  let secilen = kayitliId ? listeler.find(l=>String(l.id)===String(kayitliId)) : null;
-  if(!secilen){
-    if(listeler.length===1) secilen = listeler[0];
-    else throw new Error('Birden fazla fiyat listen var — "İKAS Ayarları" içinden hangisinin kullanılacağını seçmen gerekiyor.');
-  }
-  _ikasPriceListId = secilen.id;
+  _ikasPriceListId = ayarSnap.exists() ? (ayarSnap.data().fiyatListesiId || '') : '';
   return _ikasPriceListId;
 }
 async function getDefaultIkasStockLocationId(){
@@ -3452,17 +3449,15 @@ window.pushToIkas = async function(){
               sku: v.sku || p.kod || '',
               barcodeList: [v.barkod || v.sku || ''],
               isActive: true,
-              // "Varyant içinde varsayılan fiyat listesi bulunamadı" hatası (2026-08-14 canlı
-              // hatayla keşfedildi) — seçtiğimiz priceListId'yi gönderdiğimiz halde çıktı.
-              // ProductPriceInput.priceListId opsiyonel (introspection'da doğrulandı, sellPrice
-              // dışında hiçbir alan zorunlu değil) — muhtemelen priceListId HİÇ verilmeyen bir
-              // fiyat girişi "varsayılan/temel" fiyatı temsil ediyor, seçtiğimiz özel liste ise
-              // ayrı bir ek. Bu yüzden ikisini birden gönderiyoruz: biri priceListId'siz
-              // (varsayılan), biri seçili listeyle.
-              prices: [
-                { sellPrice, discountPrice },
-                { sellPrice, discountPrice, priceListId },
-              ],
+              // priceListId'siz giriş İKAS panelindeki "Temel Bilgi" taban fiyatını günceller —
+              // bu HER ZAMAN gönderilir. Özel bir fiyat listesi (priceListId doluysa) SADECE
+              // kullanıcı "İKAS Ayarları"ndan bilerek seçtiyse ayrıca eklenir — aksi halde
+              // döviz kuruna göre otomatik güncellenen ya da elle marj eklenen listelere
+              // (Trendyol, Yurt Dışı vb.) yanlışlıkla TL taban fiyatı yazılmış olurdu
+              // (2026-09'da canlı mağazaya geçişte keşfedildi).
+              prices: priceListId
+                ? [{ sellPrice, discountPrice }, { sellPrice, discountPrice, priceListId }]
+                : [{ sellPrice, discountPrice }],
               variantValueIds,
             };
           });
@@ -3550,8 +3545,11 @@ window.pushToIkas = async function(){
                 throw new Error(`Fiyat güncellenemedi, İKAS "başarısız" döndürdü (SKU: ${v.sku||p.kod||'?'}).`);
               }
             };
-            await fiyatGuncelle(undefined); // Temel Bilgi'deki taban fiyat
-            await fiyatGuncelle(priceListId); // seçili fiyat listesi
+            await fiyatGuncelle(undefined); // Temel Bilgi'deki taban fiyat — her zaman güncellenir
+            // Özel bir fiyat listesi SADECE bilerek seçildiyse ayrıca güncellenir — aksi halde
+            // otomatik/elle yönetilen listelere (Trendyol, Yurt Dışı vb.) yanlışlıkla taban
+            // fiyat yazılmasın diye (bkz. yukarıdaki inputVariants yorumu).
+            if(priceListId) await fiyatGuncelle(priceListId);
             await ikasApi(IKAS_UPDATE_STOCK_MUTATION, { input: { productStockLocationInputs: [{
               productId: p.ikasGrupId, variantId: v.ikasVaryantId, stockLocationId, stockCount: Number(v.miktar||0),
             }] } });
@@ -3613,19 +3611,21 @@ window.closeIkasSettingsModal = ()=>document.getElementById('ikas-settings-modal
 
 // isDefault/isMain gibi bir alan PriceList tipinde YOK (2026-08-14, "Cannot query field
 // "isDefault" on type "PriceList"" canlı hatasıyla keşfedildi, introspection ile doğrulandı) —
-// birden fazla fiyat listesi olan mağazalarda (farklı ülke/mağaza kanalları) hangisinin
-// "ana" olduğu API'den tahmin edilemiyor. Bu yüzden otomatik seçim yerine kullanıcı burada
-// isimden (name — doğrulanmış alan) seçiyor, seçim config/ikasAyarlari.fiyatListesiId'de tutulur.
+// birden fazla fiyat listesi olan mağazalarda hangisinin "ana" olduğu API'den tahmin edilemiyor.
+// DAHA ÖNEMLİSİ (2026-09'da canlı mağazaya geçişte keşfedildi): birden fazla liste genelde
+// birbirinden bağımsız, özel amaçlı listelerdir (döviz kuruna göre otomatik güncellenen "Yurt
+// Dışı", elle marj eklenen "Trendyol" gibi) — bunlara stock-caka'nın hiç dokunmaması gerekir.
+// Bu yüzden "Hiçbiri" HER ZAMAN listede bir seçenek ve hiçbir zaman otomatik seçilmiyor; sadece
+// kullanıcı burada BİLEREK bir liste seçerse pushToIkas() ona da fiyat gönderir.
 async function loadIkasPriceListOptions(preselectId){
   const sel = document.getElementById('ikas-set-pricelist');
   sel.innerHTML = '<option value="">Yükleniyor...</option>';
   try{
-    const data = await ikasApi('{ listPriceList { id name currencyCode } }');
+    const data = await ikasApi('{ listPriceList { id name currencyCode type } }');
     const listeler = (data && data.listPriceList) || [];
-    if(!listeler.length){ sel.innerHTML = '<option value="">Hiç fiyat listesi bulunamadı</option>'; return; }
-    sel.innerHTML = listeler.map(l=>`<option value="${esc(l.id)}">${esc(l.name)}${l.currencyCode?` (${esc(l.currencyCode)})`:''}</option>`).join('');
-    if(preselectId) sel.value = preselectId;
-    else if(listeler.length===1) sel.value = listeler[0].id;
+    sel.innerHTML = '<option value="">— Hiçbiri (sadece Temel Bilgi taban fiyatı)</option>' +
+      listeler.map(l=>`<option value="${esc(l.id)}">${esc(l.name)}${l.currencyCode?` (${esc(l.currencyCode)})`:''}${l.type?` — ${esc(l.type)}`:''}</option>`).join('');
+    sel.value = preselectId || '';
   }catch(err){
     sel.innerHTML = `<option value="">Listelenemedi: ${esc(err.message)}</option>`;
   }
@@ -3675,7 +3675,7 @@ window.saveIkasSettings = async function(){
       await setDoc(doc(db,'config','ikasAyarlariGizli'), { clientSecret }, { merge:true });
     }
     document.getElementById('ikas-set-secret').value = '';
-    _ikasPriceListId = null; _ikasSalesChannelIds = null; // önbelleği temizle — yeni seçim bir sonraki gönderimde kullanılsın
+    _ikasPriceListId = undefined; _ikasSalesChannelIds = null; // önbelleği temizle — yeni seçim bir sonraki gönderimde kullanılsın
     resultEl.innerHTML = `<div style="background:var(--success-bg);color:var(--success-text);border-radius:8px;padding:8px 10px">Kaydedildi.</div>`;
     if(!fiyatListesiId) await loadIkasPriceListOptions();
     if(!satisKanaliIdleri.length) await loadIkasSalesChannelOptions();
