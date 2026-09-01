@@ -2848,6 +2848,18 @@ function ikasBazFiyatSec(prices){
   return Number((baz || prices[0]).sellPrice || 0);
 }
 
+// İKAS'ın satış kanalı durumu (VISIBLE/HIDDEN/PASSIVE) stock-caka'nın kendi "Durum" alanına
+// (Yayında/Beklemede/Pasif) birebir karşılık geliyor — 2026-09'da "satışa kapalı ürünler Yayında
+// geldi" hatasıyla keşfedildi: içe aktarma bu alana hiç bakmadan sabit "Yayında" yazıyordu.
+// salesChannels bir dizi (birden fazla kanal — İKAS + Trendyol vb.) ama canlı denemede hepsi
+// aynı durumu taşıyordu, bu yüzden ilk elemanı temsilci olarak kullanıyoruz.
+function ikasDurumaCevir(salesChannels){
+  const status = salesChannels && salesChannels[0] && salesChannels[0].status;
+  if(status==='PASSIVE') return 'Pasif';
+  if(status==='HIDDEN') return 'Beklemede';
+  return 'Yayında';
+}
+
 const IKAS_PULL_QUERY = `
   query ListProductsForSync($pagination: PaginationInput) {
     listProduct(pagination: $pagination) {
@@ -2855,6 +2867,7 @@ const IKAS_PULL_QUERY = `
       data {
         id
         categories { id name parentId }
+        salesChannels { status }
         variants {
           id
           sku
@@ -2876,6 +2889,7 @@ window.pullIkasProducts = async function(){
 
   const skuMap = new Map();
   const grupKategoriMap = new Map(); // grupId -> [{id,name,parentId}]
+  const grupDurumMap = new Map(); // grupId -> 'Yayında'/'Beklemede'/'Pasif'
   const MAX_PAGES = 50; // güvenlik kapağı — sayfalama şeklini yanlış varsaymışsak sonsuz döngüye girmeyelim
   try{
     let page = 1;
@@ -2886,6 +2900,7 @@ window.pullIkasProducts = async function(){
       if(!rows.length) break;
       rows.forEach(prod=>{
         grupKategoriMap.set(String(prod.id), prod.categories || []);
+        grupDurumMap.set(String(prod.id), ikasDurumaCevir(prod.salesChannels));
         (prod.variants||[]).forEach(v=>{
           if(!v.sku) return;
           const stok = (v.stocks && v.stocks[0] && v.stocks[0].stockCount);
@@ -2928,6 +2943,10 @@ window.pullIkasProducts = async function(){
         const kategoriler = grupKategoriMap.get(p.ikasGrupId);
         if(JSON.stringify(p.ikasKategoriler||[]) !== JSON.stringify(kategoriler)){ p.ikasKategoriler = kategoriler; degisti = true; }
       }
+      if(p.ikasGrupId && grupDurumMap.has(p.ikasGrupId)){
+        const yeniDurum = grupDurumMap.get(p.ikasGrupId);
+        if(p.durum !== yeniDurum){ p.durum = yeniDurum; degisti = true; }
+      }
       if(degisti){
         guncellenenUrun++;
         toSave.push(saveProduct(p).then(()=>{ tamamlanan++; btn.textContent = `Kaydediliyor... (${tamamlanan}/${toplam})`; }));
@@ -2965,6 +2984,7 @@ const IKAS_IMPORT_QUERY = `
         name
         description
         categories { id name parentId }
+        salesChannels { status }
         variants {
           id
           sku
@@ -3091,7 +3111,7 @@ window.importNewIkasProducts = async function(){
         tedarikciKodu: cozum.tedarikciKodu || '',
         urunTipi: cozum.urunTipi || '',
         uzunluk: cozum.uzunluk || '',
-        durum: 'Yayında',
+        durum: ikasDurumaCevir(iu.salesChannels),
         alis: 0, // İKAS'tan asla gelmez, hiçbir zaman set edilmez
         satis: ikasBazFiyatSec(ilkVaryant.prices),
         indirimli: 0,
