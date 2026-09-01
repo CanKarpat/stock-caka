@@ -2836,6 +2836,18 @@ window.closeIkasPullModal = ()=>document.getElementById('ikas-pull-modal').class
 // URL kurmaya çalışıldı (buildIkasImageUrl, artık silindi), canlıda YANLIŞ çıktı: API'nin
 // döndürdüğü fileName gerçek CDN yolunda hiç işe yaramıyor. Görsel URL'si artık "Görsel URL
 // İçe Aktar (Excel)" ile İKAS'ın kendi Excel dışa aktarımından okunuyor (processGorselImport).
+// Bir varyantın prices dizisinde birden fazla giriş olabilir (mağazada birden fazla fiyat
+// listesi varsa — her biri farklı priceListId taşır) — ilk elemanı körlemesine almak (prices[0])
+// API'nin döndürme sırasına göre YANLIŞ fiyat listesinden değer almaya yol açabilir (2026-09'da
+// "İKAS'a Gönder" fiyat hata ayıklamasında keşfedilen "Temel Bilgi" vs "Fiyat Listesi" ayrımıyla
+// aynı kök sorun). priceListId'si olmayan (İKAS panelindeki "Temel Bilgi" taban fiyatı) girişi
+// tercih ediyoruz, bulunamazsa güvenli bir düşüş olarak ilk elemana düşülür.
+function ikasBazFiyatSec(prices){
+  if(!prices || !prices.length) return 0;
+  const baz = prices.find(p=>!p.priceListId);
+  return Number((baz || prices[0]).sellPrice || 0);
+}
+
 const IKAS_PULL_QUERY = `
   query ListProductsForSync($pagination: PaginationInput) {
     listProduct(pagination: $pagination) {
@@ -2847,7 +2859,7 @@ const IKAS_PULL_QUERY = `
           id
           sku
           stocks { stockCount }
-          prices { sellPrice }
+          prices { sellPrice priceListId }
         }
       }
     }
@@ -2877,7 +2889,10 @@ window.pullIkasProducts = async function(){
         (prod.variants||[]).forEach(v=>{
           if(!v.sku) return;
           const stok = (v.stocks && v.stocks[0] && v.stocks[0].stockCount);
-          const fiyat = (v.prices && v.prices[0] && v.prices[0].sellPrice);
+          // Birden fazla fiyat listesi varsa prices[0] rastgele bir listeden gelebilir —
+          // priceListId'si olmayan (İKAS panelindeki "Temel Bilgi" taban fiyatı) tercih edilir.
+          const bazFiyatGirisi = (v.prices && v.prices.find(pr=>!pr.priceListId)) || (v.prices && v.prices[0]);
+          const fiyat = bazFiyatGirisi && bazFiyatGirisi.sellPrice;
           skuMap.set(String(v.sku).trim(), {
             grupId: String(prod.id), varyantId: String(v.id),
             stok: (stok===undefined||stok===null) ? null : Number(stok),
@@ -2956,7 +2971,7 @@ const IKAS_IMPORT_QUERY = `
           barcodeList
           variantValueIds { variantTypeId variantValueId }
           stocks { stockCount }
-          prices { sellPrice }
+          prices { sellPrice priceListId }
         }
       }
     }
@@ -3078,7 +3093,7 @@ window.importNewIkasProducts = async function(){
         uzunluk: cozum.uzunluk || '',
         durum: 'Yayında',
         alis: 0, // İKAS'tan asla gelmez, hiçbir zaman set edilmez
-        satis: Number((ilkVaryant.prices && ilkVaryant.prices[0] && ilkVaryant.prices[0].sellPrice) || 0),
+        satis: ikasBazFiyatSec(ilkVaryant.prices),
         indirimli: 0,
         kdvOrani: 0,
         satisKanaliDurumu: '',
