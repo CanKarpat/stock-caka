@@ -68,7 +68,7 @@ const ALLOWED_MUTATIONS = new Set([
   'deleteWebhook',           // webhook kaldırma — DOĞRULANDI
 ]);
 
-let cachedToken = null; // { accessToken, expiresAt } — sadece warm invocation'lar arası yaşar
+let cachedToken = null; // { accessToken, expiresAt, storeName, clientId, clientSecret } — sadece warm invocation'lar arası yaşar
 
 async function getIkasCredentials(app) {
   const db = getFirestore(app);
@@ -87,13 +87,19 @@ async function getIkasCredentials(app) {
 
 async function getIkasToken(app) {
   const now = Date.now();
-  if (cachedToken && cachedToken.expiresAt > now + 30_000) {
-    return cachedToken.accessToken;
-  }
-
   const { storeName, clientId, clientSecret } = await getIkasCredentials(app);
   if (!storeName || !clientId || !clientSecret) {
     throw new Error('İKAS bağlantı bilgileri eksik (Mağaza Adı / Client ID / Client Secret) — "İKAS Ayarları" formunu doldur.');
+  }
+
+  // Önbellekteki token BAŞKA bir mağaza/kimlik bilgisi için alınmışsa (ör. test mağazasından
+  // gerçek mağazaya geçildiyse) süresi dolmamış olsa bile geçersiz sayılır — aksi halde "sıcak"
+  // bir Vercel fonksiyon örneği, kimlik bilgileri Firestore'da değişmiş olsa bile eski mağazanın
+  // token'ını sessizce kullanmaya devam ederdi (2026-09'da canlı geçiş sırasında keşfedildi:
+  // "Yenile" hep eski mağazanın verisini getiriyordu).
+  const kimlikDegisti = !cachedToken || cachedToken.storeName !== storeName || cachedToken.clientId !== clientId || cachedToken.clientSecret !== clientSecret;
+  if (!kimlikDegisti && cachedToken.expiresAt > now + 30_000) {
+    return cachedToken.accessToken;
   }
 
   const tokenUrl = `https://${storeName}.myikas.com/api/admin/oauth/token`;
@@ -118,6 +124,7 @@ async function getIkasToken(app) {
   cachedToken = {
     accessToken: json.access_token,
     expiresAt: now + Number(json.expires_in || 14400) * 1000,
+    storeName, clientId, clientSecret,
   };
   return cachedToken.accessToken;
 }
