@@ -2860,6 +2860,15 @@ function ikasDurumaCevir(salesChannels){
   return 'Yayında';
 }
 
+// İKAS'ın categories dizisi farklı isteklerde farklı sırada dönebiliyor — içerik hiç
+// değişmediği halde JSON.stringify karşılaştırması bunu "değişti" sanıp her "İKAS'tan Çek"
+// çalıştırmasında aynı ürünleri gereksiz yere güncelliyordu (2026-09'da keşfedildi). id'ye
+// göre sıralayıp karşılaştırmayı sıradan bağımsız hale getiriyoruz — hem yeni çekilen listeyi
+// hem yerelde daha önce (eski, sırasız haliyle) kaydedilmiş olanı aynı fonksiyondan geçiriyoruz.
+function kategorileriSirala(kategoriler){
+  return (kategoriler||[]).slice().sort((a,b)=>String(a && a.id).localeCompare(String(b && b.id)));
+}
+
 const IKAS_PULL_QUERY = `
   query ListProductsForSync($pagination: PaginationInput) {
     listProduct(pagination: $pagination) {
@@ -2899,7 +2908,7 @@ window.pullIkasProducts = async function(){
       const rows = (data && data.listProduct && data.listProduct.data) || [];
       if(!rows.length) break;
       rows.forEach(prod=>{
-        grupKategoriMap.set(String(prod.id), prod.categories || []);
+        grupKategoriMap.set(String(prod.id), kategorileriSirala(prod.categories));
         grupDurumMap.set(String(prod.id), ikasDurumaCevir(prod.salesChannels));
         (prod.variants||[]).forEach(v=>{
           if(!v.sku) return;
@@ -2928,31 +2937,42 @@ window.pullIkasProducts = async function(){
     let guncellenenUrun = 0, guncellenenVaryant = 0, guncellenenFiyat = 0, tamamlanan = 0;
     const toplam = taranacakUrunler.length;
     const toSave = [];
+    // Hata ayıklama: "her çalıştırmada aynı ürünler değişti görünüyor" şikayetlerini teşhis
+    // edebilmek için hangi ürünün HANGİ ALAN yüzünden "değişti" sayıldığını konsola döküyoruz —
+    // beklenmedik şekilde hep aynı sebep tekrar ediyorsa (ör. kategori sırası) orada gerçek bir
+    // normalize etme sorunu olduğunu gösterir.
+    const degisimNedenleri = [];
     taranacakUrunler.forEach(p=>{
       let degisti = false;
+      const nedenler = [];
       (p.variants||[]).forEach(v=>{
         const eslesme = skuMap.get(String(v.sku||'').trim());
         if(!eslesme) return;
-        if(p.ikasGrupId !== eslesme.grupId){ p.ikasGrupId = eslesme.grupId; degisti = true; }
-        if(v.ikasVaryantId !== eslesme.varyantId){ v.ikasVaryantId = eslesme.varyantId; degisti = true; guncellenenVaryant++; }
-        if(eslesme.stok!==null && v.miktar !== eslesme.stok){ v.miktar = eslesme.stok; degisti = true; }
+        if(p.ikasGrupId !== eslesme.grupId){ p.ikasGrupId = eslesme.grupId; degisti = true; nedenler.push('ikasGrupId'); }
+        if(v.ikasVaryantId !== eslesme.varyantId){ v.ikasVaryantId = eslesme.varyantId; degisti = true; guncellenenVaryant++; nedenler.push('ikasVaryantId'); }
+        if(eslesme.stok!==null && v.miktar !== eslesme.stok){ v.miktar = eslesme.stok; degisti = true; nedenler.push(`miktar(${v.sku}: ${v.miktar}→${eslesme.stok})`); }
         // Fiyat İKAS'ta varyant bazlı, yerelde ürün bazlı — ürüne son eşleşen varyantın fiyatı yazılır (bilinen basitleştirme).
-        if(eslesme.fiyat!==null && p.satis !== eslesme.fiyat){ p.satis = eslesme.fiyat; degisti = true; guncellenenFiyat++; }
+        if(eslesme.fiyat!==null && p.satis !== eslesme.fiyat){ nedenler.push(`satis(${p.satis}→${eslesme.fiyat})`); p.satis = eslesme.fiyat; degisti = true; guncellenenFiyat++; }
       });
       if(p.ikasGrupId && grupKategoriMap.has(p.ikasGrupId)){
         const kategoriler = grupKategoriMap.get(p.ikasGrupId);
-        if(JSON.stringify(p.ikasKategoriler||[]) !== JSON.stringify(kategoriler)){ p.ikasKategoriler = kategoriler; degisti = true; }
+        if(JSON.stringify(kategorileriSirala(p.ikasKategoriler)) !== JSON.stringify(kategoriler)){ p.ikasKategoriler = kategoriler; degisti = true; nedenler.push('kategoriler'); }
       }
       if(p.ikasGrupId && grupDurumMap.has(p.ikasGrupId)){
         const yeniDurum = grupDurumMap.get(p.ikasGrupId);
-        if(p.durum !== yeniDurum){ p.durum = yeniDurum; degisti = true; }
+        if(p.durum !== yeniDurum){ nedenler.push(`durum(${p.durum}→${yeniDurum})`); p.durum = yeniDurum; degisti = true; }
       }
+      if(degisti) degisimNedenleri.push({ urun: p.kod||p.ad||p.id, nedenler });
       if(degisti){
         guncellenenUrun++;
         toSave.push(saveProduct(p).then(()=>{ tamamlanan++; btn.textContent = `Kaydediliyor... (${tamamlanan}/${toplam})`; }));
       }
     });
     await Promise.all(toSave);
+    if(degisimNedenleri.length){
+      console.log(`[İKAS'tan Çek] ${degisimNedenleri.length} ürün "değişti" sayıldı, nedenleri:`);
+      console.table(degisimNedenleri.map(d=>({ urun: d.urun, nedenler: d.nedenler.join(', ') })));
+    }
 
     if(guncellenenUrun>0){ productTab = 'eslesmis'; render(); }
     resultEl.innerHTML = `<div style="background:var(--success-bg);color:var(--success-text);border-radius:8px;padding:8px 10px">İKAS'tan ${skuMap.size} varyant SKU'su çekildi. ${guncellenenUrun} ürün, ${guncellenenVaryant} varyant (${guncellenenFiyat} fiyat) güncellendi.</div>`;
@@ -3106,7 +3126,7 @@ window.importNewIkasProducts = async function(){
         kod: cozum.kod || ilkVaryant.sku || '',
         ad: iu.name || '',
         aciklama: iu.description || '',
-        ikasKategoriler: iu.categories || [],
+        ikasKategoriler: kategorileriSirala(iu.categories),
         tedarikci: cozum.tedarikci || '',
         tedarikciKodu: cozum.tedarikciKodu || '',
         urunTipi: cozum.urunTipi || '',
