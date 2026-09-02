@@ -49,8 +49,11 @@ header h1{font-size:15px;font-weight:600;flex:1 1 auto;min-width:140px}
 .scard-value{font-size:19px;font-weight:600}
 
 .toolbar{margin-bottom:12px}
-.toolbar input{height:34px;padding:0 10px;border:1px solid var(--input-border);border-radius:var(--radius);background:var(--surface2);color:var(--text);font-size:13px;width:100%;max-width:320px}
+.search-wrap{position:relative;width:100%;max-width:320px}
+.toolbar input{height:34px;padding:0 30px 0 10px;border:1px solid var(--input-border);border-radius:var(--radius);background:var(--surface2);color:var(--text);font-size:13px;width:100%}
 .toolbar input:focus{outline:none;border-color:var(--input-border-focus)}
+.search-clear{display:none;position:absolute;right:5px;top:50%;transform:translateY(-50%);width:22px;height:22px;border:none;border-radius:50%;background:transparent;color:var(--text-muted);cursor:pointer;align-items:center;justify-content:center;padding:0}
+.search-clear:hover{background:var(--surface2);color:var(--text)}
 
 .table-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--border);border-radius:10px}
 table{width:100%;border-collapse:collapse;font-size:13px}
@@ -112,7 +115,12 @@ tr:hover td{background:var(--surface2)}
 
 <div class="main">
   <div class="toolbar">
-    <input type="text" id="satis-search" placeholder="SKU veya ürün adına göre ara...">
+    <div class="search-wrap">
+      <input type="text" id="satis-search" placeholder="SKU veya ürün adına göre ara...">
+      <button type="button" class="search-clear" id="satis-search-clear" title="Aramayı temizle" onclick="document.getElementById('satis-search').value='';document.getElementById('satis-search').dispatchEvent(new Event('input',{bubbles:true}));document.getElementById('satis-search').focus();">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
   </div>
   <div id="main-content">
     <div class="empty-state">Yükleniyor...</div>
