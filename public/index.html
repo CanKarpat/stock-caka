@@ -1273,6 +1273,9 @@ async function syncMagazaUrunu(p){
       gorselUrl: v.gorselUrl || '',
       gorselUrlArka: v.gorselUrlArka || '',
       bd: !!v.bd,
+      gogus: Number(v.gogus || 0),
+      bel: Number(v.bel || 0),
+      basen: Number(v.basen || 0),
     }));
   if(!varyantlar.length){
     await deleteDoc(ref).catch(()=>{});
@@ -1288,6 +1291,9 @@ async function syncMagazaUrunu(p){
     // çözümlenir; ağaç henüz çekilmemişse veya id eşleşmezse düz isme düşülür).
     // p.ikasKategoriler admin "İKAS'tan Çek (API)" butonuna basmadıkça güncellenmez.
     kategoriler: (p.ikasKategoriler||[]).map(k=>kategoriYolMap[k.id]||k.name).filter(Boolean),
+    // İKAS ürün sayfası linki için sadece slug (Product.metaData.slug, "İKAS'tan Çek (API)"
+    // ile doldurulur) — showroom-appon kendi tarafında https://gracecode.shop/ önekini ekliyor.
+    urlSlug: p.ikasSlug || '',
     varyantlar,
     guncellendi: serverTimestamp(),
   });
@@ -2916,6 +2922,7 @@ const IKAS_PULL_QUERY = `
         categories { id name parentId }
         salesChannels { status }
         attributes { productAttributeId value }
+        metaData { slug }
         variants {
           id
           sku
@@ -2939,6 +2946,7 @@ window.pullIkasProducts = async function(){
   const grupKategoriMap = new Map(); // grupId -> [{id,name,parentId}]
   const grupDurumMap = new Map(); // grupId -> 'Yayında'/'Beklemede'/'Pasif'
   const grupBedenTablosuMap = new Map(); // grupId -> {beden: {gogus,bel,basen}} (sadece bedenTablosuAttrId seçiliyse doldurulur)
+  const grupSlugMap = new Map(); // grupId -> İKAS'taki ürün sayfası slug'ı (Product.metaData.slug — showroom-appon'un "Sitede Gör" linki için)
   const bedenTablosuAttrId = await getIkasBedenTablosuAttrId();
   const MAX_PAGES = 50; // güvenlik kapağı — sayfalama şeklini yanlış varsaymışsak sonsuz döngüye girmeyelim
   try{
@@ -2951,6 +2959,7 @@ window.pullIkasProducts = async function(){
       rows.forEach(prod=>{
         grupKategoriMap.set(String(prod.id), kategorileriSirala(prod.categories));
         grupDurumMap.set(String(prod.id), ikasDurumaCevir(prod.salesChannels));
+        grupSlugMap.set(String(prod.id), (prod.metaData && prod.metaData.slug) || '');
         if(bedenTablosuAttrId){
           const girdi = (prod.attributes||[]).find(a=>a.productAttributeId===bedenTablosuAttrId);
           if(girdi && girdi.value) grupBedenTablosuMap.set(String(prod.id), bedenTablosuHtmlParseEt(girdi.value));
@@ -3007,6 +3016,10 @@ window.pullIkasProducts = async function(){
         const yeniDurum = grupDurumMap.get(p.ikasGrupId);
         if(p.durum !== yeniDurum){ nedenler.push(`durum(${p.durum}→${yeniDurum})`); p.durum = yeniDurum; degisti = true; }
       }
+      if(p.ikasGrupId && grupSlugMap.has(p.ikasGrupId)){
+        const yeniSlug = grupSlugMap.get(p.ikasGrupId);
+        if((p.ikasSlug||'') !== yeniSlug){ nedenler.push('slug'); p.ikasSlug = yeniSlug; degisti = true; }
+      }
       if(p.ikasGrupId && grupBedenTablosuMap.has(p.ikasGrupId)){
         const bedenOlculeri = grupBedenTablosuMap.get(p.ikasGrupId);
         (p.variants||[]).forEach(v=>{
@@ -3062,6 +3075,7 @@ const IKAS_IMPORT_QUERY = `
         categories { id name parentId }
         salesChannels { status }
         attributes { productAttributeId value }
+        metaData { slug }
         variants {
           id
           sku
@@ -3190,6 +3204,7 @@ window.importNewIkasProducts = async function(){
         ad: iu.name || '',
         aciklama: iu.description || '',
         ikasKategoriler: kategorileriSirala(iu.categories),
+        ikasSlug: (iu.metaData && iu.metaData.slug) || '',
         tedarikci: cozum.tedarikci || '',
         tedarikciKodu: cozum.tedarikciKodu || '',
         urunTipi: cozum.urunTipi || '',
