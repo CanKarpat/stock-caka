@@ -83,6 +83,14 @@ header h1{font-size:15px;font-weight:600;flex:1 1 auto;min-width:140px}
 .btn.danger-btn{color:var(--danger-text);border-color:var(--border)}
 .btn.danger-btn:hover{background:var(--danger-bg)}
 
+/* Header gezinme butonları: dinlenme halinde sadece ikon, hover/focus'ta etiket yanında
+   açılır — header'ı kalabalıklaştırmadan (bkz. mobil taşma sorunu, project_mobile hafızası)
+   yine de her butonun ne olduğu net kalsın diye. Etiket max-width ile animasyonlanıyor
+   (width:auto animasyonlanamadığı için) — buton, sabit width yerine içeriğe göre büyüyor. */
+.nav-icon-btn{padding:0 8px}
+.nav-icon-btn .nav-label{display:inline-block;max-width:0;opacity:0;overflow:hidden;white-space:nowrap;transition:max-width .2s ease,opacity .15s ease,margin-left .2s ease}
+.nav-icon-btn:hover .nav-label,.nav-icon-btn:focus-visible .nav-label{max-width:140px;opacity:1;margin-left:6px}
+
 .dd{position:relative}
 .dd-menu{display:none;position:absolute;top:calc(100% + 6px);left:0;min-width:230px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 8px 24px rgba(0,0,0,.18);padding:5px;z-index:60;flex-direction:column;gap:1px}
 .dd-menu.open{display:flex}
@@ -290,33 +298,33 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="flex-shrink:0"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
   <h1>Abiye Stok Yönetimi</h1>
   <span class="sync-badge offline" id="sync-badge">● Bağlanıyor</span>
-  <a href="barkodlar.html" class="btn ghost" style="height:30px;font-size:11px">
+  <a href="barkodlar.html" class="btn ghost nav-icon-btn" style="height:30px;font-size:11px" title="Barkodlar">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h2M7 5h1M3 19h2M7 19h1M3 12h8M13 5h1M17 5h4M13 19h1M17 19h4M13 12h8"/></svg>
-    Barkodlar
+    <span class="nav-label">Barkodlar</span>
   </a>
-  <a href="beden.html" class="btn ghost" style="height:30px;font-size:11px">
+  <a href="beden.html" class="btn ghost nav-icon-btn" style="height:30px;font-size:11px" title="Beden Tablosu">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 9l10-7 10 7v11a2 2 0 01-2 2H4a2 2 0 01-2-2z"/><polyline points="7 22 7 12 17 12 17 22"/></svg>
-    Beden Tablosu
+    <span class="nav-label">Beden Tablosu</span>
   </a>
-  <a href="tedarikci.html" class="btn ghost" style="height:30px;font-size:11px">
+  <a href="tedarikci.html" class="btn ghost nav-icon-btn" style="height:30px;font-size:11px" title="Tedarikçiler">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-    Tedarikçiler
+    <span class="nav-label">Tedarikçiler</span>
   </a>
-  <a href="satislar.html" class="btn ghost" style="height:30px;font-size:11px">
+  <a href="satislar.html" class="btn ghost nav-icon-btn" style="height:30px;font-size:11px" title="Satışlar">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
-    Satışlar
+    <span class="nav-label">Satışlar</span>
   </a>
-  <button class="btn ghost" style="height:30px;font-size:11px" onclick="showKisaltmaModal()">
+  <button class="btn ghost nav-icon-btn" style="height:30px;font-size:11px" onclick="showKisaltmaModal()" title="Kısaltmalar">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-    Kısaltmalar
+    <span class="nav-label">Kısaltmalar</span>
   </button>
   <button class="btn ghost" id="theme-toggle" style="height:30px;width:30px;padding:0;justify-content:center" onclick="toggleTheme()" title="Görünüm modu (açık/koyu)">
     <svg id="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"></svg>
   </button>
   <span id="user-email" style="font-size:11px;color:var(--text-muted);white-space:nowrap"></span>
-  <button class="btn ghost" style="height:30px;font-size:11px" onclick="logout()" title="Çıkış yap">
+  <button class="btn ghost nav-icon-btn" style="height:30px;font-size:11px" onclick="logout()" title="Çıkış yap">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-    Çıkış
+    <span class="nav-label">Çıkış</span>
   </button>
 </header>
 
@@ -368,31 +376,24 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
       </button>
       <div class="dd-menu" id="dd-ikas">
-        <button onclick="closeDropdowns();showIkasTestModal()" title="İKAS API bağlantısını test et">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          İKAS Bağlantı Testi
-        </button>
         <button onclick="closeDropdowns();showIkasPullModal()" title="İKAS'tan ürün eşleştirmesini API ile çek (salt okunur)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           İKAS'tan Çek (API)
-        </button>
-        <button id="kategori-agaci-btn" onclick="closeDropdowns();pullKategoriAgaci()" title="İKAS'taki tüm kategori ağacını (listCategory) çekip kaydeder — mağaza sitesindeki kategori filtresi bunu kullanır, salt okunur">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 17V9M12 17V5M17 17v-7"/></svg>
-          Kategori Ağacını Çek (API)
         </button>
         <button onclick="closeDropdowns();showIkasImportModal()" title="İKAS'ta olup burada hiç olmayan ürünleri yeni kayıt olarak içe aktar">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/><circle cx="19" cy="6" r="3" fill="var(--surface)"/><line x1="19" y1="4.5" x2="19" y2="7.5"/><line x1="17.5" y1="6" x2="20.5" y2="6"/></svg>
           İKAS'tan Yeni Ürün İçe Aktar
         </button>
-        <button onclick="closeDropdowns();showIkasSyncModal()" title="İKAS'ta oluşan Ürün Grup ID / Varyant ID'leri SKU'ya göre eşleştirip kaydet">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-          İKAS ID Eşitle
-        </button>
         <button id="resync-magaza-btn" onclick="closeDropdowns();resyncMagazaListesi()" title="Mağaza sitesine (magaza_urunler) açık olan tüm ürünleri güncel stok durumuna göre yeniden senkronla — stoğu tükenen varyantları/ürünleri anında listeden düşürür">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
           Mağaza Listesini Senkronla
         </button>
-        <button onclick="closeDropdowns();showIkasSettingsModal()" title="İKAS bağlantı bilgilerini (mağaza adı, client id, client secret) düzenle">
+        <div style="height:1px;background:var(--border);margin:4px 2px"></div>
+        <button onclick="closeDropdowns();showIkasSyncModal()" title="Excel tabanlı yedek yöntem — Ürün Grup ID/Varyant ID'nin yanında satış kanalı durumu ve indirimli fiyatı da alır (API çekişi bu ikisini almaz). Genelde gerekmez, 'İKAS'tan Çek (API)' yeterlidir.">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+          İKAS ID Eşitle (Excel, nadir)
+        </button>
+        <button onclick="closeDropdowns();showIkasSettingsModal()" title="İKAS bağlantı bilgilerini (mağaza adı, client id, client secret) düzenle, bağlantıyı test et, kategori ağacını çek">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
           İKAS Ayarları
         </button>
@@ -1016,6 +1017,13 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
         <p style="margin-bottom:8px">Satış oldukça anlık haber almak için İKAS'a bir kere "webhook" kaydı yapılması gerekiyor — mağaza adı/client bilgileri kayıtlı olmalı (yukarıdan önce Kaydet'e bas).</p>
         <button class="btn ghost" id="ikas-webhook-btn" onclick="setupIkasWebhook()">Webhook Kur</button>
         <div id="ikas-webhook-result" style="margin-top:8px"></div>
+      </div>
+      <div style="border-top:1px solid var(--border);margin:16px 0 0;padding-top:12px">
+        <p style="margin-bottom:8px">Bakım — nadiren gereken işlemler:</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn ghost" onclick="showIkasTestModal()" title="Sunucu üzerinden İKAS API'sine bağlanıp bağlanamadığını test eder">Bağlantı Testi</button>
+          <button class="btn ghost" id="kategori-agaci-btn" onclick="pullKategoriAgaci()" title="İKAS'taki tüm kategori ağacını (listCategory) çekip kaydeder — mağaza sitesindeki kategori filtresi bunu kullanır, salt okunur">Kategori Ağacını Çek</button>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
