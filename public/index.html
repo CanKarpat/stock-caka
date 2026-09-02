@@ -986,6 +986,13 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
           <button type="button" class="btn ghost" style="height:34px;padding:0 10px;font-size:11px" onclick="loadIkasSalesChannelOptions()">Yenile</button>
         </div>
       </div>
+      <div class="form-group">
+        <label>Beden Tablosu Özel Alanı <span style="font-size:10px;color:var(--text-muted);text-transform:none;font-weight:400">(opsiyonel — seçersen "İKAS'a Gönder" ve "İKAS'tan Çek/İçe Aktar" beden tablosu ölçülerini bu özel alanla (HTML) senkronlar. "Hiçbiri" bırakırsan hiç dokunulmaz)</span></label>
+        <div style="display:flex;gap:6px">
+          <select id="ikas-set-bedentablosu" style="flex:1"><option value="">— (Kaydet'e bas, sonra listelenir)</option></select>
+          <button type="button" class="btn ghost" style="height:34px;padding:0 10px;font-size:11px" onclick="loadIkasBedenTablosuOptions()">Yenile</button>
+        </div>
+      </div>
       <div id="ikas-settings-result" style="margin-top:10px"></div>
       <div style="border-top:1px solid var(--border);margin:16px 0 12px;padding-top:12px">
         <p style="margin-bottom:8px">Satış oldukça anlık haber almak için İKAS'a bir kere "webhook" kaydı yapılması gerekiyor — mağaza adı/client bilgileri kayıtlı olmalı (yukarıdan önce Kaydet'e bas).</p>
@@ -2283,8 +2290,12 @@ window.applyBulkMiktar = async function(){
   await saveProduct(p);
 };
 
-window.copyIkasHtml = function(){
-  const p = products.find(x=>x.id===currentVarProductId); if(!p) return;
+// Ortak: bir ürünün beden tablosu ölçülerinden İKAS'ın "Beden Rehberi" özel alanına uygun HTML
+// üretir. copyIkasHtml() (panelden elle kopyala-yapıştır) VE pushToIkas() (API ile otomatik
+// gönderme) AYNI formatı üretmeli — biri diğerinden farklı bir HTML üretirse gidip gelen
+// değerler sürekli "değişti" görünür. Format canlı bir İKAS ürününden birebir doğrulandı
+// (2026-09, listProduct.attributes[].value — <tr data-size="X"> yapısı dahil).
+function bedenTablosuHtmlUret(p){
   const vars = p.variants||[];
   const bedenMap = {};
   vars.forEach(v=>{
@@ -2292,11 +2303,38 @@ window.copyIkasHtml = function(){
     if(!bedenMap[b]) bedenMap[b] = {gogus:v.gogus||0, bel:v.bel||0, basen:v.basen||0};
   });
   const bedenRows = BEDEN_ORDER.filter(b=>bedenMap[b]).concat(Object.keys(bedenMap).filter(b=>!BEDEN_ORDER.includes(b)));
-  if(!bedenRows.length){ alert('Bu üründe henüz beden ölçüsü yok.'); return; }
-  const html = `<table>\n  <tbody>\n    <tr>\n      <th>Beden</th>\n      <th>Göğüs</th>\n      <th>Bel</th>\n      <th>Basen</th>\n    </tr>\n${bedenRows.map(b=>{
+  if(!bedenRows.length) return '';
+  return `<table>\n  <tbody>\n    <tr>\n      <th>Beden</th>\n      <th>Göğüs</th>\n      <th>Bel</th>\n      <th>Basen</th>\n    </tr>\n${bedenRows.map(b=>{
     const bm = bedenMap[b];
     return `    <tr data-size="${b}"><td>${b}</td><td>${bm.gogus||'-'}</td><td>${bm.bel||'-'}</td><td>${bm.basen||'-'}</td></tr>`;
   }).join('\n')}\n  </tbody>\n</table>`;
+}
+
+// Tersi: İKAS'tan gelen (ya da panelde elle düzenlenmiş) Beden Rehberi HTML'ini geri
+// {beden: {gogus,bel,basen}} haritasına çevirir — İçe Aktarma/Çekme için. Regex yerine
+// DOMParser kullanıyoruz çünkü panelde elle düzenlenmiş HTML'in boşluk/satır sonu birebir
+// bizim ürettiğimizle aynı olacağının garantisi yok — sadece <tr data-size="X"> ve sıradaki
+// 4 <td>'ye (Beden/Göğüs/Bel/Basen) güveniyoruz, format dışı satırlar sessizce atlanır.
+function bedenTablosuHtmlParseEt(html){
+  const sonuc = {};
+  if(!html) return sonuc;
+  try{
+    const parsed = new DOMParser().parseFromString(html, 'text/html');
+    parsed.querySelectorAll('tr[data-size]').forEach(tr=>{
+      const beden = tr.getAttribute('data-size');
+      const tds = tr.querySelectorAll('td');
+      if(!beden || tds.length<4) return;
+      const say = s=>{ const n = parseFloat(String(s||'').replace(',','.')); return isNaN(n)?0:n; };
+      sonuc[beden] = { gogus: say(tds[1].textContent), bel: say(tds[2].textContent), basen: say(tds[3].textContent) };
+    });
+  }catch(e){ console.warn('Beden Rehberi HTML ayrıştırılamadı:', e.message); }
+  return sonuc;
+}
+
+window.copyIkasHtml = function(){
+  const p = products.find(x=>x.id===currentVarProductId); if(!p) return;
+  const html = bedenTablosuHtmlUret(p);
+  if(!html){ alert('Bu üründe henüz beden ölçüsü yok.'); return; }
   navigator.clipboard.writeText(html).then(()=>{
     const s = document.getElementById('ikas-copy-status');
     s.textContent = '✓ Kopyalandı'; setTimeout(()=>s.textContent='', 2000);
@@ -2877,6 +2915,7 @@ const IKAS_PULL_QUERY = `
         id
         categories { id name parentId }
         salesChannels { status }
+        attributes { productAttributeId value }
         variants {
           id
           sku
@@ -2899,6 +2938,8 @@ window.pullIkasProducts = async function(){
   const skuMap = new Map();
   const grupKategoriMap = new Map(); // grupId -> [{id,name,parentId}]
   const grupDurumMap = new Map(); // grupId -> 'Yayında'/'Beklemede'/'Pasif'
+  const grupBedenTablosuMap = new Map(); // grupId -> {beden: {gogus,bel,basen}} (sadece bedenTablosuAttrId seçiliyse doldurulur)
+  const bedenTablosuAttrId = await getIkasBedenTablosuAttrId();
   const MAX_PAGES = 50; // güvenlik kapağı — sayfalama şeklini yanlış varsaymışsak sonsuz döngüye girmeyelim
   try{
     let page = 1;
@@ -2910,6 +2951,10 @@ window.pullIkasProducts = async function(){
       rows.forEach(prod=>{
         grupKategoriMap.set(String(prod.id), kategorileriSirala(prod.categories));
         grupDurumMap.set(String(prod.id), ikasDurumaCevir(prod.salesChannels));
+        if(bedenTablosuAttrId){
+          const girdi = (prod.attributes||[]).find(a=>a.productAttributeId===bedenTablosuAttrId);
+          if(girdi && girdi.value) grupBedenTablosuMap.set(String(prod.id), bedenTablosuHtmlParseEt(girdi.value));
+        }
         (prod.variants||[]).forEach(v=>{
           if(!v.sku) return;
           const stok = (v.stocks && v.stocks[0] && v.stocks[0].stockCount);
@@ -2962,6 +3007,17 @@ window.pullIkasProducts = async function(){
         const yeniDurum = grupDurumMap.get(p.ikasGrupId);
         if(p.durum !== yeniDurum){ nedenler.push(`durum(${p.durum}→${yeniDurum})`); p.durum = yeniDurum; degisti = true; }
       }
+      if(p.ikasGrupId && grupBedenTablosuMap.has(p.ikasGrupId)){
+        const bedenOlculeri = grupBedenTablosuMap.get(p.ikasGrupId);
+        (p.variants||[]).forEach(v=>{
+          const olcu = bedenOlculeri[v.beden];
+          if(!olcu) return; // İKAS'taki tabloda bu bedene ait satır yok — yereldeki değer korunur
+          if(v.gogus!==olcu.gogus || v.bel!==olcu.bel || v.basen!==olcu.basen){
+            v.gogus = olcu.gogus; v.bel = olcu.bel; v.basen = olcu.basen;
+            degisti = true; nedenler.push(`bedenTablosu(${v.beden})`);
+          }
+        });
+      }
       if(degisti) degisimNedenleri.push({ urun: p.kod||p.ad||p.id, nedenler });
       if(degisti){
         guncellenenUrun++;
@@ -3005,6 +3061,7 @@ const IKAS_IMPORT_QUERY = `
         description
         categories { id name parentId }
         salesChannels { status }
+        attributes { productAttributeId value }
         variants {
           id
           sku
@@ -3116,10 +3173,16 @@ window.importNewIkasProducts = async function(){
     if(!confirm(`${yeniUrunler.length} yeni ürün Firestore'a eklenecek. Emin misin?`)) return;
 
     const { typeNameById, valueNameById } = await getIkasVariantTypeMaps();
+    const bedenTablosuAttrId = await getIkasBedenTablosuAttrId();
     const toplam = yeniUrunler.length;
     btn.textContent = `Oluşturuluyor... (0/${toplam})`;
     await Promise.all(yeniUrunler.map(async iu=>{
       const ilkVaryant = (iu.variants||[])[0] || {};
+      const bedenOlculeri = (()=>{
+        if(!bedenTablosuAttrId) return {};
+        const girdi = (iu.attributes||[]).find(a=>a.productAttributeId===bedenTablosuAttrId);
+        return (girdi && girdi.value) ? bedenTablosuHtmlParseEt(girdi.value) : {};
+      })();
       const cozum = parseIkasSkuToKisaltma(ilkVaryant.sku) || {};
       const p = {
         id: uid(),
@@ -3150,6 +3213,7 @@ window.importNewIkasProducts = async function(){
             else if(tipAdi==='Beden') bedenDeger = degerAdi;
           });
           const stokDeger = (v.stocks && v.stocks[0] && v.stocks[0].stockCount);
+          const olcu = bedenOlculeri[bedenDeger];
           return {
             id: uid(),
             sku: v.sku || '',
@@ -3157,7 +3221,7 @@ window.importNewIkasProducts = async function(){
             beden: bedenDeger,
             miktar: (stokDeger===undefined||stokDeger===null) ? 0 : Number(stokDeger),
             barkod: (v.barcodeList && v.barcodeList[0]) || v.sku || '',
-            gogus: 0, bel: 0, basen: 0, boy: 0,
+            gogus: olcu ? olcu.gogus : 0, bel: olcu ? olcu.bel : 0, basen: olcu ? olcu.basen : 0, boy: 0,
             ikasVaryantId: String(v.id),
           };
         }),
@@ -3305,10 +3369,31 @@ const IKAS_UPDATE_STOCK_MUTATION = `
 const IKAS_NAME_DESC_QUERY = `
   query ListProductNameDesc($pagination: PaginationInput) {
     listProduct(pagination: $pagination) {
-      data { id name description }
+      data { id name description attributes { productAttributeId productAttributeOptionId value imageIds } }
     }
   }
 `;
+
+// saveProduct'a gönderilen attributes dizisi diğer dizi alanlar (kategoriler, satış kanalları)
+// gibi muhtemelen TAM DEĞİŞTİRME (replace) yapıyor — introspection'la bunun tersi (kısmi
+// birleştirme) kanıtlanamadı, bu yüzden riske girmiyoruz: canlıdaki TÜM özel alanları (Elbise
+// Modeli, Kumaş Tipi gibi Beden Rehberi dışındakiler DAHİL) olduğu gibi koruyup sadece Beden
+// Rehberi girdisini güncelliyoruz/ekliyoruz. yerelBedenHtml boşsa (bu üründe henüz yerel ölçü
+// girilmemiş) canlıdaki Beden Rehberi'ne hiç dokunulmuyor — var olan bir değeri boşla ezmeyiz.
+function mergeAttributesForPush(canliAttrs, bedenTablosuAttrId, yerelBedenHtml){
+  const korunanlar = (canliAttrs||[]).map(a=>({
+    productAttributeId: a.productAttributeId,
+    productAttributeOptionId: a.productAttributeOptionId || undefined,
+    value: a.value || undefined,
+    imageIds: (a.imageIds && a.imageIds.length) ? a.imageIds : undefined,
+  }));
+  if(bedenTablosuAttrId && yerelBedenHtml){
+    const idx = korunanlar.findIndex(a=>a.productAttributeId===bedenTablosuAttrId);
+    const girdi = { productAttributeId: bedenTablosuAttrId, value: yerelBedenHtml };
+    if(idx>=0) korunanlar[idx] = girdi; else korunanlar.push(girdi);
+  }
+  return korunanlar.length ? korunanlar : undefined;
+}
 
 let _ikasPriceListId = undefined, _ikasStockLocationId = null; // sunucudaki cachedToken gibi, sayfa ömrü boyunca önbellek — _ikasPriceListId: undefined=henüz çözülmedi, ''=bilerek hiçbir liste seçilmemiş
 // PriceList tipinde "isDefault"/"isMain" gibi bir alan YOK (2026-08-14 canlı hatayla
@@ -3326,6 +3411,17 @@ async function getDefaultIkasPriceListId(){
   const ayarSnap = await getDoc(doc(db,'config','ikasAyarlari'));
   _ikasPriceListId = ayarSnap.exists() ? (ayarSnap.data().fiyatListesiId || '') : '';
   return _ikasPriceListId;
+}
+// Beden Rehberi özel alanının ID'si — fiyat listesi gibi Firestore'da kayıtlı, kullanıcının
+// "İKAS Ayarları"ndan seçtiği bir değer (isimden ID'ye canlı eşleştirme YAPMIYORUZ, bkz.
+// loadIkasBedenTablosuOptions yorumu — kullanıcı bilerek seçiyor, ID hiçbir zaman koda
+// sabit yazılmıyor). undefined=henüz çözülmedi, ''=bilerek hiçbir alan seçilmemiş (senkron kapalı).
+let _ikasBedenTablosuAttrId = undefined;
+async function getIkasBedenTablosuAttrId(){
+  if(_ikasBedenTablosuAttrId !== undefined) return _ikasBedenTablosuAttrId;
+  const ayarSnap = await getDoc(doc(db,'config','ikasAyarlari'));
+  _ikasBedenTablosuAttrId = ayarSnap.exists() ? (ayarSnap.data().bedenTablosuAttrId || '') : '';
+  return _ikasBedenTablosuAttrId;
 }
 async function getDefaultIkasStockLocationId(){
   if(_ikasStockLocationId) return _ikasStockLocationId;
@@ -3385,10 +3481,14 @@ async function getIkasBrandId(){
 
 // Seçili ürünleri İKAS'a gönderir — ürün başına 3 durumdan biri:
 //  1) ikasGrupId yok            → saveProduct ile YENİ ürün oluştur, dönen ID'leri geri yaz.
-//  2) ikasGrupId var, yeni beden eklenmiş (bazı varyantlarda ikasVaryantId yok) → saveProduct'ı
+//  2) ikasGrupId var, yeni beden eklenmiş (bazı varyantlarda ikasVaryantId yok) VEYA Beden
+//     Rehberi özel alanı senkron açıkken yerelde değişmiş (bedenDegisti) → saveProduct'ı
 //     mevcut ID ile tekrar çağır (var olan ürünü güncelleyip sadece yeni varyantları eklediği
 //     VARSAYILIYOR — gerçek bir ürünle doğrulanmadan bu yola güvenilmemeli, bkz. plan notu).
-//  3) her şey zaten eşleşmiş     → sadece fiyat/stok güncelle (saveVariantPrices + stok mutation).
+//     Özel alan bu yoldan giderken canlıdaki diğer tüm özel alanlar (Elbise Modeli, Kumaş
+//     Tipi vb.) korunur — bkz. mergeAttributesForPush.
+//  3) her şey zaten eşleşmiş VE Beden Rehberi'nde değişiklik yok → sadece fiyat/stok
+//     güncelle (saveVariantPrices + stok mutation), saveProduct hiç çağrılmaz.
 window.pushToIkas = async function(){
   if(!selectedIds.size) return;
   const secilenler = [...selectedIds].map(id=>products.find(p=>p.id===id)).filter(Boolean);
@@ -3418,14 +3518,19 @@ window.pushToIkas = async function(){
     const brandId = await getIkasBrandId();
     const salesChannelIds = await getIkasSalesChannelIds();
     const { typeIdByName, valueIdByName } = await getIkasVariantTypeMaps();
+    const bedenTablosuAttrId = await getIkasBedenTablosuAttrId();
 
-    // Sadece yeni beden/renk eklenen (zaten eşleşmiş) ürünler için İKAS'taki güncel ad/
-    // açıklamayı önceden çek — bkz. IKAS_NAME_DESC_QUERY yorumu. Brand-new ürünlerde
-    // (henüz ikasGrupId yok) buna gerek yok, o zaman zaten yerel p.ad/p.aciklama gönderilir.
+    // Yeni beden/renk eklenen (zaten eşleşmiş) ürünler için İKAS'taki güncel ad/açıklamayı
+    // önceden çek — bkz. IKAS_NAME_DESC_QUERY yorumu. Beden Rehberi senkronu AÇIKSA (
+    // bedenTablosuAttrId seçiliyse) bunu TÜM eşleşmiş ürünler için de çekiyoruz — hem beden
+    // tablosunun değişip değişmediğine karar vermek (bedenDegisti) hem de saveProduct
+    // çağıracaksak canlıdaki diğer özel alanları (Elbise Modeli, Kumaş Tipi) korumak için
+    // gerekli (bkz. mergeAttributesForPush). Brand-new ürünlerde (henüz ikasGrupId yok) buna
+    // hiç gerek yok, o zaman zaten yerel p.ad/p.aciklama gönderilir, korunacak canlı veri yok.
     const korunacakGrupIdler = new Set(
-      secilenler.filter(p=>p.ikasGrupId && (p.variants||[]).some(v=>!v.ikasVaryantId)).map(p=>p.ikasGrupId)
+      secilenler.filter(p=>p.ikasGrupId && ((p.variants||[]).some(v=>!v.ikasVaryantId) || !!bedenTablosuAttrId)).map(p=>p.ikasGrupId)
     );
-    const canliAdAciklama = new Map(); // ikasGrupId -> {name, description}
+    const canliAdAciklama = new Map(); // ikasGrupId -> {name, description, attributes}
     if(korunacakGrupIdler.size){
       let page = 1;
       const MAX_PAGES = 50;
@@ -3433,7 +3538,7 @@ window.pushToIkas = async function(){
         const data = await ikasApi(IKAS_NAME_DESC_QUERY, { pagination: { page, limit: 100 } });
         const rows = (data && data.listProduct && data.listProduct.data) || [];
         if(!rows.length) break;
-        rows.forEach(r=>{ if(korunacakGrupIdler.has(String(r.id))) canliAdAciklama.set(String(r.id), { name: r.name||'', description: r.description||'' }); });
+        rows.forEach(r=>{ if(korunacakGrupIdler.has(String(r.id))) canliAdAciklama.set(String(r.id), { name: r.name||'', description: r.description||'', attributes: r.attributes||[] }); });
         if(rows.length < 100) break;
         page++;
       }
@@ -3442,7 +3547,23 @@ window.pushToIkas = async function(){
     await Promise.all(secilenler.map(async p=>{
       try{
         const yeniVaryantlar = (p.variants||[]).filter(v=>!v.ikasVaryantId);
-        if(!p.ikasGrupId || yeniVaryantlar.length){
+        // Zaten eşleşmiş ürüne yeni beden ekleniyorsa, önceden çekilmiş İKAS'taki güncel
+        // ad/açıklama/özel alanları kullan (yukarıdaki canliAdAciklama) — İKAS panelinden
+        // yapılmış manuel bir isim/açıklama/özel-alan düzenlemesini sessizce eski haline
+        // döndürmemek için. Bulunamazsa (ör. sorgu 50 sayfada bulamadıysa) yerel değere düşülür.
+        const canli = p.ikasGrupId ? canliAdAciklama.get(p.ikasGrupId) : null;
+        // Beden Rehberi senkronu açıksa: yereldeki ölçülerden HTML üret, canlıdaki değerle
+        // karşılaştır. Farklıysa — ürün zaten tam eşleşmiş olsa (yeni varyant yoksa) bile —
+        // saveProduct çağırmamız gerekiyor (özel alan sadece bu mutation'la yazılabiliyor,
+        // saveVariantPrices/saveProductStockLocations gibi hafif bir alternatif yok — bkz.
+        // Mutation tipi introspection'ı, "saveProductAttribute" sadece alan TANIMI için,
+        // ürün başına DEĞER için değil). yerelBedenHtml boşsa (henüz yerel ölçü girilmemiş)
+        // hiç dokunmuyoruz — var olan canlı değeri boşla ezmeyelim.
+        const yerelBedenHtml = bedenTablosuAttrId ? bedenTablosuHtmlUret(p) : '';
+        const canliBedenGirdi = (bedenTablosuAttrId && canli && canli.attributes)
+          ? canli.attributes.find(a=>a.productAttributeId===bedenTablosuAttrId) : null;
+        const bedenDegisti = !!bedenTablosuAttrId && !!yerelBedenHtml && yerelBedenHtml !== ((canliBedenGirdi && canliBedenGirdi.value) || '');
+        if(!p.ikasGrupId || yeniVaryantlar.length || bedenDegisti){
           // DİKKAT — canlı hatalarla düzeltildi (2026-08-11): VariantInput.attributes Renk/Beden
           // İÇİN DEĞİL (o, productAttributeId isteyen genel özel-alan mekanizması) — Renk/Beden
           // variantValueIds ile, İKAS'ın mağaza genelinde tanımlı ID'leriyle gönderiliyor.
@@ -3519,11 +3640,6 @@ window.pushToIkas = async function(){
             variantTypeId,
             variantValueIds: [...degerSet],
           }));
-          // Zaten eşleşmiş ürüne yeni beden ekleniyorsa, önceden çekilmiş İKAS'taki güncel
-          // ad/açıklamayı kullan (yukarıdaki canliAdAciklama) — İKAS panelinden yapılmış
-          // manuel bir isim/açıklama düzenlemesini sessizce eski haline döndürmemek için.
-          // Bulunamazsa (ör. sorgu 50 sayfada bulamadıysa) yerel değere düşülür.
-          const canli = p.ikasGrupId ? canliAdAciklama.get(p.ikasGrupId) : null;
           // Yeni ürünlerde salesChannels/salesChannelIds zorunlu (2026-08-14 canlı hatayla
           // keşfedildi). status için zaten var olan p.satisKanaliDurumu alanını kullanıyoruz —
           // ürün formundaki "İKAS Satış Kanalı Durumu" seçimiyle aynı enum (VISIBLE/HIDDEN/
@@ -3539,6 +3655,9 @@ window.pushToIkas = async function(){
             salesChannelIds: salesChannelIds,
             salesChannels: salesChannelIds.map(id=>({ id, status: kanalDurumu })),
             variants: inputVariants,
+            attributes: p.ikasGrupId
+              ? mergeAttributesForPush(canli && canli.attributes, bedenTablosuAttrId, yerelBedenHtml)
+              : (bedenTablosuAttrId && yerelBedenHtml ? [{ productAttributeId: bedenTablosuAttrId, value: yerelBedenHtml }] : undefined),
             // DİKKAT: p.alis (maliyet fiyatı) buraya KASITLI olarak hiç girmiyor.
           };
           const data = await ikasApi(IKAS_SAVE_PRODUCT_MUTATION, { input });
@@ -3562,7 +3681,12 @@ window.pushToIkas = async function(){
             })) } });
           }
           await saveProduct(p);
-          if(yeniMi) yeniOlusturulan++; else varyantEklenen++;
+          // bedenDegisti yüzünden buraya düşen, aslında zaten tam eşleşmiş (yeniVaryantlar
+          // boş) bir ürün olabilir — sadece Beden Rehberi senkronu için saveProduct çağrıldı,
+          // "varyant eklendi" değil "sadece güncellendi" sayılmalı.
+          if(yeniMi) yeniOlusturulan++;
+          else if(yeniVaryantlar.length) varyantEklenen++;
+          else sadeceGuncellenen++;
         } else {
           await Promise.all((p.variants||[]).map(async v=>{
             if(!v.ikasVaryantId) return;
@@ -3604,7 +3728,7 @@ window.pushToIkas = async function(){
     }));
 
     render();
-    alert(`Tamamlandı: ${yeniOlusturulan} yeni oluşturuldu, ${varyantEklenen} ürüne varyant eklendi, ${sadeceGuncellenen} fiyat/stok güncellendi, ${hatalar.length} hata.` + (hatalar.length ? `\n\nHatalar:\n${hatalar.slice(0,15).join('\n')}${hatalar.length>15?`\n...ve ${hatalar.length-15} tane daha`:''}` : ''));
+    alert(`Tamamlandı: ${yeniOlusturulan} yeni oluşturuldu, ${varyantEklenen} ürüne varyant eklendi, ${sadeceGuncellenen} fiyat/stok/beden tablosu güncellendi, ${hatalar.length} hata.` + (hatalar.length ? `\n\nHatalar:\n${hatalar.slice(0,15).join('\n')}${hatalar.length>15?`\n...ve ${hatalar.length-15} tane daha`:''}` : ''));
   }catch(e){
     alert('İKAS\'a gönderme başarısız: ' + e.message);
   }finally{
@@ -3624,8 +3748,9 @@ window.showIkasSettingsModal = async function(){
   document.getElementById('ikas-set-secret').value = '';
   document.getElementById('ikas-set-pricelist').innerHTML = '<option value="">— (Kaydet\'e bas, sonra listelenir)</option>';
   document.getElementById('ikas-set-saleschannel-list').textContent = '— (Kaydet\'e bas, sonra listelenir)';
+  document.getElementById('ikas-set-bedentablosu').innerHTML = '<option value="">— (Kaydet\'e bas, sonra listelenir)</option>';
   document.getElementById('ikas-settings-modal').classList.remove('hidden');
-  let kayitliFiyatListesiId = '', kayitliSatisKanaliIdleri = [];
+  let kayitliFiyatListesiId = '', kayitliSatisKanaliIdleri = [], kayitliBedenTablosuAttrId = '';
   try{
     const snap = await getDoc(doc(db,'config','ikasAyarlari'));
     if(snap.exists()){
@@ -3634,6 +3759,7 @@ window.showIkasSettingsModal = async function(){
       document.getElementById('ikas-set-clientid').value = d.clientId || '';
       kayitliFiyatListesiId = d.fiyatListesiId || '';
       kayitliSatisKanaliIdleri = d.satisKanaliIdleri || [];
+      kayitliBedenTablosuAttrId = d.bedenTablosuAttrId || '';
     }
   }catch(err){
     resultEl.innerHTML = `<div style="background:var(--danger-bg);color:var(--danger-text);border-radius:8px;padding:8px 10px">Mevcut ayarlar okunamadı: ${esc(err.message)}</div>`;
@@ -3645,6 +3771,7 @@ window.showIkasSettingsModal = async function(){
   if(document.getElementById('ikas-set-store').value && document.getElementById('ikas-set-clientid').value){
     await loadIkasPriceListOptions(kayitliFiyatListesiId);
     await loadIkasSalesChannelOptions(kayitliSatisKanaliIdleri);
+    await loadIkasBedenTablosuOptions(kayitliBedenTablosuAttrId);
   }
 };
 window.closeIkasSettingsModal = ()=>document.getElementById('ikas-settings-modal').classList.add('hidden');
@@ -3698,6 +3825,25 @@ async function loadIkasSalesChannelOptions(preselectIds){
 }
 window.loadIkasSalesChannelOptions = loadIkasSalesChannelOptions;
 
+// Mağazada tanımlı özel alanlardan sadece HTML tipindekiler gösteriliyor — Beden Rehberi bu
+// tipte (2026-09'da canlı sorgu ile doğrulandı), MULTIPLE_CHOICE gibi diğer tipler (Elbise
+// Modeli, Kumaş Tipi) bizim buraya yazdığımız ham HTML string'i kabul etmez, listede kafa
+// karıştırmasınlar diye hiç gösterilmiyor.
+async function loadIkasBedenTablosuOptions(preselectId){
+  const sel = document.getElementById('ikas-set-bedentablosu');
+  sel.innerHTML = '<option value="">Yükleniyor...</option>';
+  try{
+    const data = await ikasApi('{ listProductAttribute { id name type } }');
+    const alanlar = ((data && data.listProductAttribute) || []).filter(a=>a.type==='HTML');
+    sel.innerHTML = '<option value="">— Hiçbiri (senkronlanmaz)</option>' +
+      alanlar.map(a=>`<option value="${esc(a.id)}">${esc(a.name)}</option>`).join('');
+    sel.value = preselectId || '';
+  }catch(err){
+    sel.innerHTML = `<option value="">Listelenemedi: ${esc(err.message)}</option>`;
+  }
+}
+window.loadIkasBedenTablosuOptions = loadIkasBedenTablosuOptions;
+
 window.saveIkasSettings = async function(){
   const btn = document.getElementById('ikas-settings-btn');
   const resultEl = document.getElementById('ikas-settings-result');
@@ -3706,19 +3852,21 @@ window.saveIkasSettings = async function(){
   const clientSecret = document.getElementById('ikas-set-secret').value;
   const fiyatListesiId = document.getElementById('ikas-set-pricelist').value;
   const satisKanaliIdleri = [...document.querySelectorAll('.ikas-saleschannel-cb:checked')].map(cb=>cb.value);
+  const bedenTablosuAttrId = document.getElementById('ikas-set-bedentablosu').value;
   const eskiMetin = btn.textContent;
   btn.disabled = true; btn.textContent = 'Kaydediliyor...';
   resultEl.innerHTML = '';
   try{
-    await setDoc(doc(db,'config','ikasAyarlari'), { storeName, clientId, fiyatListesiId, satisKanaliIdleri }, { merge:true });
+    await setDoc(doc(db,'config','ikasAyarlari'), { storeName, clientId, fiyatListesiId, satisKanaliIdleri, bedenTablosuAttrId }, { merge:true });
     if(clientSecret){
       await setDoc(doc(db,'config','ikasAyarlariGizli'), { clientSecret }, { merge:true });
     }
     document.getElementById('ikas-set-secret').value = '';
-    _ikasPriceListId = undefined; _ikasSalesChannelIds = null; // önbelleği temizle — yeni seçim bir sonraki gönderimde kullanılsın
+    _ikasPriceListId = undefined; _ikasSalesChannelIds = null; _ikasBedenTablosuAttrId = undefined; // önbelleği temizle — yeni seçim bir sonraki gönderimde kullanılsın
     resultEl.innerHTML = `<div style="background:var(--success-bg);color:var(--success-text);border-radius:8px;padding:8px 10px">Kaydedildi.</div>`;
     if(!fiyatListesiId) await loadIkasPriceListOptions();
     if(!satisKanaliIdleri.length) await loadIkasSalesChannelOptions();
+    if(!bedenTablosuAttrId) await loadIkasBedenTablosuOptions();
   }catch(err){
     resultEl.innerHTML = `<div style="background:var(--danger-bg);color:var(--danger-text);border-radius:8px;padding:8px 10px">Kaydedilemedi: ${esc(err.message)}</div>`;
   }finally{
