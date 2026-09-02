@@ -147,6 +147,11 @@ module.exports = async (req, res) => {
     const db = getFirestore(app);
     // Güvenlik ağı: data hiç parse edilemezse ham payload'a düş (yine de hamVeri kaybolmasın).
     const orderData = parseOrderData(payload) || payload;
+    // GEÇİCİ TANILAMA (2026-09): depozito webhook özelliği için siparişte müşteri bilgisinin
+    // (e-posta/telefon) gerçekten gelip gelmediğini ve alan adlarını doğrulamak amacıyla
+    // eklendi — Vercel Observability > Logs'tan okunacak. Şekil doğrulanınca kaldırılacak/
+    // sessizleştirilecek, kalıcı bir özellik değil.
+    console.log('[ikas-webhook TANILAMA] orderData:', JSON.stringify(orderData));
     const orderId = orderData.id || null;
     const orderNumber = orderData.orderNumber || null;
     const orderedAt = orderData.orderedAt || null;
