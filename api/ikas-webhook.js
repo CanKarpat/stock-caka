@@ -105,6 +105,83 @@ function pickLineName(item) {
   return (item.variant && item.variant.name) || null;
 }
 
+// Depozito webhook eşleştirmesi — showroom-appon (appointment-showroom-gracecode) için.
+// Showroom randevu sitesi statik bir İKAS sepet linki kullanıyor, müşterinin depozitoyu
+// gerçekten ödeyip ödemediğini bilmiyor. Depozito da normal bir İKAS siparişi olarak bu
+// webhook'u tetiklediği için, SKU'su "depozito" olan bir sipariş PAID durumuna geçtiğinde
+// randevular koleksiyonuna geri yazıyoruz.
+//
+// 2026-09-03'te GERÇEK bir test siparişiyle (orderNumber 1155) doğrulandı — TAHMİN DEĞİL:
+// - orderData.customer.email / orderData.customer.phone — phone "+905389657226" formatında
+//   (E.164'e yakın, ülke koduyla, boşluksuz). billingAddress.phone da aynı değeri taşıyor,
+//   customer.phone boşsa oraya düşülüyor.
+// - orderData.orderPaymentStatus === 'PAID' — ödemenin gerçekten tamamlandığını gösteren
+//   alan bu. Sipariş OLUŞTUĞU anda (store/order/created) ödeme henüz onaylanmamış da olabilir
+//   diye, sadece PAID ise randevuyu işaretliyoruz.
+// - orderLineItems[].variant.sku === 'depozito' — showroom'daki depozito ürününün gerçek SKU'su.
+function normalizeTelefon(s) {
+  // Türkiye cep telefonu: +90/0 önekinden ve ayraçlardan (boşluk, tire) bağımsız olsun diye
+  // sadece rakamları alıp SON 10 haneyi karşılaştırıyoruz (5XX XXX XX XX) — randevu formuna
+  // müşterinin serbest metin olarak yazdığı telefonla İKAS'ın kendi formatı birebir aynı
+  // olmayabilir, bu normalize olmadan neredeyse hiç eşleşmez.
+  const digits = String(s || '').replace(/\D/g, '');
+  return digits.slice(-10);
+}
+function normalizeEposta(s) {
+  return String(s || '').trim().toLowerCase();
+}
+
+async function depozitoEslestirVeIsaretle(db, orderData, orderNumber) {
+  const ayarSnap = await db.doc('config/randevuAyarlari').get();
+  const depozitoSku = (ayarSnap.exists && ayarSnap.data().depozitoSku) || 'depozito';
+
+  const lineItems = orderData.orderLineItems || [];
+  const depozitoVarMi = lineItems.some(li => {
+    const sku = li && li.variant && li.variant.sku;
+    return sku && String(sku).trim().toLowerCase() === String(depozitoSku).trim().toLowerCase();
+  });
+  if (!depozitoVarMi) return;
+
+  if (orderData.orderPaymentStatus !== 'PAID') {
+    console.error(`[ikas-webhook] Depozito ürünü siparişte var ama ödeme durumu PAID değil (orderNumber=${orderNumber}, orderPaymentStatus=${orderData.orderPaymentStatus}) — randevu işaretlenmedi.`);
+    return;
+  }
+
+  const customer = orderData.customer || {};
+  const musteriEposta = normalizeEposta(customer.email);
+  const musteriTelefon = normalizeTelefon(customer.phone || (orderData.billingAddress && orderData.billingAddress.phone));
+  if (!musteriEposta && !musteriTelefon) {
+    console.error(`[ikas-webhook] Depozito ödemesi geldi ama siparişte müşteri e-posta/telefonu yok, eşleştirilemedi (orderNumber=${orderNumber}).`);
+    return;
+  }
+
+  // randevular koleksiyonu küçük (bkz. feedback_live_firebase hafıza notu, stok koleksiyonu
+  // için de aynı gerekçeyle bu dosyada tam okuma yapılıyor). Firestore'un `!=` sorgusu, alan
+  // hiç YOKSA dokümanı sonuçtan DIŞLAR — yeni randevularda depozitoOdendi hiç set edilmediği
+  // için (alan yok, false değil) bir `where('depozitoOdendi','!=',true)` sorgusu bu yüzden
+  // TÜM yeni randevuları yanlışlıkla atlardı. Bunun yerine son 200 randevu çekilip elle
+  // filtreleniyor — en yeni oluşturulan zaten sıralamada ilk sırada.
+  const snap = await db.collection('randevular').orderBy('olusturulmaTarihi', 'desc').limit(200).get();
+  let eslesen = null;
+  for (const doc of snap.docs) {
+    const d = doc.data();
+    if (d.depozitoOdendi === true) continue;
+    const epostaEslesiyor = musteriEposta && normalizeEposta(d.musteriEposta) === musteriEposta;
+    const telefonEslesiyor = musteriTelefon && normalizeTelefon(d.musteriTelefon) === musteriTelefon;
+    if (epostaEslesiyor || telefonEslesiyor) { eslesen = doc; break; }
+  }
+  if (!eslesen) {
+    console.error(`[ikas-webhook] Depozito ödemesi geldi (orderNumber=${orderNumber}) ama eşleşen randevu bulunamadı. eposta=${musteriEposta} telefon=${musteriTelefon}`);
+    return;
+  }
+
+  await eslesen.ref.set({
+    depozitoOdendi: true,
+    depozitoOdemeTarihi: FieldValue.serverTimestamp(),
+    depozitoSiparisNo: orderNumber,
+  }, { merge: true }); // merge:true → İKAS aynı webhook'u tekrar gönderirse (bilinen davranış) sorun olmaz
+}
+
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Sadece POST desteklenir.' });
@@ -147,15 +224,19 @@ module.exports = async (req, res) => {
     const db = getFirestore(app);
     // Güvenlik ağı: data hiç parse edilemezse ham payload'a düş (yine de hamVeri kaybolmasın).
     const orderData = parseOrderData(payload) || payload;
-    // GEÇİCİ TANILAMA (2026-09): depozito webhook özelliği için siparişte müşteri bilgisinin
-    // (e-posta/telefon) gerçekten gelip gelmediğini ve alan adlarını doğrulamak amacıyla
-    // eklendi — Vercel Observability > Logs'tan okunacak. Şekil doğrulanınca kaldırılacak/
-    // sessizleştirilecek, kalıcı bir özellik değil.
-    console.log('[ikas-webhook TANILAMA] orderData:', JSON.stringify(orderData));
     const orderId = orderData.id || null;
     const orderNumber = orderData.orderNumber || null;
     const orderedAt = orderData.orderedAt || null;
     const lineItems = orderData.orderLineItems || [];
+
+    // Depozito eşleştirmesi ana satış/stok akışından bağımsız — ayrı try/catch, bir hata
+    // olsa bile satış kaydı/stok düşümü akışını bozmasın (magaza_urunler senkronuyla aynı
+    // izolasyon deseni, aşağıda).
+    try {
+      await depozitoEslestirVeIsaretle(db, orderData, orderNumber);
+    } catch (err) {
+      console.error('[ikas-webhook] Depozito eşleştirme hatası:', err);
+    }
 
     // stok koleksiyonunu SKU'ya göre belleğe al — pullIkasProducts()'ın (index.html) client
     // tarafında yaptığı SKU-eşleştirmesinin sunucu tarafındaki eşleniği. Koleksiyon küçük
