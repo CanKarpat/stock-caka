@@ -148,7 +148,12 @@ async function depozitoOdemesiKaydet(db, orderData, orderNumber) {
 
   const customer = orderData.customer || {};
   const musteriAdi = customer.fullName || [customer.firstName, customer.lastName].filter(Boolean).join(' ').trim() || '';
-  const musteriEposta = customer.email || '';
+  // Küçük harfe çevrilip boşluklardan arındırılıyor — showroom-appon'un randevu onayı Firestore
+  // KURALINDA (yeni backend kodu değil) bu e-postayı randevunun e-postasıyla `==` karşılaştıracak;
+  // Firestore kural dilinde .lower() gibi metotlara güvenmek yerine, iki tarafın da AYNI
+  // normalize edilmiş formu yazmasını sağlamak daha güvenilir (appon tarafı da kendi
+  // musteriEposta'sını .toLowerCase().trim() ile yazmalı — bkz. teslim edilecek talimat).
+  const musteriEposta = String(customer.email || '').trim().toLowerCase();
   const musteriTelefon = customer.phone || (orderData.billingAddress && orderData.billingAddress.phone) || '';
 
   // Doküman ID = sipariş numarası — showroom sitesi doğrudan bu ID'yle tek doküman okuyacak,
