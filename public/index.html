@@ -3247,15 +3247,33 @@ async function getIkasVariantTypeMaps(){
 // döner — çağıran taraf bu durumda tedarikci/urunTipi/uzunluk'u boş bırakır, kod olarak ham SKU'yu kullanır.
 function parseIkasSkuToKisaltma(sku){
   const parts = String(sku||'').trim().split('-');
-  if(parts.length!==7) return null;
-  const [, tedKis, tipKis, tedKodu, uzunlukKis] = parts;
-  return {
-    tedarikci: findKisAd(kisaltmalar.tedarikci, tedKis) || '',
-    urunTipi: findKisAd(kisaltmalar.tip, tipKis) || '',
-    uzunluk: findKisAd(kisaltmalar.uzunluk, uzunlukKis) || '',
-    tedarikciKodu: tedKodu || '',
-    kod: parts.slice(0,5).join('-'),
-  };
+  if(parts.length===7){
+    const [, tedKis, tipKis, tedKodu, uzunlukKis] = parts;
+    return {
+      tedarikci: findKisAd(kisaltmalar.tedarikci, tedKis) || '',
+      urunTipi: findKisAd(kisaltmalar.tip, tipKis) || '',
+      uzunluk: findKisAd(kisaltmalar.uzunluk, uzunlukKis) || '',
+      tedarikciKodu: tedKodu || '',
+      kod: parts.slice(0,5).join('-'),
+    };
+  }
+  // Eski "Büyük Beden" deseni (2026-09'da doğrulandı: artık kullanılmıyor ama İKAS'ta hâlâ
+  // bu şekilde kayıtlı eski ürünler var) — Tedarikçi Kodu'ndan hemen sonra, Uzunluk'tan hemen
+  // önce sabit "BB" segmenti eklenmiş 8 parçalı SKU: Marka-Tedarikçi-ÜrünTipi-TedarikçiKodu-BB-
+  // Uzunluk-Renk-Beden. "BB"yi Tedarikçi Kodu'nun İÇİNE geri koyuyoruz (ör. "8489-BB") —
+  // böylece bu ürünün SKU'su ileride "Kısaltmalardan SKU Oluştur" ile yeniden üretilirse
+  // İKAS'taki ZATEN KAYITLI SKU ile birebir aynı çıkar, eşleşme bozulmaz.
+  if(parts.length===8 && parts[4]==='BB'){
+    const [, tedKis, tipKis, tedKodu, , uzunlukKis] = parts;
+    return {
+      tedarikci: findKisAd(kisaltmalar.tedarikci, tedKis) || '',
+      urunTipi: findKisAd(kisaltmalar.tip, tipKis) || '',
+      uzunluk: findKisAd(kisaltmalar.uzunluk, uzunlukKis) || '',
+      tedarikciKodu: (tedKodu || '') + '-BB',
+      kod: parts.slice(0,6).join('-'),
+    };
+  }
+  return null;
 }
 
 window.showIkasImportModal = function(){
