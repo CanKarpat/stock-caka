@@ -3000,27 +3000,36 @@ function degisimDetayHtml(baslik, girdiler){
 // İKAS'ın categories dizisi farklı isteklerde farklı sırada dönebiliyor — içerik hiç
 // değişmediği halde JSON.stringify karşılaştırması bunu "değişti" sanıp her "İKAS'tan Çek"
 // çalıştırmasında aynı ürünleri gereksiz yere güncelliyordu (2026-09'da keşfedildi). id'ye
-// göre sıralayıp karşılaştırmayı sıradan bağımsız hale getiriyoruz — hem yeni çekilen listeyi
-// hem yerelde daha önce (eski, sırasız haliyle) kaydedilmiş olanı aynı fonksiyondan geçiriyoruz.
+// göre sıralamak YETMEDİ — canlı tanılamayla (2026-09) görüldü: yüzlerce üründe "alanlar
+// birebir aynı ama JSON.stringify farklı" çıktı, yani sıra değil ŞEKİL farkıydı. En olası sebep:
+// üst kategorisi olmayanlarda `parentId` bir tarafta `null`, diğer tarafta hiç yok/`undefined`
+// (JSON.stringify `null`'ı yazar, `undefined`'ı SESSİZCE ATLAR — {"parentId":null} ile {} farklı
+// string olur, ikisi de "üst yok" demek olsa bile). Artık sadece sıralamıyoruz, her kategoriyi
+// SABİT bir şekle (3 alan da hep var, id hep string, parentId hep null ya da gerçek değer,
+// asla eksik/undefined) yeniden inşa ediyoruz — hangi ince tip farkı olursa olsun kapatır.
 function kategorileriSirala(kategoriler){
-  return (kategoriler||[]).slice().sort((a,b)=>String(a && a.id).localeCompare(String(b && b.id)));
+  return (kategoriler||[])
+    .map(k => ({
+      id: String((k && k.id) ?? ''),
+      name: (k && k.name) || '',
+      parentId: (k && k.parentId) ?? null,
+    }))
+    .sort((a,b) => a.id.localeCompare(b.id));
 }
 
-// Tanılama: JSON.stringify tam karşılaştırması "değişti" derken TAM OLARAK hangi alanın
-// farklı olduğunu söylemiyor — ham JSON'u konsolda okumak da (özellikle uzun kategori
-// listelerinde) pratik değil. Bu, iki (zaten sıralanmış) listeyi tek tek gezip İLK farklı
-// alanı kısa, okunabilir bir cümle olarak döndürüyor — "aynı görünüyor ama JSON farklı"
-// durumunu da (alan sırası/tipi gibi görünmeyen bir fark) ayrı bir mesajla yakalıyor.
+// Tanılama: yukarıdaki normalize etme YİNE de tek başına yetmezse (ör. gerçekten farklı bir
+// kategori atanmışsa), hangi ELEMANIN tam olarak neyle farklı olduğunu tek satırda gösterir —
+// artık normalize edilmiş (sabit şekilli) nesnelerin kendi JSON'unu karşılaştırıyor, ham/eski
+// veriyi değil, o yüzden çıktısı kısa ve okunabilir kalıyor.
 function kategorilerFarkAcikla(eskiHam, yeniHam){
   const eski = kategorileriSirala(eskiHam), yeni = kategorileriSirala(yeniHam);
   if(eski.length !== yeni.length) return `adet farklı (eski:${eski.length} yeni:${yeni.length})`;
   for(let i=0;i<yeni.length;i++){
     const a = eski[i]||{}, b = yeni[i]||{};
-    if(String(a.id) !== String(b.id)) return `sıra ${i}: id "${a.id}" → "${b.id}"`;
-    if((a.name||'') !== (b.name||'')) return `id:${b.id} name "${a.name}" → "${b.name}"`;
-    if(String(a.parentId||'') !== String(b.parentId||'')) return `id:${b.id} (${b.name}) parentId "${a.parentId}" → "${b.parentId}"`;
+    const aj = JSON.stringify(a), bj = JSON.stringify(b);
+    if(aj !== bj) return `sıra ${i}: ${aj} → ${bj}`;
   }
-  return 'alanlar birebir aynı ama JSON.stringify farklı — muhtemelen görünmeyen bir tip farkı (ör. sayı/string)';
+  return 'normalize edilmiş elemanlar da birebir aynı çıktı — bu noktaya hiç gelinmemesi gerekirdi, lütfen bildir';
 }
 
 const IKAS_PULL_QUERY = `
