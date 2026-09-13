@@ -3103,7 +3103,16 @@ window.pullIkasProducts = async function(){
       });
       if(p.ikasGrupId && grupKategoriMap.has(p.ikasGrupId)){
         const kategoriler = grupKategoriMap.get(p.ikasGrupId);
-        if(JSON.stringify(kategorileriSirala(p.ikasKategoriler)) !== JSON.stringify(kategoriler)){ p.ikasKategoriler = kategoriler; degisti = true; nedenler.push('kategoriler'); }
+        const eskiJson = JSON.stringify(kategorileriSirala(p.ikasKategoriler));
+        const yeniJson = JSON.stringify(kategoriler);
+        if(eskiJson !== yeniJson){
+          // Tanılama: "aynı kategoriler ama yine de değişti görünüyor" şikayetini teşhis etmek
+          // için sadece "kategoriler" değil, TAM eski/yeni JSON'u da logluyoruz — sıralama
+          // normalize edilmesine rağmen tekrarlıyorsa, fark muhtemelen id/parentId gibi bir
+          // alanda (ör. null vs eksik alan) — isim listesi aynı görünüp JSON farklı olabilir.
+          nedenler.push(`kategoriler(eski:${eskiJson} yeni:${yeniJson})`);
+          p.ikasKategoriler = kategoriler; degisti = true;
+        }
       }
       if(p.ikasGrupId && grupDurumMap.has(p.ikasGrupId)){
         const yeniDurum = grupDurumMap.get(p.ikasGrupId);
