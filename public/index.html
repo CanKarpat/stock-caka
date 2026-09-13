@@ -428,6 +428,13 @@ td.chk input,th.chk input{width:14px;height:14px;cursor:pointer;accent-color:var
     </select>
     <button class="btn ghost" onclick="bulkSetDurum()">Uygula</button>
     <div class="sep2"></div>
+    <label>BD:</label>
+    <select id="bulk-bd" title="Bursa Depo — seçili ürünlerin TÜM varyantlarına uygulanır">
+      <option value="true">İşaretle</option>
+      <option value="false">Kaldır</option>
+    </select>
+    <button class="btn ghost" id="bulk-bd-btn" onclick="bulkSetBd()">Uygula</button>
+    <div class="sep2"></div>
     <label>Tedarikçi:</label>
     <select id="bulk-tedarikci"></select>
     <button class="btn ghost" id="bulk-tedarikci-btn" onclick="bulkSetTedarikci()">Uygula</button>
@@ -1742,6 +1749,34 @@ window.bulkSetKdv = async function(){
     }));
     document.getElementById('bulk-kdv').value='';
     alert(`${tamamlanan} ürünün KDV oranı %${kdv} olarak güncellendi.`);
+  } catch(e) {
+    alert(`Hata oluştu — ${tamamlanan}/${toplam} ürün güncellendi, geri kalanı tekrar dene: ${e.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = eskiMetin;
+  }
+};
+// Ürün Düzenle penceresindeki tekli BD checkbox'ıyla aynı semantik: bir ürünün BD'si TÜM
+// varyantlarına birden uygulanıyor (varyant bazında ayrı ayrı işaretlemek gerekirse Varyant
+// penceresi hâlâ kullanılabilir) — bu, aynı işlemi birden fazla ürüne aynı anda yapıyor.
+window.bulkSetBd = async function(){
+  if(!selectedIds.size) return;
+  const bd = document.getElementById('bulk-bd').value === 'true';
+  const btn = document.getElementById('bulk-bd-btn');
+  const eskiMetin = btn.textContent;
+  const toplam = selectedIds.size;
+  btn.disabled = true;
+  btn.textContent = `Uygulanıyor... (0/${toplam})`;
+  let tamamlanan = 0;
+  try {
+    await Promise.all([...selectedIds].map(async id=>{
+      const p = products.find(x=>x.id===id); if(!p) return;
+      p.variants = (p.variants||[]).map(v=>({...v, bd}));
+      await saveProduct(p);
+      tamamlanan++;
+      btn.textContent = `Uygulanıyor... (${tamamlanan}/${toplam})`;
+    }));
+    alert(`${tamamlanan} ürünün tüm varyantları BD ${bd ? 'işaretlendi' : 'kaldırıldı'}.`);
   } catch(e) {
     alert(`Hata oluştu — ${tamamlanan}/${toplam} ürün güncellendi, geri kalanı tekrar dene: ${e.message}`);
   } finally {
