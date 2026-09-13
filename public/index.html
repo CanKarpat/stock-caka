@@ -3006,6 +3006,23 @@ function kategorileriSirala(kategoriler){
   return (kategoriler||[]).slice().sort((a,b)=>String(a && a.id).localeCompare(String(b && b.id)));
 }
 
+// Tanılama: JSON.stringify tam karşılaştırması "değişti" derken TAM OLARAK hangi alanın
+// farklı olduğunu söylemiyor — ham JSON'u konsolda okumak da (özellikle uzun kategori
+// listelerinde) pratik değil. Bu, iki (zaten sıralanmış) listeyi tek tek gezip İLK farklı
+// alanı kısa, okunabilir bir cümle olarak döndürüyor — "aynı görünüyor ama JSON farklı"
+// durumunu da (alan sırası/tipi gibi görünmeyen bir fark) ayrı bir mesajla yakalıyor.
+function kategorilerFarkAcikla(eskiHam, yeniHam){
+  const eski = kategorileriSirala(eskiHam), yeni = kategorileriSirala(yeniHam);
+  if(eski.length !== yeni.length) return `adet farklı (eski:${eski.length} yeni:${yeni.length})`;
+  for(let i=0;i<yeni.length;i++){
+    const a = eski[i]||{}, b = yeni[i]||{};
+    if(String(a.id) !== String(b.id)) return `sıra ${i}: id "${a.id}" → "${b.id}"`;
+    if((a.name||'') !== (b.name||'')) return `id:${b.id} name "${a.name}" → "${b.name}"`;
+    if(String(a.parentId||'') !== String(b.parentId||'')) return `id:${b.id} (${b.name}) parentId "${a.parentId}" → "${b.parentId}"`;
+  }
+  return 'alanlar birebir aynı ama JSON.stringify farklı — muhtemelen görünmeyen bir tip farkı (ör. sayı/string)';
+}
+
 const IKAS_PULL_QUERY = `
   query ListProductsForSync($pagination: PaginationInput) {
     listProduct(pagination: $pagination) {
@@ -3103,14 +3120,11 @@ window.pullIkasProducts = async function(){
       });
       if(p.ikasGrupId && grupKategoriMap.has(p.ikasGrupId)){
         const kategoriler = grupKategoriMap.get(p.ikasGrupId);
-        const eskiJson = JSON.stringify(kategorileriSirala(p.ikasKategoriler));
-        const yeniJson = JSON.stringify(kategoriler);
-        if(eskiJson !== yeniJson){
-          // Tanılama: "aynı kategoriler ama yine de değişti görünüyor" şikayetini teşhis etmek
-          // için sadece "kategoriler" değil, TAM eski/yeni JSON'u da logluyoruz — sıralama
-          // normalize edilmesine rağmen tekrarlıyorsa, fark muhtemelen id/parentId gibi bir
-          // alanda (ör. null vs eksik alan) — isim listesi aynı görünüp JSON farklı olabilir.
-          nedenler.push(`kategoriler(eski:${eskiJson} yeni:${yeniJson})`);
+        if(JSON.stringify(kategorileriSirala(p.ikasKategoriler)) !== JSON.stringify(kategoriler)){
+          // Tanılama: ham JSON dökümü okunacak gibi değildi (özellikle uzun kategori
+          // listelerinde) — bunun yerine kategorilerFarkAcikla() TAM OLARAK hangi alanın
+          // (id/name/parentId/adet) farklı olduğunu tek satırlık okunabilir bir cümleyle söylüyor.
+          nedenler.push(`kategoriler: ${kategorilerFarkAcikla(p.ikasKategoriler, kategoriler)}`);
           p.ikasKategoriler = kategoriler; degisti = true;
         }
       }
