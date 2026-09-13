@@ -577,9 +577,14 @@ function updateCount() {
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 
 // SKU'nun tam hali "Marka-Tedarikçi-ÜrünTipi-TedarikçiKodu-Uzunluk[-Renk-Beden]" şeklinde;
-// etikette sadece Tedarikçi kısaltması + Tedarikçi kodu gösterilir (örn. "GC-SN-ELB-576-MN" -> "SN-576")
+// etikette sadece Tedarikçi kısaltması + Tedarikçi kodu gösterilir (örn. "GC-SN-ELB-576-MN" -> "SN-576").
+// Eski "Büyük Beden" deseninde (artık kullanılmıyor ama eski ürünlerde var — bkz. index.html'deki
+// parseIkasSkuToKisaltma yorumu) Tedarikçi Kodu'ndan hemen sonra sabit bir "BB" segmenti var;
+// bunu göz ardı edersek etikette "-BB" kısmı sessizce düşer (ör. "SL-8489" yerine "SL-8489-BB"
+// basılması gerekirken).
 function simplifiedSku(kod) {
   const segs = String(kod || '').split('-');
+  if(segs.length >= 5 && segs[4] === 'BB') return `${segs[1]}-${segs[3]}-BB`;
   return segs.length >= 4 ? `${segs[1]}-${segs[3]}` : (kod || '');
 }
 
